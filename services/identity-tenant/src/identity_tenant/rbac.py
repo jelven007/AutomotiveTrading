@@ -6,7 +6,8 @@ from identity_tenant.models import Role
 class Permission(StrEnum):
     PLATFORM_ADMIN = "platform.admin"
     MEMBER_MANAGE = "tenant.members.manage"
-    SECRET_MANAGE = "tenant.secrets.manage"
+    # Authorization permission identifier, not a credential.
+    SECRET_MANAGE = "tenant.secrets.manage"  # nosec B105
     STRATEGY_READ = "strategy.read"
     STRATEGY_WRITE = "strategy.write"
     TRADE_READ = "trade.read"

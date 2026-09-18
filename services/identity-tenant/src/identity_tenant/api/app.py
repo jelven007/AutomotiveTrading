@@ -51,6 +51,11 @@ class TokenResponse(BaseModel):
     expires_in: int
 
 
+class MfaTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "Bearer"
+
+
 class TotpCodeRequest(BaseModel):
     code: str = Field(pattern=r"^\d{6}$")
 
@@ -204,11 +209,11 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
         payload: TotpCodeRequest,
         credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
         service: Annotated[AuthService, Depends(get_auth_service)],
-    ) -> dict[str, str]:
+    ) -> MfaTokenResponse:
         if credentials is None:
             raise AuthenticationError("bearer token is required")
         access_token = service.verify_totp(credentials.credentials, payload.code)
-        return {"access_token": access_token, "token_type": "Bearer"}
+        return MfaTokenResponse(access_token=access_token)
 
     @app.post("/api/v1/tenants/{tenant_id}/members", status_code=201)
     def add_tenant_member(

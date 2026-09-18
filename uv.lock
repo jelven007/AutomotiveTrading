@@ -1174,6 +1174,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "ruff" },
 ]
@@ -1190,6 +1191,7 @@ dev = [
     { name = "pre-commit", specifier = ">=4.3.0,<5" },
     { name = "pytest", specifier = ">=8.4.2,<9" },
     { name = "pytest-asyncio", specifier = ">=1.2.0,<2" },
+    { name = "python-dotenv", specifier = ">=1.1,<2" },
     { name = "pyyaml", specifier = ">=6.0.2,<7" },
     { name = "ruff", specifier = ">=0.13.1,<0.14" },
 ]

@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import os
 import socket
+from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
 import pytest
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parents[2] / "infra" / "compose" / ".env")
 
 
 def service_port(name: str, default: int) -> int:

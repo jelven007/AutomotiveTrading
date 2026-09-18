@@ -15,6 +15,7 @@ dev = [
   "pre-commit>=4.3.0,<5",
   "pytest>=8.4.2,<9",
   "pytest-asyncio>=1.2.0,<2",
+  "python-dotenv>=1.1,<2",
   "pyyaml>=6.0.2,<7",
   "ruff>=0.13.1,<0.14",
 ]
@@ -24,7 +25,7 @@ members = ["packages/*", "services/*"]
 exclude = ["packages/contracts", "packages/ts-api-client", "services/.gitkeep"]
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-ra --import-mode=importlib"
 testpaths = ["packages", "services", "scripts/tests", "tests"]
 
 [tool.ruff]
