@@ -14,6 +14,7 @@ import { NavLink, Route, Routes } from "react-router-dom";
 import { DataPage } from "../pages/DataPage";
 import { HomePage } from "../pages/HomePage";
 import { NewsPage } from "../pages/NewsPage";
+import { ModelServicesPage } from "../pages/settings/ModelServicesPage";
 import { StrategiesPage } from "../pages/StrategiesPage";
 import { TradingPage } from "../pages/TradingPage";
 
@@ -107,9 +108,14 @@ export function AppShell() {
             >
               <Bell size={18} />
             </button>
-            <button className="icon-button" aria-label="设置" title="设置">
+            <NavLink
+              className="icon-button"
+              aria-label="租户设置"
+              title="租户设置"
+              to="/settings/model-services"
+            >
               <Settings size={18} />
-            </button>
+            </NavLink>
             <button
               className="user-button"
               aria-label="账户菜单"
@@ -127,6 +133,10 @@ export function AppShell() {
             <Route path="/strategies" element={<StrategiesPage />} />
             <Route path="/trading" element={<TradingPage />} />
             <Route path="/data" element={<DataPage />} />
+            <Route
+              path="/settings/model-services"
+              element={<ModelServicesPage />}
+            />
             <Route path="*" element={<HomePage />} />
           </Routes>
         </main>
