@@ -29,50 +29,40 @@ const navigation = [
 export function AppShell() {
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <Workflow size={20} strokeWidth={2.2} />
-          </span>
-          <span>
-            <strong>Quant Desk</strong>
-            <small>交易决策中枢</small>
-          </span>
-        </div>
-
-        <nav className="primary-nav" aria-label="主导航">
-          {navigation.map(({ label, to, icon: Icon, end }) => (
-            <NavLink
-              className={({ isActive }) =>
-                `nav-item${isActive ? " is-active" : ""}`
-              }
-              end={end}
-              key={to}
-              to={to}
-            >
-              <Icon size={19} strokeWidth={1.8} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="system-state">
-          <span className="status-dot status-dot--ok" />
-          <span>
-            <strong>系统运行正常</strong>
-            <small>数据延迟 128ms</small>
-          </span>
-        </div>
-      </aside>
-
-      <div className="workspace">
-        <header className="topbar">
-          <div className="mobile-brand">
+      <header className="appbar">
+        <div className="appbar-lead">
+          <div className="brand">
             <span className="brand-mark" aria-hidden="true">
-              <Workflow size={18} />
+              <Workflow size={20} strokeWidth={2.2} />
             </span>
-            <strong>Quant Desk</strong>
+            <span>
+              <strong>Quant Desk</strong>
+              <small>交易决策中枢</small>
+            </span>
           </div>
+
+          <nav className="primary-nav" aria-label="主导航">
+            {navigation.map(({ label, to, icon: Icon, end }) => (
+              <NavLink
+                className={({ isActive }) =>
+                  `nav-item${isActive ? " is-active" : ""}`
+                }
+                end={end}
+                key={to}
+                to={to}
+              >
+                <Icon size={18} strokeWidth={1.8} />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+
+        <div className="appbar-trail">
+          <span className="status-pill" title="系统运行正常，数据延迟 128ms">
+            <span className="status-dot status-dot--ok" />
+            系统正常 · 128ms
+          </span>
 
           <div className="context-controls">
             <label className="select-control">
@@ -124,23 +114,23 @@ export function AppShell() {
               ZL
             </button>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="main-content">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/news" element={<NewsPage />} />
-            <Route path="/strategies" element={<StrategiesPage />} />
-            <Route path="/trading" element={<TradingPage />} />
-            <Route path="/data" element={<DataPage />} />
-            <Route
-              path="/settings/model-services"
-              element={<ModelServicesPage />}
-            />
-            <Route path="*" element={<HomePage />} />
-          </Routes>
-        </main>
-      </div>
+      <main className="main-content">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/news" element={<NewsPage />} />
+          <Route path="/strategies" element={<StrategiesPage />} />
+          <Route path="/trading" element={<TradingPage />} />
+          <Route path="/data" element={<DataPage />} />
+          <Route
+            path="/settings/model-services"
+            element={<ModelServicesPage />}
+          />
+          <Route path="*" element={<HomePage />} />
+        </Routes>
+      </main>
     </div>
   );
 }

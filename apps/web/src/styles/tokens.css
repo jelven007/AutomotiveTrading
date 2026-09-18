@@ -69,29 +69,45 @@ button {
 }
 
 .app-shell {
-  display: grid;
+  display: flex;
   min-height: 100vh;
-  grid-template-columns: 216px minmax(0, 1fr);
+  flex-direction: column;
 }
 
-.sidebar {
-  position: fixed;
+.appbar {
+  position: sticky;
   z-index: 20;
-  inset: 0 auto 0 0;
+  top: 0;
   display: flex;
-  width: 216px;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  height: 60px;
+  padding: 0 24px;
   background: var(--sidebar);
   color: #fff;
 }
 
+.appbar-lead {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 22px;
+}
+
+.appbar-trail {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .brand {
   display: flex;
-  height: 66px;
+  flex: 0 0 auto;
   align-items: center;
   gap: 11px;
-  padding: 0 18px;
-  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  padding-right: 22px;
+  border-right: 1px solid rgb(255 255 255 / 10%);
 }
 
 .brand-mark {
@@ -123,21 +139,27 @@ button {
 
 .primary-nav {
   display: flex;
-  flex: 1;
-  flex-direction: column;
+  min-width: 0;
+  flex-direction: row;
   gap: 4px;
-  padding: 18px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.primary-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-item {
   display: flex;
-  min-height: 42px;
+  min-height: 38px;
   align-items: center;
-  gap: 12px;
-  padding: 0 13px;
+  gap: 8px;
+  padding: 0 14px;
   border-radius: 6px;
   color: #aeb8c1;
   font-size: 14px;
+  white-space: nowrap;
   text-decoration: none;
   transition:
     color 120ms ease,
@@ -154,31 +176,17 @@ button {
   color: #fff;
 }
 
-.system-state {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 12px;
-  padding: 13px;
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: 7px;
-  background: rgb(255 255 255 / 3%);
-}
-
-.system-state strong,
-.system-state small {
-  display: block;
-}
-
-.system-state strong {
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.system-state small {
-  margin-top: 3px;
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  height: 34px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 999px;
   color: var(--sidebar-muted);
-  font-size: 10px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .status-dot {
@@ -200,27 +208,8 @@ button {
   box-shadow: 0 0 0 3px rgb(226 161 45 / 12%);
 }
 
-.workspace {
-  min-width: 0;
-  grid-column: 2;
-}
-
-.topbar {
-  position: sticky;
-  z-index: 15;
-  top: 0;
-  display: flex;
-  height: 66px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 0 28px;
-  border-bottom: 1px solid var(--border);
-  background: rgb(255 255 255 / 96%);
-}
-
-.mobile-brand {
-  display: none;
+.status-pill .status-dot {
+  margin-top: 0;
 }
 
 .context-controls,
@@ -301,6 +290,26 @@ button {
   color: #fff;
   font-size: 11px;
   font-weight: 700;
+}
+
+.appbar .select-control > span {
+  color: var(--sidebar-muted);
+}
+
+.appbar .select-control select,
+.appbar .icon-button {
+  border-color: rgb(255 255 255 / 14%);
+  background: rgb(255 255 255 / 6%);
+  color: #fff;
+}
+
+.appbar .icon-button:hover {
+  border-color: rgb(255 255 255 / 28%);
+  background: rgb(255 255 255 / 12%);
+}
+
+.appbar .has-indicator::after {
+  border-color: var(--sidebar);
 }
 
 .main-content {
@@ -1415,77 +1424,66 @@ td small {
 }
 
 @media (max-width: 760px) {
-  .app-shell {
-    display: block;
+  .appbar {
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 9px 14px;
   }
 
-  .sidebar {
-    position: fixed;
-    inset: auto 0 0;
+  .appbar-lead {
+    order: 2;
     width: 100%;
-    height: 62px;
-    border-top: 1px solid #343c44;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
-  .brand,
-  .system-state {
+  .appbar-trail {
+    order: 1;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .appbar .search-button {
+    display: none;
+  }
+
+  .brand {
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .brand small {
+    display: none;
+  }
+
+  .status-pill {
     display: none;
   }
 
   .primary-nav {
-    display: grid;
-    padding: 4px 6px max(4px, env(safe-area-inset-bottom));
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+    padding-bottom: 2px;
+    gap: 2px;
   }
 
   .nav-item {
-    min-width: 0;
-    min-height: 52px;
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
-    padding: 0;
-    font-size: 9px;
-  }
-
-  .nav-item.is-active {
-    background: rgb(46 124 230 / 20%);
-    color: #72adff;
-  }
-
-  .workspace {
-    min-height: 100vh;
-  }
-
-  .topbar {
-    height: auto;
-    min-height: 58px;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 9px 14px;
-  }
-
-  .mobile-brand {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-  }
-
-  .mobile-brand .brand-mark {
-    width: 30px;
-    height: 30px;
-    flex-basis: 30px;
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 13px;
   }
 
   .context-controls {
-    order: 3;
-    width: 100%;
+    flex: 1;
+    justify-content: flex-end;
   }
 
   .select-control {
     min-width: 0;
-    flex: 1;
+    flex: 0 1 auto;
   }
 
   .select-control > span {
@@ -1493,17 +1491,11 @@ td small {
   }
 
   .select-control select {
-    width: 100%;
     min-width: 0;
   }
 
-  .search-button,
-  .topbar-actions .icon-button:last-of-type {
-    display: none;
-  }
-
   .main-content {
-    padding: 18px 14px 88px;
+    padding: 18px 14px 32px;
   }
 
   .page {
