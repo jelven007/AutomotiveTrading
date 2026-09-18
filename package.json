@@ -9,7 +9,7 @@
   },
   "scripts": {
     "format:check": "prettier --check \"**/*.{css,html,json,js,jsx,md,ts,tsx,yaml,yml}\"",
-    "lint": "pnpm format:check && markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#.venv\" && pnpm -r --if-present lint",
+    "lint": "pnpm format:check && markdownlint-cli2 \"**/*.md\" \"#**/node_modules\" \"#.venv\" && pnpm -r --if-present lint",
     "test": "pnpm -r --if-present test",
     "build": "pnpm -r --if-present build"
   },
