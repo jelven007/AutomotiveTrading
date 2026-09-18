@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package qt.trading.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.quanttrading.trading.v1";
+
+service TradingService {
+  rpc SubmitOrder(SubmitOrderRequest) returns (SubmitOrderResponse);
+  rpc GetOrder(GetOrderRequest) returns (Order);
+  rpc CancelOrder(CancelOrderRequest) returns (Order);
+}
+
+enum OrderSide {
+  ORDER_SIDE_UNSPECIFIED = 0;
+  ORDER_SIDE_BUY = 1;
+  ORDER_SIDE_SELL = 2;
+}
+
+enum OrderType {
+  ORDER_TYPE_UNSPECIFIED = 0;
+  ORDER_TYPE_MARKET = 1;
+  ORDER_TYPE_LIMIT = 2;
+}
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING_SUBMIT = 1;
+  ORDER_STATUS_SUBMITTED = 2;
+  ORDER_STATUS_PARTIALLY_FILLED = 3;
+  ORDER_STATUS_FILLED = 4;
+  ORDER_STATUS_CANCEL_PENDING = 5;
+  ORDER_STATUS_CANCELLED = 6;
+  ORDER_STATUS_REJECTED = 7;
+  ORDER_STATUS_UNKNOWN = 8;
+}
+
+message SubmitOrderRequest {
+  string tenant_id = 1;
+  string account_id = 2;
+  string instrument_id = 3;
+  OrderSide side = 4;
+  OrderType order_type = 5;
+  string quantity = 6;
+  optional string limit_price = 7;
+  optional string decision_id = 8;
+  string idempotency_key = 9;
+  string trace_id = 10;
+
+  reserved 100 to 199;
+}
+
+message SubmitOrderResponse {
+  Order order = 1;
+}
+
+message GetOrderRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+  string trace_id = 3;
+}
+
+message CancelOrderRequest {
+  string tenant_id = 1;
+  string order_id = 2;
+  string idempotency_key = 3;
+  string trace_id = 4;
+}
+
+message Order {
+  string id = 1;
+  string tenant_id = 2;
+  string account_id = 3;
+  string instrument_id = 4;
+  OrderSide side = 5;
+  OrderType order_type = 6;
+  string quantity = 7;
+  optional string limit_price = 8;
+  string filled_quantity = 9;
+  optional string average_price = 10;
+  OrderStatus status = 11;
+  optional string broker_order_id = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+
+  // Published field numbers are immutable. Removed fields must be reserved.
+  reserved 100 to 199;
+}

@@ -1,0 +1,97 @@
+openapi: 3.1.0
+info:
+  title: Quant Trading SaaS Common API Contracts
+  version: 1.0.0
+paths: {}
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+    Traceparent:
+      name: Traceparent
+      in: header
+      required: false
+      schema:
+        type: string
+  schemas:
+    DecimalString:
+      type: string
+      pattern: "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+      examples:
+        - "12.30"
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - trace_id
+        - details
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        trace_id:
+          type: string
+          format: uuid
+        details:
+          type: object
+          additionalProperties: true
+    EventActor:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - id
+      properties:
+        type:
+          type: string
+          enum:
+            - user
+            - service
+            - strategy
+        id:
+          type: string
+          format: uuid
+    EventEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - event_id
+        - event_type
+        - event_version
+        - occurred_at
+        - tenant_id
+        - trace_id
+        - actor
+        - payload
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+        event_version:
+          type: integer
+          minimum: 1
+        occurred_at:
+          type: string
+          format: date-time
+        tenant_id:
+          type: string
+          format: uuid
+        trace_id:
+          type: string
+          format: uuid
+        actor:
+          $ref: "#/components/schemas/EventActor"
+        payload:
+          type: object
+          additionalProperties: true

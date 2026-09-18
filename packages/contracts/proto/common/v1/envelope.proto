@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package qt.common.v1;
+
+import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.quanttrading.common.v1";
+
+message EventActor {
+  enum ActorType {
+    ACTOR_TYPE_UNSPECIFIED = 0;
+    ACTOR_TYPE_USER = 1;
+    ACTOR_TYPE_SERVICE = 2;
+    ACTOR_TYPE_STRATEGY = 3;
+  }
+
+  ActorType type = 1;
+  string id = 2;
+
+  reserved 100 to 199;
+}
+
+message EventEnvelope {
+  string event_id = 1;
+  string event_type = 2;
+  uint32 event_version = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+  string tenant_id = 5;
+  string trace_id = 6;
+  EventActor actor = 7;
+  google.protobuf.Any payload = 8;
+
+  // Published field numbers are immutable. Removed fields must be reserved.
+  reserved 100 to 199;
+}

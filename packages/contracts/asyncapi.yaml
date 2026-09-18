@@ -1,0 +1,151 @@
+asyncapi: 3.0.0
+info:
+  title: Quant Trading SaaS Domain Events
+  version: 1.0.0
+  description: Versioned events exchanged through Kafka.
+defaultContentType: application/json
+servers:
+  local:
+    host: kafka:29092
+    protocol: kafka
+channels:
+  modelDecisionCreated:
+    address: model.decision.created.v1
+    messages:
+      modelDecisionCreated:
+        $ref: "#/components/messages/ModelDecisionCreated"
+  orderStatusChanged:
+    address: order.status.changed.v1
+    messages:
+      orderStatusChanged:
+        $ref: "#/components/messages/OrderStatusChanged"
+  auditRecorded:
+    address: audit.recorded.v1
+    messages:
+      auditRecorded:
+        $ref: "#/components/messages/AuditRecorded"
+operations:
+  receiveModelDecision:
+    action: receive
+    channel:
+      $ref: "#/channels/modelDecisionCreated"
+    messages:
+      - $ref: "#/channels/modelDecisionCreated/messages/modelDecisionCreated"
+  receiveOrderStatus:
+    action: receive
+    channel:
+      $ref: "#/channels/orderStatusChanged"
+    messages:
+      - $ref: "#/channels/orderStatusChanged/messages/orderStatusChanged"
+  receiveAuditRecord:
+    action: receive
+    channel:
+      $ref: "#/channels/auditRecorded"
+    messages:
+      - $ref: "#/channels/auditRecorded/messages/auditRecorded"
+components:
+  messages:
+    ModelDecisionCreated:
+      name: model.decision.created.v1
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            properties:
+              payload:
+                $ref: "./jsonschema/model-decision-v1.json"
+    OrderStatusChanged:
+      name: order.status_changed.v1
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            properties:
+              payload:
+                $ref: "#/components/schemas/OrderStatusChangedPayload"
+    AuditRecorded:
+      name: audit.recorded.v1
+      payload:
+        $ref: "#/components/schemas/EventEnvelope"
+  schemas:
+    EventEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - event_id
+        - event_type
+        - event_version
+        - occurred_at
+        - tenant_id
+        - trace_id
+        - actor
+        - payload
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+        event_version:
+          type: integer
+          minimum: 1
+        occurred_at:
+          type: string
+          format: date-time
+        tenant_id:
+          type: string
+          format: uuid
+        trace_id:
+          type: string
+          format: uuid
+        actor:
+          $ref: "#/components/schemas/EventActor"
+        payload:
+          type: object
+    EventActor:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - id
+      properties:
+        type:
+          type: string
+          enum:
+            - user
+            - service
+            - strategy
+        id:
+          type: string
+          format: uuid
+    OrderStatusChangedPayload:
+      type: object
+      additionalProperties: false
+      required:
+        - order_id
+        - from_status
+        - to_status
+        - filled_quantity
+        - average_price
+        - broker_timestamp
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        broker_order_id:
+          type:
+            - string
+            - "null"
+        from_status:
+          type: string
+        to_status:
+          type: string
+        filled_quantity:
+          type: string
+          pattern: "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+        average_price:
+          type: string
+          pattern: "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+        broker_timestamp:
+          type: string
+          format: date-time
