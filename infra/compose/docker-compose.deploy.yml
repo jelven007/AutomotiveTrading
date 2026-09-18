@@ -1,0 +1,114 @@
+name: quant-trading-saas
+
+# 云端单机一键部署编排：在本地依赖组件（compose）之上，追加 Web 和 3 个业务服务。
+# 依赖组件（mysql/redis/kafka/minio/mailpit）复用基础 docker-compose.yml，
+# 通过 `-f docker-compose.yml -f docker-compose.deploy.yml` 叠加启动。
+#
+# 每个业务服务分两段：
+#   1) *-migrate：一次性容器，复用同一镜像执行 `alembic upgrade head` 建表；
+#   2) 服务本体：迁移成功后再启动，避免"表还没建好就对外服务"。
+# 密钥统一由 .env.deploy 注入，绝不写死在文件里。
+
+services:
+  # 身份与租户服务：迁移
+  identity-migrate:
+    build:
+      context: ../../services/identity-tenant
+    image: qt/identity-tenant:latest
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_identity
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  # 身份与租户服务：本体
+  identity-tenant:
+    image: qt/identity-tenant:latest
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_identity
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    ports:
+      - "${QT_BIND_HOST:-127.0.0.1}:${IDENTITY_PORT:-8001}:8000"
+    depends_on:
+      identity-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # 审计服务：迁移
+  audit-migrate:
+    build:
+      context: ../../services/audit
+    image: qt/audit:latest
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_audit
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  # 审计服务：本体
+  audit:
+    image: qt/audit:latest
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_audit
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    ports:
+      - "${QT_BIND_HOST:-127.0.0.1}:${AUDIT_PORT:-8002}:8000"
+    depends_on:
+      audit-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # 模型配置服务：迁移
+  model-config-migrate:
+    build:
+      context: ../../services/model-config
+    image: qt/model-config:latest
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_model_config
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  # 模型配置服务：本体
+  model-config:
+    image: qt/model-config:latest
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_model_config
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    ports:
+      - "${QT_BIND_HOST:-127.0.0.1}:${MODEL_CONFIG_PORT:-8003}:8000"
+    depends_on:
+      model-config-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Web 是唯一公网入口，同时提供静态页面和同源 API 反向代理。
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    image: qt/web:latest
+    ports:
+      - "0.0.0.0:${WEB_PORT:-80}:8080"
+    depends_on:
+      identity-tenant:
+        condition: service_healthy
+      audit:
+        condition: service_healthy
+      model-config:
+        condition: service_healthy
+    restart: unless-stopped

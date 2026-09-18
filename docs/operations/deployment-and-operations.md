@@ -14,6 +14,9 @@
 
 各环境使用独立 VPC、数据库、Topic、Bucket、密钥和访问身份。
 
+当前 M2 的开发、演示和集成验证可使用
+[Ubuntu 单机部署指南](ubuntu-single-node-deployment.md)。该方案不替代以下生产架构。
+
 ## 2. VKE 部署
 
 - Gateway、Web BFF 和核心服务跨可用区部署。

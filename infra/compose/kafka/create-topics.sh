@@ -13,6 +13,10 @@ topics=(
 )
 
 for topic in "${topics[@]}"; do
+  if rpk topic describe "$topic" --brokers "$bootstrap_server" >/dev/null 2>&1; then
+    echo "Topic already exists: $topic"
+    continue
+  fi
   rpk topic create "$topic" \
     --brokers "$bootstrap_server" \
     --partitions 3 \
