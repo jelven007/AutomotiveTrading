@@ -17,6 +17,7 @@ from trading.models import (
     TradingProvider,
     utc_now,
 )
+from trading.outbox import SqlOutboxPublisher
 from trading.secrets import SecretBackend
 
 PROVIDERS_BY_MARKET = {
@@ -129,6 +130,7 @@ class TradingAccountService:
         self.session = session
         self.secret_backend = secret_backend
         self.permission_probe = permission_probe
+        self.outbox = SqlOutboxPublisher(session)
 
     def bind(
         self,
@@ -184,6 +186,7 @@ class TradingAccountService:
         self.session.flush()
         scopes = self._scope_records(tenant_id, account.id, command)
         self.session.add_all(scopes)
+        self._publish_account(account, "trading.account.bound")
         try:
             self.session.commit()
         except Exception:
@@ -214,6 +217,11 @@ class TradingAccountService:
         self._require_recent_mfa(mfa_verified_at)
         account = self._get(tenant_id, account_id)
         scopes = self._scopes(tenant_id, account_id)
+        if (
+            account.last_permission_check_at is None
+            or utc_now() - account.last_permission_check_at > timedelta(minutes=5)
+        ):
+            raise ValueError("a recent account permission check is required")
         self._validate_permissions(
             [scope.scope_type for scope in scopes],
             self._permission_snapshot(account),
@@ -222,6 +230,72 @@ class TradingAccountService:
         account.status = AccountStatus.ACTIVE
         for scope in scopes:
             scope.enabled = True
+        self._publish_account(account, "trading.account.enabled")
+        self.session.commit()
+        return self._view(account, scopes)
+
+    def test_connection(
+        self,
+        *,
+        tenant_id: str,
+        account_id: str,
+        actor_roles: tuple[str, ...],
+    ) -> TradingAccountView:
+        self._require_tenant_admin(actor_roles)
+        account = self._get(tenant_id, account_id)
+        if account.provider is not TradingProvider.BINANCE:
+            raise ValueError("broker connector authorization is still pending")
+        scopes = self._scopes(tenant_id, account_id)
+        credentials = self._credentials_for(account)
+        credential_type = account.credential_type
+        if credential_type is None:
+            raise ValueError("account credential type is unavailable")
+        permissions = self.permission_probe.inspect(
+            credential_type=credential_type,
+            api_key=credentials["api_key"],
+            private_key_or_secret=credentials["private_key_or_secret"],
+            scopes=tuple(scope.scope_type for scope in scopes),
+            isolated_symbols=tuple(
+                scope.symbol
+                for scope in scopes
+                if scope.scope_type is AccountScopeType.ISOLATED_MARGIN and scope.symbol is not None
+            ),
+        )
+        account.last_permission_check_at = utc_now()
+        self._apply_permissions(account, permissions)
+        if permissions.can_withdraw:
+            account.status = AccountStatus.DISABLED
+            account.connection_status = ConnectionStatus.ERROR
+            account.trading_enabled = False
+            for scope in scopes:
+                scope.enabled = False
+            self._publish_account(account, "trading.account.disabled")
+            self.session.commit()
+            raise ValueError("withdrawal permission is forbidden")
+        self._validate_permissions([scope.scope_type for scope in scopes], permissions)
+        account.connection_status = ConnectionStatus.CONNECTED
+        if account.status is AccountStatus.DISABLED:
+            account.status = AccountStatus.READ_ONLY
+        self._publish_account(account, "trading.account.connection_tested")
+        self.session.commit()
+        return self._view(account, scopes)
+
+    def disconnect(
+        self,
+        *,
+        tenant_id: str,
+        account_id: str,
+        actor_roles: tuple[str, ...],
+    ) -> TradingAccountView:
+        self._require_tenant_admin(actor_roles)
+        account = self._get(tenant_id, account_id)
+        scopes = self._scopes(tenant_id, account_id)
+        account.connection_status = ConnectionStatus.DISCONNECTED
+        account.trading_enabled = False
+        account.status = AccountStatus.READ_ONLY
+        for scope in scopes:
+            scope.enabled = False
+        self._publish_account(account, "trading.account.disconnected")
         self.session.commit()
         return self._view(account, scopes)
 
@@ -243,6 +317,8 @@ class TradingAccountService:
             created_by=actor_user_id,
         )
         self.session.add(account)
+        self.session.flush()
+        self._publish_account(account, "trading.account.pending_authorization")
         self.session.commit()
         return self._view(account, [])
 
@@ -325,6 +401,11 @@ class TradingAccountService:
             "private_key_or_secret": command.private_key_or_secret.get_secret_value(),
         }
 
+    def _credentials_for(self, account: TradingAccount) -> dict[str, str]:
+        if account.secret_ref is None or account.credential_type is None:
+            raise ValueError("account credentials are unavailable")
+        return self.secret_backend.get(account.secret_ref)
+
     @staticmethod
     def _require_tenant_admin(actor_roles: tuple[str, ...]) -> None:
         if "tenant_admin" not in actor_roles:
@@ -351,6 +432,33 @@ class TradingAccountService:
             can_margin_trade=account.can_margin_trade,
             can_futures_trade=account.can_futures_trade,
             can_withdraw=account.can_withdraw,
+        )
+
+    @staticmethod
+    def _apply_permissions(
+        account: TradingAccount,
+        permissions: AccountPermissionSnapshot,
+    ) -> None:
+        account.external_account_ref = permissions.external_account_ref
+        account.can_read = permissions.can_read
+        account.can_spot_trade = permissions.can_spot_trade
+        account.can_margin_trade = permissions.can_margin_trade
+        account.can_futures_trade = permissions.can_futures_trade
+        account.can_withdraw = permissions.can_withdraw
+
+    def _publish_account(self, account: TradingAccount, event_type: str) -> None:
+        self.outbox.publish(
+            tenant_id=account.tenant_id,
+            event_type=event_type,
+            aggregate_type="trading_account",
+            aggregate_id=account.id,
+            payload={
+                "account_id": account.id,
+                "provider": account.provider.value,
+                "status": account.status.value,
+                "connection_status": account.connection_status.value,
+                "trading_enabled": account.trading_enabled,
+            },
         )
 
     def _view(

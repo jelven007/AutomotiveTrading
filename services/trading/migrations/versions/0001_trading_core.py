@@ -101,11 +101,13 @@ def upgrade() -> None:
         sa.Column("source", sa.String(16), nullable=False),
         sa.Column("idempotency_key", sa.String(80), nullable=False),
         sa.Column("request_fingerprint", sa.String(64), nullable=False),
+        sa.Column("cancel_idempotency_key", sa.String(80)),
         sa.Column("error_code", sa.String(80)),
         sa.Column("submitted_at", sa.DateTime()),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.UniqueConstraint("tenant_id", "idempotency_key"),
+        sa.UniqueConstraint("tenant_id", "cancel_idempotency_key"),
         sa.UniqueConstraint("tenant_id", "account_id", "client_order_id"),
     )
     op.create_index("ix_trading_orders_tenant_id", "trading_orders", ["tenant_id"])
@@ -130,6 +132,39 @@ def upgrade() -> None:
     )
 
     op.create_table(
+        "trading_operations",
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("tenant_id", sa.String(36), nullable=False),
+        sa.Column(
+            "account_id",
+            sa.String(36),
+            sa.ForeignKey("trading_accounts.id"),
+            nullable=False,
+        ),
+        sa.Column("operation_type", sa.String(40), nullable=False),
+        sa.Column("account_scope", sa.String(32), nullable=False),
+        sa.Column("symbol", sa.String(40)),
+        sa.Column("idempotency_key", sa.String(80), nullable=False),
+        sa.Column("request_fingerprint", sa.String(64), nullable=False),
+        sa.Column("status", sa.String(24), nullable=False),
+        sa.Column("broker_reference", sa.String(120)),
+        sa.Column("error_code", sa.String(80)),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.UniqueConstraint("tenant_id", "idempotency_key"),
+    )
+    op.create_index(
+        "ix_trading_operations_tenant_id",
+        "trading_operations",
+        ["tenant_id"],
+    )
+    op.create_index(
+        "ix_trading_operations_account_id",
+        "trading_operations",
+        ["account_id"],
+    )
+
+    op.create_table(
         "local_encrypted_secrets",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tenant_id", sa.String(36), nullable=False),
@@ -142,9 +177,31 @@ def upgrade() -> None:
         ["tenant_id"],
     )
 
+    op.create_table(
+        "outbox_events",
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("tenant_id", sa.String(36), nullable=False),
+        sa.Column("topic", sa.String(120), nullable=False),
+        sa.Column("event_type", sa.String(120), nullable=False),
+        sa.Column("aggregate_type", sa.String(80), nullable=False),
+        sa.Column("aggregate_id", sa.String(36), nullable=False),
+        sa.Column("payload_json", sa.Text(), nullable=False),
+        sa.Column("occurred_at", sa.DateTime(), nullable=False),
+        sa.Column("published_at", sa.DateTime()),
+        sa.Column("publish_attempts", sa.Integer(), nullable=False),
+    )
+    op.create_index("ix_outbox_events_tenant_id", "outbox_events", ["tenant_id"])
+    op.create_index(
+        "ix_outbox_events_aggregate_id",
+        "outbox_events",
+        ["aggregate_id"],
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("outbox_events")
     op.drop_table("local_encrypted_secrets")
+    op.drop_table("trading_operations")
     op.drop_table("trading_kill_switches")
     op.drop_table("trading_orders")
     op.drop_table("trading_account_scopes")

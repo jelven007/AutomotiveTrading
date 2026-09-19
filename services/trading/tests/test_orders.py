@@ -36,6 +36,7 @@ class StubExecutionConnector:
     def __init__(self, *, timeout: bool = False) -> None:
         self.timeout = timeout
         self.calls: list[dict[str, object]] = []
+        self.cancel_calls: list[dict[str, object]] = []
 
     def submit_order(self, **values: object) -> OrderExecutionResult:
         self.calls.append(values)
@@ -44,6 +45,16 @@ class StubExecutionConnector:
         return OrderExecutionResult(
             broker_order_id="987654",
             status="submitted",
+            filled_quantity="0",
+        )
+
+    def cancel_order(self, **values: object) -> OrderExecutionResult:
+        self.cancel_calls.append(values)
+        if self.timeout:
+            raise BinanceWriteTimeout()
+        return OrderExecutionResult(
+            broker_order_id="987654",
+            status="cancelled",
             filled_quantity="0",
         )
 
@@ -287,3 +298,49 @@ def test_active_kill_switch_blocks_order_submission(session: Session) -> None:
             command=command(account.id, AccountScopeType.SPOT),
         )
     assert connector.calls == []
+
+
+def test_cancel_uses_independent_idempotency_and_is_not_blocked_by_kill_switch(
+    session: Session,
+) -> None:
+    secret_backend = InMemoryEncryptedSecretBackend()
+    account = enabled_account(session, secret_backend)
+    connector = StubExecutionConnector()
+    order_service = OrderService(
+        session,
+        secret_backend,
+        connector,
+        StubRiskAuthorizer(),
+    )
+    submitted = order_service.submit(
+        tenant_id="tenant-a",
+        actor_roles=("trader",),
+        mfa_verified_at=datetime.now(UTC),
+        idempotency_key="submit-key",
+        risk_approval_token="risk-approved",
+        command=command(account.id, AccountScopeType.SPOT),
+    )
+    order_service.activate_kill_switch(
+        tenant_id="tenant-a",
+        actor_user_id="operator-a",
+        reason="stop new exposure",
+    )
+
+    cancelled = order_service.cancel(
+        tenant_id="tenant-a",
+        order_id=submitted.id,
+        actor_roles=("trader",),
+        mfa_verified_at=datetime.now(UTC),
+        idempotency_key="cancel-key",
+    )
+    repeated = order_service.cancel(
+        tenant_id="tenant-a",
+        order_id=submitted.id,
+        actor_roles=("trader",),
+        mfa_verified_at=datetime.now(UTC),
+        idempotency_key="cancel-key",
+    )
+
+    assert cancelled.status == "cancelled"
+    assert repeated.id == cancelled.id
+    assert len(connector.cancel_calls) == 1

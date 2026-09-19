@@ -5,10 +5,16 @@ import {
   ShieldAlert,
   WalletCards,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import { AccountBindingDialog } from "../../features/trading/AccountBindingDialog";
+import {
+  bindTradingAccount,
+  fetchTradingAccounts,
+  getTradingAccessToken,
+  TradingApiError,
+} from "../../features/trading/api";
 import type {
   MarketGroup,
   TradingAccount,
@@ -43,6 +49,13 @@ const marketLinks = [
   { label: "币安", to: "/trading/binance" },
 ];
 
+const scopeLabels = {
+  spot: "现货",
+  cross_margin: "全仓",
+  isolated_margin: "逐仓",
+  usdm_futures: "U 本位",
+};
+
 export function TradingWorkspace({
   marketGroup,
   title,
@@ -55,25 +68,50 @@ export function TradingWorkspace({
   const [showBinding, setShowBinding] = useState(false);
   const [accounts, setAccounts] = useState<TradingAccount[]>([]);
   const [activeProduct, setActiveProduct] = useState(products?.[0]?.id);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  function saveAccount(draft: TradingAccountDraft) {
-    const fingerprint = draft.apiKey
-      ? `key-${draft.apiKey.slice(-4)}`
-      : undefined;
-    setAccounts((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        alias: draft.alias,
-        provider: draft.provider,
-        environment: "production",
-        fingerprint,
-        scopes: draft.enabledScopes,
-        connectionStatus: "disconnected",
-        tradingEnabled: false,
-      },
-    ]);
-    setShowBinding(false);
+  useEffect(() => {
+    const accessToken = getTradingAccessToken();
+    if (!accessToken) {
+      return;
+    }
+    let active = true;
+    void fetchTradingAccounts(accessToken, marketGroup)
+      .then((items) => {
+        if (active) {
+          setAccounts(items);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setNotice(
+            error instanceof Error ? error.message : "加载交易帐号失败",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [marketGroup]);
+
+  async function saveAccount(draft: TradingAccountDraft) {
+    const accessToken = getTradingAccessToken();
+    if (!accessToken) {
+      setNotice("登录会话不可用，帐号未保存。");
+      setShowBinding(false);
+      return;
+    }
+    try {
+      const created = await bindTradingAccount(accessToken, draft);
+      setAccounts((current) => [...current, created]);
+      setNotice(`${created.alias} 已保存为只读帐号。`);
+    } catch (error) {
+      setNotice(
+        error instanceof TradingApiError ? error.message : "交易帐号保存失败。",
+      );
+    } finally {
+      setShowBinding(false);
+    }
   }
 
   return (
@@ -130,6 +168,16 @@ export function TradingWorkspace({
         </div>
       )}
 
+      {notice && (
+        <div className="inline-notice" role="status">
+          <ShieldAlert size={16} />
+          {notice}
+          <button aria-label="关闭提示" onClick={() => setNotice(null)}>
+            关闭
+          </button>
+        </div>
+      )}
+
       <div className="trading-summary">
         <div>
           <span>已绑定帐号</span>
@@ -137,11 +185,21 @@ export function TradingWorkspace({
         </div>
         <div>
           <span>已连接</span>
-          <strong>0</strong>
+          <strong>
+            {
+              accounts.filter(
+                (account) => account.connectionStatus === "connected",
+              ).length
+            }
+          </strong>
         </div>
         <div>
           <span>交易权限</span>
-          <strong>关闭</strong>
+          <strong>
+            {accounts.some((account) => account.tradingEnabled)
+              ? "已启用"
+              : "关闭"}
+          </strong>
         </div>
         <div>
           <span>最近同步</span>
@@ -205,11 +263,25 @@ export function TradingWorkspace({
                     <td>{account.fingerprint ?? "待授权"}</td>
                     <td>
                       {account.scopes.length > 0
-                        ? account.scopes.join(" / ")
+                        ? account.scopes
+                            .map((scope) => scopeLabels[scope])
+                            .join(" / ")
                         : "未配置"}
                     </td>
-                    <td>待检查</td>
-                    <td className="metric-negative">关闭</td>
+                    <td>
+                      {account.connectionStatus === "connected"
+                        ? "已连接"
+                        : "未连接"}
+                    </td>
+                    <td
+                      className={
+                        account.tradingEnabled
+                          ? "metric-positive"
+                          : "metric-negative"
+                      }
+                    >
+                      {account.tradingEnabled ? "已启用" : "关闭"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

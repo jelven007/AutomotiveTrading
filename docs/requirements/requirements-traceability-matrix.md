@@ -11,7 +11,7 @@
 - 接口来源：`../architecture/api-event-specification.md`
 - 数据来源：`../architecture/data-model.md`
 - 测试来源：`../testing/test-cases.md`
-- 状态：Planned、Implemented、Verified、Blocked
+- 状态：Planned、Partial、Implemented、Verified、Blocked
 
 ## 2. 功能追踪
 
@@ -26,8 +26,10 @@
 | FR-AI-* | Model Gateway、Portfolio Coordinator | TC-AI-* | Planned |
 | FR-BT-* | Backtest Scheduler、Runner | TC-BT-* | Planned |
 | FR-TRD-001~012 | Trading、Broker Connectors | TC-TRD-000~007 | Planned |
-| FR-TRD-013~014 | Trading Web、Account Binding | TC-TRD-008 | Planned |
-| FR-TRD-015~020 | Binance Connector、KMS、Trading | TC-TRD-009~014 | Planned |
+| FR-TRD-013~014 | Trading Web、Account Binding | TC-TRD-008~009 | Verified |
+| FR-TRD-015~017 | Binance Connector、KMS、Trading | TC-TRD-009 | Verified |
+| FR-TRD-018~019 | Binance Orders、Account Operations | TC-TRD-010~013 | Partial |
+| FR-TRD-020 | MFA、Risk Guard、Outbox | TC-TRD-009~013 | Partial |
 | FR-RSK-001~004 | Risk Service | TC-RSK-001~003 | Planned |
 | FR-RSK-005~007 | Binance Risk Guard | TC-RSK-004 | Planned |
 | FR-REC-* | Reconciliation Service | TC-REC-* | Planned |
@@ -37,9 +39,9 @@
 
 | 需求 | 验证方式 | 测试编号 | 状态 |
 | --- | --- | --- | --- |
-| NFR-SEC-001 | KMS 集成与密钥不可回显 | TC-SEC-001 | Planned |
-| NFR-SEC-002 | 日志扫描 | TC-SEC-002 | Planned |
-| NFR-SEC-003 | 审计完整性验证 | TC-SEC-003 | Planned |
+| NFR-SEC-001 | KMS 集成与密钥不可回显 | TC-SEC-001 | Partial |
+| NFR-SEC-002 | 日志扫描 | TC-SEC-002 | Partial |
+| NFR-SEC-003 | 审计完整性验证 | TC-SEC-003 | Partial |
 | NFR-SEC-004 | 提示词注入测试 | TC-SEC-004 | Planned |
 | NFR-SEC-005 | 越权与恶意代码测试 | TC-SEC-005 | Planned |
 | NFR-REL-001 | 月度 SLI 计算 | TC-REL-001 | Planned |

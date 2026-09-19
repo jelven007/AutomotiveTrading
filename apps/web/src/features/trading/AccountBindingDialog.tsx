@@ -51,6 +51,7 @@ export function AccountBindingDialog({
   const [apiKey, setApiKey] = useState("");
   const [privateKeyOrSecret, setPrivateKeyOrSecret] = useState("");
   const [enabledScopes, setEnabledScopes] = useState<BinanceScope[]>(["spot"]);
+  const [isolatedSymbols, setIsolatedSymbols] = useState("");
   const [ipWhitelistConfirmed, setIpWhitelistConfirmed] = useState(false);
 
   function clearSensitiveFields() {
@@ -82,6 +83,13 @@ export function AccountBindingDialog({
       apiKey: isBinance ? apiKey : undefined,
       privateKeyOrSecret: isBinance ? privateKeyOrSecret : undefined,
       enabledScopes: isBinance ? enabledScopes : [],
+      isolatedSymbols:
+        isBinance && enabledScopes.includes("isolated_margin")
+          ? isolatedSymbols
+              .split(",")
+              .map((symbol) => symbol.trim().toUpperCase())
+              .filter(Boolean)
+          : [],
       ipWhitelistConfirmed: isBinance ? ipWhitelistConfirmed : true,
     });
     clearSensitiveFields();
@@ -91,6 +99,8 @@ export function AccountBindingDialog({
     apiKey.length >= 8 &&
     privateKeyOrSecret.length >= 8 &&
     enabledScopes.length > 0 &&
+    (!enabledScopes.includes("isolated_margin") ||
+      isolatedSymbols.trim().length > 0) &&
     ipWhitelistConfirmed;
 
   return (
@@ -197,6 +207,20 @@ export function AccountBindingDialog({
                     ))}
                   </div>
                 </fieldset>
+                {enabledScopes.includes("isolated_margin") && (
+                  <label className="field field--wide">
+                    <span>逐仓交易对</span>
+                    <input
+                      required
+                      value={isolatedSymbols}
+                      onChange={(event) =>
+                        setIsolatedSymbols(event.target.value)
+                      }
+                      autoComplete="off"
+                      placeholder="BTCUSDT, ETHUSDT"
+                    />
+                  </label>
+                )}
                 <label className="security-confirmation field--wide">
                   <input
                     aria-label="已配置固定出口 IP 白名单"

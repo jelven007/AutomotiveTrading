@@ -137,6 +137,7 @@ class TradingOrder(Base):
     __tablename__ = "trading_orders"
     __table_args__ = (
         UniqueConstraint("tenant_id", "idempotency_key"),
+        UniqueConstraint("tenant_id", "cancel_idempotency_key"),
         UniqueConstraint("tenant_id", "account_id", "client_order_id"),
     )
 
@@ -167,6 +168,7 @@ class TradingOrder(Base):
     source: Mapped[str] = mapped_column(String(16), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(80), nullable=False)
     request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    cancel_idempotency_key: Mapped[str | None] = mapped_column(String(80))
     error_code: Mapped[str | None] = mapped_column(String(80))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
@@ -187,6 +189,29 @@ class KillSwitch(Base):
     released_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class TradingOperation(Base):
+    __tablename__ = "trading_operations"
+    __table_args__ = (UniqueConstraint("tenant_id", "idempotency_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    account_id: Mapped[str] = mapped_column(
+        ForeignKey("trading_accounts.id"), nullable=False, index=True
+    )
+    operation_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    account_scope: Mapped[AccountScopeType] = mapped_column(
+        Enum(AccountScopeType, native_enum=False, values_callable=enum_values)
+    )
+    symbol: Mapped[str | None] = mapped_column(String(40))
+    idempotency_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    broker_reference: Mapped[str | None] = mapped_column(String(120))
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now)
+
+
 class LocalEncryptedSecret(Base):
     __tablename__ = "local_encrypted_secrets"
 
@@ -194,6 +219,21 @@ class LocalEncryptedSecret(Base):
     tenant_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+
+
+class OutboxEvent(Base):
+    __tablename__ = "outbox_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    tenant_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    topic: Mapped[str] = mapped_column(String(120), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    aggregate_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    aggregate_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime)
+    publish_attempts: Mapped[int] = mapped_column(Integer, default=0)
 
 
 __all__: list[Any] = [
@@ -208,5 +248,7 @@ __all__: list[Any] = [
     TradingAccountScope,
     TradingOrder,
     KillSwitch,
+    TradingOperation,
     LocalEncryptedSecret,
+    OutboxEvent,
 ]

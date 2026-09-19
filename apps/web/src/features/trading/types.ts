@@ -24,6 +24,7 @@ export type TradingAccountDraft = {
   apiKey?: string;
   privateKeyOrSecret?: string;
   enabledScopes: BinanceScope[];
+  isolatedSymbols: string[];
   ipWhitelistConfirmed: boolean;
 };
 
@@ -34,6 +35,8 @@ export type TradingAccount = {
   environment: "production";
   fingerprint?: string;
   scopes: BinanceScope[];
+  status: "pending_authorization" | "read_only" | "active" | "disabled";
   connectionStatus: "disconnected" | "checking" | "connected";
   tradingEnabled: boolean;
+  lastSyncedAt: string | null;
 };

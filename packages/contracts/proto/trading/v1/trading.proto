@@ -37,6 +37,29 @@ enum OrderStatus {
   ORDER_STATUS_UNKNOWN = 8;
 }
 
+enum AccountScope {
+  ACCOUNT_SCOPE_UNSPECIFIED = 0;
+  ACCOUNT_SCOPE_SPOT = 1;
+  ACCOUNT_SCOPE_CROSS_MARGIN = 2;
+  ACCOUNT_SCOPE_ISOLATED_MARGIN = 3;
+  ACCOUNT_SCOPE_USDM_FUTURES = 4;
+}
+
+enum PositionSide {
+  POSITION_SIDE_UNSPECIFIED = 0;
+  POSITION_SIDE_BOTH = 1;
+  POSITION_SIDE_LONG = 2;
+  POSITION_SIDE_SHORT = 3;
+}
+
+enum MarginSideEffect {
+  MARGIN_SIDE_EFFECT_UNSPECIFIED = 0;
+  MARGIN_SIDE_EFFECT_NONE = 1;
+  MARGIN_SIDE_EFFECT_BORROW = 2;
+  MARGIN_SIDE_EFFECT_REPAY = 3;
+  MARGIN_SIDE_EFFECT_AUTO_BORROW_REPAY = 4;
+}
+
 message SubmitOrderRequest {
   string tenant_id = 1;
   string account_id = 2;
@@ -48,6 +71,10 @@ message SubmitOrderRequest {
   optional string decision_id = 8;
   string idempotency_key = 9;
   string trace_id = 10;
+  AccountScope account_scope = 11;
+  PositionSide position_side = 12;
+  bool reduce_only = 13;
+  MarginSideEffect margin_side_effect = 14;
 
   reserved 100 to 199;
 }
@@ -84,6 +111,10 @@ message Order {
   optional string broker_order_id = 12;
   google.protobuf.Timestamp created_at = 13;
   google.protobuf.Timestamp updated_at = 14;
+  AccountScope account_scope = 15;
+  PositionSide position_side = 16;
+  bool reduce_only = 17;
+  MarginSideEffect margin_side_effect = 18;
 
   // Published field numbers are immutable. Removed fields must be reserved.
   reserved 100 to 199;

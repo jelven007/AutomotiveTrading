@@ -1,8 +1,9 @@
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 from time import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NoReturn
 from urllib.parse import urlencode, urlparse
 
 import httpx
@@ -150,6 +151,13 @@ class BinanceClient:
     ) -> "OrderExecutionResult":
         from trading.orders import OrderExecutionResult
 
+        self._validate_order_filters(
+            scope=scope,
+            symbol=symbol,
+            order_type=order_type.value,
+            quantity=quantity,
+            limit_price=limit_price,
+        )
         path = self._order_path(scope)
         params: dict[str, str | int | bool] = {
             "symbol": symbol,
@@ -376,6 +384,102 @@ class BinanceClient:
                 "Binance request timed out",
             ) from error
         return self._response_json(response)
+
+    def _validate_order_filters(
+        self,
+        *,
+        scope: AccountScopeType,
+        symbol: str,
+        order_type: str,
+        quantity: str,
+        limit_price: str | None,
+    ) -> None:
+        base_url = (
+            self.futures_base_url if scope is AccountScopeType.USDM_FUTURES else self.spot_base_url
+        )
+        path = (
+            "/fapi/v1/exchangeInfo"
+            if scope is AccountScopeType.USDM_FUTURES
+            else "/api/v3/exchangeInfo"
+        )
+        try:
+            response = self.http.get(
+                f"{base_url}{path}",
+                params={"symbol": symbol},
+                timeout=3,
+            )
+        except httpx.TimeoutException as error:
+            raise BinanceConnectorError(
+                "binance.exchange_info_unavailable",
+                "Binance exchange rules are unavailable",
+            ) from error
+        payload = self._response_json(response)
+        symbols = payload.get("symbols")
+        if not isinstance(symbols, list) or len(symbols) != 1:
+            self._filter_error("symbol is unavailable")
+        symbol_info = symbols[0]
+        if not isinstance(symbol_info, dict) or symbol_info.get("status") != "TRADING":
+            self._filter_error("symbol is not trading")
+        filters = {
+            item.get("filterType"): item
+            for item in symbol_info.get("filters", [])
+            if isinstance(item, dict)
+        }
+        try:
+            quantity_value = Decimal(quantity)
+            lot_size = filters.get("LOT_SIZE", {})
+            self._validate_range_and_step(
+                "quantity",
+                quantity_value,
+                Decimal(str(lot_size.get("minQty", "0"))),
+                Decimal(str(lot_size.get("maxQty", "0"))),
+                Decimal(str(lot_size.get("stepSize", "0"))),
+            )
+            if order_type == "limit" and limit_price is not None:
+                price_value = Decimal(limit_price)
+                price_filter = filters.get("PRICE_FILTER", {})
+                self._validate_range_and_step(
+                    "price",
+                    price_value,
+                    Decimal(str(price_filter.get("minPrice", "0"))),
+                    Decimal(str(price_filter.get("maxPrice", "0"))),
+                    Decimal(str(price_filter.get("tickSize", "0"))),
+                )
+                notional_filter = filters.get("NOTIONAL") or filters.get(
+                    "MIN_NOTIONAL",
+                    {},
+                )
+                minimum_notional = Decimal(str(notional_filter.get("minNotional", "0")))
+                if minimum_notional > 0 and quantity_value * price_value < minimum_notional:
+                    self._filter_error("order notional is below the minimum")
+        except InvalidOperation as error:
+            raise BinanceConnectorError(
+                "binance.order_filter_rejected",
+                "Order quantity or price is invalid",
+            ) from error
+
+    @classmethod
+    def _validate_range_and_step(
+        cls,
+        name: str,
+        value: Decimal,
+        minimum: Decimal,
+        maximum: Decimal,
+        step: Decimal,
+    ) -> None:
+        if minimum > 0 and value < minimum:
+            cls._filter_error(f"{name} is below the minimum")
+        if maximum > 0 and value > maximum:
+            cls._filter_error(f"{name} exceeds the maximum")
+        if step > 0 and value % step != 0:
+            cls._filter_error(f"{name} does not match the required step")
+
+    @staticmethod
+    def _filter_error(message: str) -> NoReturn:
+        raise BinanceConnectorError(
+            "binance.order_filter_rejected",
+            message,
+        )
 
     def _synchronize_time(self, base_url: str) -> None:
         path = "/fapi/v1/time" if base_url == self.futures_base_url else "/api/v3/time"

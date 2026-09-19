@@ -153,6 +153,37 @@ def test_submit_order_maps_each_product_to_its_official_endpoint(
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path in {"/api/v3/time", "/fapi/v1/time"}:
             return httpx.Response(200, json={"serverTime": 1_700_000_000_000})
+        if request.url.path in {"/api/v3/exchangeInfo", "/fapi/v1/exchangeInfo"}:
+            return httpx.Response(
+                200,
+                json={
+                    "symbols": [
+                        {
+                            "symbol": "BTCUSDT",
+                            "status": "TRADING",
+                            "filters": [
+                                {
+                                    "filterType": "LOT_SIZE",
+                                    "minQty": "0.001",
+                                    "maxQty": "100",
+                                    "stepSize": "0.001",
+                                },
+                                {
+                                    "filterType": "PRICE_FILTER",
+                                    "minPrice": "0.01",
+                                    "maxPrice": "1000000",
+                                    "tickSize": "0.01",
+                                },
+                                {
+                                    "filterType": "MIN_NOTIONAL",
+                                    "minNotional": "5",
+                                    "applyToMarket": True,
+                                },
+                            ],
+                        }
+                    ]
+                },
+            )
         return httpx.Response(
             200,
             json={"orderId": 12345, "status": "NEW", "executedQty": "0"},
@@ -193,6 +224,26 @@ def test_submit_timeout_is_not_retried() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal order_attempts
+        if request.url.path == "/api/v3/exchangeInfo":
+            return httpx.Response(
+                200,
+                json={
+                    "symbols": [
+                        {
+                            "symbol": "BTCUSDT",
+                            "status": "TRADING",
+                            "filters": [
+                                {
+                                    "filterType": "LOT_SIZE",
+                                    "minQty": "0.001",
+                                    "maxQty": "100",
+                                    "stepSize": "0.001",
+                                }
+                            ],
+                        }
+                    ]
+                },
+            )
         if request.url.path == "/api/v3/time":
             return httpx.Response(200, json={"serverTime": 1_700_000_000_000})
         order_attempts += 1
@@ -217,6 +268,56 @@ def test_submit_timeout_is_not_retried() -> None:
         )
 
     assert order_attempts == 1
+
+
+def test_order_is_rejected_locally_when_quantity_breaks_exchange_filter() -> None:
+    order_attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal order_attempts
+        if request.url.path == "/api/v3/exchangeInfo":
+            return httpx.Response(
+                200,
+                json={
+                    "symbols": [
+                        {
+                            "symbol": "BTCUSDT",
+                            "status": "TRADING",
+                            "filters": [
+                                {
+                                    "filterType": "LOT_SIZE",
+                                    "minQty": "0.001",
+                                    "maxQty": "100",
+                                    "stepSize": "0.001",
+                                }
+                            ],
+                        }
+                    ]
+                },
+            )
+        order_attempts += 1
+        return httpx.Response(200, json={"orderId": 1, "status": "NEW"})
+
+    client, _ = mock_client(handler)
+
+    with pytest.raises(BinanceConnectorError) as captured:
+        client.submit_order(
+            scope=AccountScopeType.SPOT,
+            symbol="BTCUSDT",
+            side=OrderSide.BUY,
+            order_type=OrderType.MARKET,
+            quantity="0.0001",
+            limit_price=None,
+            time_in_force=None,
+            position_side=None,
+            reduce_only=False,
+            margin_side_effect=MarginSideEffect.NONE,
+            client_order_id="qt_invalid_quantity",
+            credentials=credentials(),
+        )
+
+    assert captured.value.code == "binance.order_filter_rejected"
+    assert order_attempts == 0
 
 
 @pytest.mark.parametrize(

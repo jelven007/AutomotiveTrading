@@ -17,6 +17,10 @@
 当前 M2 的开发、演示和集成验证可使用
 [Ubuntu 单机部署指南](ubuntu-single-node-deployment.md)。该方案不替代以下生产架构。
 
+`trading` 服务当前仅纳入本地开发与自动化验证，默认端口为 `8004`。在外部 KMS、
+Risk Service、固定出口 EIP 和币安 IP 白名单完成前，不加入现有单机云端默认
+编排；不得通过把 `ENVIRONMENT` 改为 `local` 绕过生产启动校验。
+
 ## 2. VKE 部署
 
 - Gateway、Web BFF 和核心服务跨可用区部署。

@@ -22,6 +22,7 @@ from trading.models import (
     TradingOrder,
     utc_now,
 )
+from trading.outbox import SqlOutboxPublisher
 from trading.risk import RiskAuthorizer
 from trading.secrets import SecretBackend
 
@@ -143,6 +144,15 @@ class ExecutionConnector(Protocol):
         credentials: BinanceCredentials,
     ) -> OrderExecutionResult: ...
 
+    def cancel_order(
+        self,
+        *,
+        scope: AccountScopeType,
+        symbol: str,
+        client_order_id: str,
+        credentials: BinanceCredentials,
+    ) -> OrderExecutionResult: ...
+
 
 class IdempotencyConflictError(RuntimeError):
     pass
@@ -164,6 +174,7 @@ class OrderService:
         self.secret_backend = secret_backend
         self.connector = connector
         self.risk_authorizer = risk_authorizer
+        self.outbox = SqlOutboxPublisher(session)
 
     def submit(
         self,
@@ -228,6 +239,8 @@ class OrderService:
         )
         # 先持久化意图, 再执行不可回滚的交易所写请求。
         self.session.add(order)
+        self.session.flush()
+        self._publish_order(order, "trading.order.submission_requested")
         self.session.commit()
 
         try:
@@ -257,6 +270,69 @@ class OrderService:
             order.filled_quantity = result.filled_quantity
             order.average_price = result.average_price
             order.submitted_at = utc_now()
+        self._publish_order(order, "trading.order.status_changed")
+        self.session.commit()
+        return self._view(order)
+
+    def get(self, tenant_id: str, order_id: str) -> OrderView:
+        return self._view(self._order(tenant_id, order_id))
+
+    def cancel(
+        self,
+        *,
+        tenant_id: str,
+        order_id: str,
+        actor_roles: tuple[str, ...],
+        mfa_verified_at: datetime | None,
+        idempotency_key: str,
+    ) -> OrderView:
+        self._require_trader(actor_roles)
+        self._require_recent_mfa(mfa_verified_at)
+        if not idempotency_key or len(idempotency_key) > 80:
+            raise ValueError("a valid idempotency key is required")
+
+        order = self._order(tenant_id, order_id)
+        if order.cancel_idempotency_key is not None:
+            if order.cancel_idempotency_key != idempotency_key:
+                raise IdempotencyConflictError("order cancellation already requested")
+            return self._view(order)
+        duplicate = self.session.scalar(
+            select(TradingOrder.id).where(
+                TradingOrder.tenant_id == tenant_id,
+                TradingOrder.cancel_idempotency_key == idempotency_key,
+            )
+        )
+        if duplicate is not None:
+            raise IdempotencyConflictError("cancel idempotency key already used")
+        if order.status in {OrderStatus.FILLED, OrderStatus.REJECTED}:
+            raise TradingGuardError("order can no longer be cancelled")
+
+        account = self._account(tenant_id, order.account_id)
+        credentials = self._credentials(account)
+        order.cancel_idempotency_key = idempotency_key
+        order.status = OrderStatus.CANCEL_PENDING
+        self._publish_order(order, "trading.order.cancellation_requested")
+        self.session.commit()
+
+        try:
+            result = self.connector.cancel_order(
+                scope=order.account_scope,
+                symbol=order.symbol,
+                client_order_id=order.client_order_id,
+                credentials=credentials,
+            )
+        except BinanceWriteTimeout as error:
+            order.status = OrderStatus.UNKNOWN
+            order.error_code = error.code
+        except BinanceConnectorError as error:
+            order.status = OrderStatus.UNKNOWN
+            order.error_code = error.code
+        else:
+            order.status = result.status
+            order.filled_quantity = result.filled_quantity
+            order.average_price = result.average_price
+            order.error_code = None
+        self._publish_order(order, "trading.order.status_changed")
         self.session.commit()
         return self._view(order)
 
@@ -288,6 +364,45 @@ class OrderService:
             switch.reason = reason
             switch.activated_by = actor_user_id
             switch.released_at = None
+        self.session.flush()
+        self.outbox.publish(
+            tenant_id=tenant_id,
+            event_type="trading.kill_switch.activated",
+            aggregate_type="kill_switch",
+            aggregate_id=switch.id,
+            payload={"scope": switch.scope, "active": True},
+        )
+        self.session.commit()
+        return switch
+
+    def release_kill_switch(
+        self,
+        *,
+        tenant_id: str,
+        switch_id: str,
+        actor_roles: tuple[str, ...],
+        mfa_verified_at: datetime | None,
+    ) -> KillSwitch:
+        if "tenant_admin" not in actor_roles:
+            raise PermissionError("tenant administrator role is required")
+        self._require_recent_mfa(mfa_verified_at)
+        switch = self.session.scalar(
+            select(KillSwitch).where(
+                KillSwitch.id == switch_id,
+                KillSwitch.tenant_id == tenant_id,
+            )
+        )
+        if switch is None:
+            raise LookupError("trading kill switch not found")
+        switch.active = False
+        switch.released_at = utc_now()
+        self.outbox.publish(
+            tenant_id=tenant_id,
+            event_type="trading.kill_switch.released",
+            aggregate_type="kill_switch",
+            aggregate_id=switch.id,
+            payload={"scope": switch.scope, "active": False},
+        )
         self.session.commit()
         return switch
 
@@ -309,6 +424,17 @@ class OrderService:
         if account is None:
             raise LookupError("trading account not found")
         return account
+
+    def _order(self, tenant_id: str, order_id: str) -> TradingOrder:
+        order = self.session.scalar(
+            select(TradingOrder).where(
+                TradingOrder.id == order_id,
+                TradingOrder.tenant_id == tenant_id,
+            )
+        )
+        if order is None:
+            raise LookupError("trading order not found")
+        return order
 
     @staticmethod
     def _validate_account(account: TradingAccount) -> None:
@@ -371,6 +497,23 @@ class OrderService:
             separators=(",", ":"),
         )
         return hashlib.sha256(payload.encode()).hexdigest()
+
+    def _publish_order(self, order: TradingOrder, event_type: str) -> None:
+        self.outbox.publish(
+            tenant_id=order.tenant_id,
+            event_type=event_type,
+            aggregate_type="order",
+            aggregate_id=order.id,
+            payload={
+                "order_id": order.id,
+                "account_id": order.account_id,
+                "client_order_id": order.client_order_id,
+                "account_scope": order.account_scope.value,
+                "symbol": order.symbol,
+                "status": order.status.value,
+                "error_code": order.error_code,
+            },
+        )
 
     @staticmethod
     def _require_trader(actor_roles: tuple[str, ...]) -> None:

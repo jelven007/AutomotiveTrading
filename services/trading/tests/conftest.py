@@ -1,8 +1,12 @@
+import os
 from collections.abc import Iterator
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+
+os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
+
 from trading.db import Base
 
 

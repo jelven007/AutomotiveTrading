@@ -25,11 +25,11 @@ def test_health_endpoints_do_not_require_tenant() -> None:
     assert live_response.headers["X-Trace-ID"]
 
 
-def test_business_endpoint_requires_tenant() -> None:
+def test_tenant_header_is_not_used_as_an_authentication_boundary() -> None:
     response = client.get("/probe")
 
-    assert response.status_code == 400
-    assert response.json()["code"] == "tenant.missing"
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
 
 
 def test_request_context_preserves_trace_id() -> None:

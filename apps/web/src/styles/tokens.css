@@ -230,6 +230,7 @@ button {
 .select-control > span {
   color: var(--text-muted);
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .select-control select {
@@ -1666,26 +1667,26 @@ td small {
 
 @media (max-width: 760px) {
   .appbar {
-    height: auto;
-    min-height: 56px;
-    flex-wrap: wrap;
-    gap: 10px;
-    padding: 9px 14px;
+    height: 58px;
+    min-height: 58px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 0 12px;
   }
 
   .appbar-lead {
-    order: 2;
-    width: 100%;
-    flex-wrap: wrap;
+    width: auto;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
     gap: 8px;
+    overflow: hidden;
   }
 
   .appbar-trail {
-    order: 1;
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 8px;
+    width: auto;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 6px;
   }
 
   .appbar .search-button {
@@ -1697,6 +1698,10 @@ td small {
     border-right: 0;
   }
 
+  .brand > span:last-child {
+    display: none;
+  }
+
   .brand small {
     display: none;
   }
@@ -1706,7 +1711,8 @@ td small {
   }
 
   .primary-nav {
-    width: 100%;
+    width: auto;
+    flex: 1 1 auto;
     padding-bottom: 2px;
     gap: 2px;
   }
@@ -1718,8 +1724,7 @@ td small {
   }
 
   .context-controls {
-    flex: 1;
-    justify-content: flex-end;
+    display: none;
   }
 
   .select-control {

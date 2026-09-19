@@ -9,7 +9,7 @@ from trading.accounts import (
     AccountPermissionSnapshot,
     TradingAccountService,
 )
-from trading.models import TradingAccount
+from trading.models import OutboxEvent, TradingAccount
 from trading.secrets import InMemoryEncryptedSecretBackend
 
 
@@ -101,6 +101,10 @@ def test_binance_binding_externalizes_credentials_and_starts_read_only(
         ("isolated_margin", "BTCUSDT"),
         ("usdm_futures", None),
     }
+    outbox = session.scalar(select(OutboxEvent))
+    assert outbox is not None
+    assert "api-key-sensitive" not in outbox.payload_json
+    assert "private-key-sensitive" not in outbox.payload_json
 
 
 def test_account_listing_is_tenant_isolated(session: Session) -> None:
@@ -180,3 +184,35 @@ def test_market_provider_whitelist_is_enforced() -> None:
             provider="binance",
             environment="production",
         )
+
+
+def test_permission_recheck_disables_account_when_withdrawal_is_enabled(
+    session: Session,
+) -> None:
+    probe = StubPermissionProbe(permission_snapshot())
+    backend = InMemoryEncryptedSecretBackend()
+    account_service = TradingAccountService(session, backend, probe)
+    account = account_service.bind(
+        tenant_id="tenant-a",
+        actor_roles=("tenant_admin",),
+        mfa_verified_at=datetime.now(UTC),
+        command=binance_command(),
+    )
+    account_service.enable_trading(
+        tenant_id="tenant-a",
+        account_id=account.id,
+        actor_roles=("tenant_admin",),
+        mfa_verified_at=datetime.now(UTC),
+    )
+    probe.snapshot = permission_snapshot(can_withdraw=True)
+
+    with pytest.raises(ValueError, match="withdrawal permission"):
+        account_service.test_connection(
+            tenant_id="tenant-a",
+            account_id=account.id,
+            actor_roles=("tenant_admin",),
+        )
+
+    disabled = account_service.list_for_tenant("tenant-a")[0]
+    assert disabled.status == "disabled"
+    assert disabled.trading_enabled is False

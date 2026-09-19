@@ -1,7 +1,9 @@
 import json
 from typing import Protocol
+from urllib.parse import urlparse
 from uuid import uuid4
 
+import httpx
 from cryptography.fernet import Fernet
 from sqlalchemy.orm import Session
 
@@ -80,3 +82,55 @@ class LocalEncryptedSecretBackend:
         if not secret_ref.startswith(cls.SCHEME):
             raise ValueError("unsupported secret reference")
         return secret_ref.removeprefix(cls.SCHEME)
+
+
+class HttpKmsSecretBackend:
+    """Adapter for the platform's internal KMS broker."""
+
+    def __init__(
+        self,
+        http: httpx.Client,
+        base_url: str,
+        access_token: str | None = None,
+    ) -> None:
+        parsed = urlparse(base_url)
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise ValueError("KMS URL must use HTTPS")
+        self._http = http
+        self._base_url = base_url.rstrip("/")
+        self._headers = {"Authorization": f"Bearer {access_token}"} if access_token else {}
+
+    def put(self, tenant_id: str, value: dict[str, str]) -> str:
+        response = self._http.post(
+            f"{self._base_url}/v1/secrets",
+            headers=self._headers,
+            json={"tenant_id": tenant_id, "value": value},
+            timeout=5,
+        )
+        response.raise_for_status()
+        secret_ref = response.json().get("secret_ref")
+        if not isinstance(secret_ref, str) or not secret_ref:
+            raise RuntimeError("KMS response is missing secret_ref")
+        return secret_ref
+
+    def get(self, secret_ref: str) -> dict[str, str]:
+        response = self._http.post(
+            f"{self._base_url}/v1/secrets/resolve",
+            headers=self._headers,
+            json={"secret_ref": secret_ref},
+            timeout=5,
+        )
+        response.raise_for_status()
+        value = response.json().get("value")
+        if not isinstance(value, dict):
+            raise RuntimeError("KMS response is missing secret value")
+        return {str(key): str(item) for key, item in value.items()}
+
+    def delete(self, secret_ref: str) -> None:
+        response = self._http.post(
+            f"{self._base_url}/v1/secrets/delete",
+            headers=self._headers,
+            json={"secret_ref": secret_ref},
+            timeout=5,
+        )
+        response.raise_for_status()
