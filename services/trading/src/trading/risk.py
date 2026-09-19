@@ -29,12 +29,20 @@ class DenyAllRiskAuthorizer:
 
 
 class HttpRiskAuthorizer:
-    def __init__(self, http: httpx.Client, base_url: str) -> None:
+    def __init__(
+        self,
+        http: httpx.Client,
+        base_url: str,
+        service_token: str,
+    ) -> None:
         parsed = urlparse(base_url)
         if parsed.scheme != "https" or not parsed.hostname:
             raise ValueError("risk service URL must use HTTPS")
+        if not service_token:
+            raise ValueError("risk service token is required")
         self._http = http
         self._base_url = base_url.rstrip("/")
+        self._service_token = service_token
 
     def authorize(
         self,
@@ -49,7 +57,10 @@ class HttpRiskAuthorizer:
         try:
             response = self._http.post(
                 f"{self._base_url}/api/v1/risk/order-authorizations/verify",
-                headers={"X-Risk-Approval": approval_token},
+                headers={
+                    "X-Risk-Approval": approval_token,
+                    "X-Service-Token": self._service_token,
+                },
                 json={
                     "tenant_id": tenant_id,
                     "account_id": account_id,

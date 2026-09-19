@@ -85,7 +85,7 @@ def test_binance_binding_externalizes_credentials_and_starts_read_only(
     stored = session.scalar(select(TradingAccount))
     assert stored is not None
     assert stored.secret_ref is not None
-    assert backend.get(stored.secret_ref) == {
+    assert backend.get("tenant-a", stored.secret_ref) == {
         "api_key": "api-key-sensitive",
         "private_key_or_secret": "private-key-sensitive",
     }

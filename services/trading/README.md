@@ -23,13 +23,19 @@ uv run uvicorn trading.main:app --reload
 ENVIRONMENT=production
 SECRET_BACKEND=kms
 KMS_URL=https://...
+KMS_SERVICE_TOKEN=<至少 32 字节的独立服务令牌>
 RISK_SERVICE_URL=https://...
+RISK_SERVICE_TOKEN=<至少 32 字节的独立服务令牌>
 FIXED_EGRESS_IP_CONFIGURED=true
 LIVE_TRADING_ENABLED=true
 ```
 
 缺少任一生产前置条件时，服务拒绝启用帐号或执行新增风险的写请求。首次配置时
 `LIVE_TRADING_ENABLED` 应保持 `false`，先完成只读同步和人工灰度。
+
+KMS Broker 的解析和删除请求始终同时传递 `tenant_id`；Risk 校验同时传递
+`X-Service-Token` 与单次使用的 `X-Risk-Approval`。两个服务不可用、返回非
+2xx 或响应格式错误时，Trading 均失败关闭。
 
 Create and apply a migration:
 

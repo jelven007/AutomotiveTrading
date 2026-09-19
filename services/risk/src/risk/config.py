@@ -20,8 +20,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production(self) -> "Settings":
-        if self.environment == "production" and self.service_token is None:
-            raise ValueError("production requires a service token")
+        if self.environment == "production":
+            if self.service_token is None:
+                raise ValueError("production requires a service token")
+            if len(self.service_token.get_secret_value()) < 32:
+                raise ValueError("production service token must contain at least 32 characters")
         return self
 
 

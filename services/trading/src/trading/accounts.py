@@ -191,7 +191,7 @@ class TradingAccountService:
             self.session.commit()
         except Exception:
             self.session.rollback()
-            self.secret_backend.delete(secret_ref)
+            self.secret_backend.delete(tenant_id, secret_ref)
             raise
         return self._view(account, scopes)
 
@@ -404,7 +404,7 @@ class TradingAccountService:
     def _credentials_for(self, account: TradingAccount) -> dict[str, str]:
         if account.secret_ref is None or account.credential_type is None:
             raise ValueError("account credentials are unavailable")
-        return self.secret_backend.get(account.secret_ref)
+        return self.secret_backend.get(account.tenant_id, account.secret_ref)
 
     @staticmethod
     def _require_tenant_admin(actor_roles: tuple[str, ...]) -> None:

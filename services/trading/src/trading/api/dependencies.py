@@ -33,10 +33,12 @@ def get_runtime_guard() -> RuntimeGuard:
     settings = get_settings()
     return RuntimeGuard(
         external_kms_configured=settings.secret_backend is SecretBackendType.KMS
-        and bool(settings.kms_url),
+        and bool(settings.kms_url)
+        and settings.kms_service_token is not None,
         fixed_egress_ip_configured=settings.fixed_egress_ip_configured,
         live_trading_enabled=settings.live_trading_enabled,
-        risk_service_configured=bool(settings.risk_service_url),
+        risk_service_configured=bool(settings.risk_service_url)
+        and settings.risk_service_token is not None,
     )
 
 
@@ -51,13 +53,13 @@ def get_secret_backend(
 ) -> SecretBackend:
     settings = get_settings()
     if settings.secret_backend is SecretBackendType.KMS:
-        if not settings.kms_url:
+        if not settings.kms_url or settings.kms_service_token is None:
             raise ServiceError(
                 code="trading.kms_unavailable",
                 message="External KMS is not configured",
                 status_code=503,
             )
-        token = settings.kms_access_token.get_secret_value() if settings.kms_access_token else None
+        token = settings.kms_service_token.get_secret_value()
         return HttpKmsSecretBackend(http, settings.kms_url, token)
     if settings.local_secret_encryption_key is None:
         raise ServiceError(
@@ -88,7 +90,17 @@ def get_risk_authorizer(
     settings = get_settings()
     if not settings.live_trading_enabled or not settings.risk_service_url:
         return DenyAllRiskAuthorizer()
-    return HttpRiskAuthorizer(http, settings.risk_service_url)
+    if settings.risk_service_token is None:
+        raise ServiceError(
+            code="trading.risk_unavailable",
+            message="Risk service is not configured",
+            status_code=503,
+        )
+    return HttpRiskAuthorizer(
+        http,
+        settings.risk_service_url,
+        settings.risk_service_token.get_secret_value(),
+    )
 
 
 def get_account_service(

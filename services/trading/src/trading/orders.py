@@ -482,7 +482,7 @@ class OrderService:
     def _credentials(self, account: TradingAccount) -> BinanceCredentials:
         if account.secret_ref is None or account.credential_type is None:
             raise TradingGuardError("account credentials are unavailable")
-        values = self.secret_backend.get(account.secret_ref)
+        values = self.secret_backend.get(account.tenant_id, account.secret_ref)
         return BinanceCredentials(
             api_key=values["api_key"],
             private_key_or_secret=values["private_key_or_secret"],

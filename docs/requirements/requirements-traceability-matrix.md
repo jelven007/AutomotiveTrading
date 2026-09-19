@@ -30,8 +30,8 @@
 | FR-TRD-015~017 | Binance Connector、KMS、Trading | TC-TRD-009 | Verified |
 | FR-TRD-018~019 | Binance Orders、Account Operations | TC-TRD-010~013 | Partial |
 | FR-TRD-020 | MFA、Risk Guard、Outbox | TC-TRD-009~013 | Partial |
-| FR-RSK-001~004 | Risk Service | TC-RSK-001~003 | Planned |
-| FR-RSK-005~007 | Binance Risk Guard | TC-RSK-004 | Planned |
+| FR-RSK-001~004 | Risk Service | TC-RSK-001~003 | Partial |
+| FR-RSK-005~007 | Binance Risk Guard | TC-RSK-004 | Partial |
 | FR-REC-* | Reconciliation Service | TC-REC-* | Planned |
 | FR-SAA-* | Subscription & Billing | TC-SAA-* | Planned |
 

@@ -29,6 +29,8 @@ def test_live_trading_requires_risk_service_and_fixed_egress() -> None:
             auth_jwt_secret="test-signing-secret-that-is-at-least-32-bytes",
             secret_backend="kms",
             kms_url="https://kms.internal",
+            kms_service_token="kms-service-token-that-is-at-least-32-bytes",
+            risk_service_token="risk-service-token-that-is-at-least-32-bytes",
             live_trading_enabled=True,
             fixed_egress_ip_configured=True,
         )
@@ -39,6 +41,43 @@ def test_live_trading_requires_risk_service_and_fixed_egress() -> None:
             auth_jwt_secret="test-signing-secret-that-is-at-least-32-bytes",
             secret_backend="kms",
             kms_url="https://kms.internal",
+            kms_service_token="kms-service-token-that-is-at-least-32-bytes",
             live_trading_enabled=True,
             risk_service_url="https://risk.internal",
+            risk_service_token="risk-service-token-that-is-at-least-32-bytes",
         )
+
+
+def test_production_requires_independent_kms_and_risk_tokens() -> None:
+    with pytest.raises(ValidationError, match="KMS service token"):
+        Settings(
+            environment="production",
+            auth_jwt_secret="test-signing-secret-that-is-at-least-32-bytes",
+            secret_backend="kms",
+            kms_url="https://kms.internal",
+        )
+
+    with pytest.raises(ValidationError, match="risk service token"):
+        Settings(
+            environment="production",
+            auth_jwt_secret="test-signing-secret-that-is-at-least-32-bytes",
+            secret_backend="kms",
+            kms_url="https://kms.internal",
+            kms_service_token="kms-service-token-that-is-at-least-32-bytes",
+        )
+
+
+@pytest.mark.parametrize("field", ["kms_service_token", "risk_service_token"])
+def test_production_rejects_short_internal_service_tokens(field: str) -> None:
+    values = {
+        "environment": "production",
+        "auth_jwt_secret": "test-signing-secret-that-is-at-least-32-bytes",
+        "secret_backend": "kms",
+        "kms_url": "https://kms.internal",
+        "kms_service_token": "kms-service-token-that-is-at-least-32-bytes",
+        "risk_service_token": "risk-service-token-that-is-at-least-32-bytes",
+    }
+    values[field] = "too-short"
+
+    with pytest.raises(ValidationError, match="at least 32"):
+        Settings(**values)
