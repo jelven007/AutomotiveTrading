@@ -18,8 +18,12 @@
 | QT-INT-001 | [交易通道接入计划](integrations/broker-integration-plan.md) | 同花顺、财信、富途、长桥、币安接入 |
 | QT-INT-BIN-001 | [币安生产准入状态](integrations/binance-production-readiness.md) | 已实现能力、缺口和真实资金闸门 |
 | QT-DES-TRD-001 | [交易帐号与币安接入设计](plans/2026-09-19-trading-account-and-binance-integration-design.md) | 交易页面、帐号绑定和币安生产交易设计 |
+| QT-SRS-CNMD-001 | [A 股行情与分析系统需求](requirements/a-share-market-data-requirements.md) | mootdx 全量持久化、Tushare 校验与前端需求 |
+| QT-DES-CNMD-001 | [A 股行情与前端分析设计](plans/2026-09-20-a-share-market-data-design.md) | 采集、存储、质量、API 和页面设计 |
+| QT-TP-CNMD-001 | [A 股行情测试计划](testing/a-share-market-data-test-plan.md) | 数据完整性、性能、恢复和前端验收 |
 | QT-PLAN-001 | [详细实施计划](plans/2026-09-18-quant-trading-saas-implementation-plan.md) | 任务、文件、测试和提交顺序 |
 | QT-PLAN-TRD-001 | [币安交易实施计划](plans/2026-09-19-binance-production-trading-implementation-plan.md) | 帐号、Connector、交易 API 和验证步骤 |
+| QT-PLAN-CNMD-001 | [A 股行情实施计划](plans/2026-09-20-a-share-market-data-implementation-plan.md) | 基础设施、数据流水线、前端与验收步骤 |
 
 ## 文档优先级
 

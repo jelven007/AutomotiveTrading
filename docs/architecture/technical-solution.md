@@ -2,7 +2,7 @@
 
 > 文档编号：QT-TDS-001
 >
-> 版本：1.1-draft
+> 版本：1.2-draft
 
 ## 1. 架构目标
 
@@ -50,6 +50,23 @@
 | reconciliation | 对账任务和差异 | 账户一致性 |
 | notification | 通知模板与投递 | 站内、邮件、短信、Webhook |
 | audit | 不可变审计记录 | 安全和业务审计 |
+
+### 3.1 A 股行情专项实现
+
+A 股行情一期由单一 `instrument-market` 服务承载，使用 mootdx 的
+`Quotes`、`Reader` 和 `Affair` 三类通道获取其可提供的全部数据，并使用
+Tushare 补充北交所主数据、历史数据和日终交叉校验。
+
+数据按职责写入：
+
+- MySQL：证券主数据、Provider 能力、任务、游标和质量事件。
+- ClickHouse：实时快照、分笔、K 线、财务指标和历史版本。
+- MinIO：不可变原始响应、TDX 文件、财务文件、F10 原文和 Parquet。
+- Redis：最新行情与短期推送状态。
+- Kafka/Redpanda：采集与持久化之间的可重放事件缓冲。
+
+详细设计、能力边界和前端交互见
+[`QT-DES-CNMD-001`](../plans/2026-09-20-a-share-market-data-design.md)。
 
 ## 4. 核心链路
 

@@ -2,7 +2,7 @@
 
 > 文档编号：QT-DM-001
 >
-> 版本：1.1-draft
+> 版本：1.2-draft
 
 ## 1. 建模规则
 
@@ -113,6 +113,31 @@ ClickHouse 排序键建议：
 instrument_id, interval, event_time, open, high, low, close, volume, turnover,
 adjustment, provider, source_version, ingested_at
 ```
+
+### A 股行情专项模型
+
+mootdx 原始与标准化数据不得混用同一张表。专项模型包含：
+
+```text
+market_quote_raw
+market_quote
+market_transaction
+corporate_action
+financial_metric
+block_membership_history
+ingest_observation
+provider_capability
+collector_job
+collector_checkpoint
+backfill_job
+data_quality_issue
+f10_document
+raw_object_manifest
+```
+
+其中高频事实写入 ClickHouse，控制面和当前主数据写入 MySQL，原始文件及
+响应写入 MinIO，最新行情投影写入 Redis。完整字段、分区、排序键和保留策略
+见 [`QT-DES-CNMD-001`](../plans/2026-09-20-a-share-market-data-design.md)。
 
 ## 5. 策略
 

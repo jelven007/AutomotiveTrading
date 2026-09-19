@@ -21,6 +21,8 @@
 | FR-HOME-* | Web BFF、Home Workspace | TC-HOME-* | Planned |
 | FR-NEWS-* | News Service | TC-NEWS-* | Planned |
 | FR-DATA-* | Instrument、Market Data | TC-DATA-* | Planned |
+| FR-CNMD-001~022 | Instrument Market、mootdx/Tushare、MySQL、ClickHouse、MinIO、Redis | TC-CNMD-001~013、TC-CNMD-REL-* | Planned |
+| FR-CNMD-023~028 | Web Data Workspace | TC-CNMD-WEB-* | Planned |
 | FR-STR-* | Strategy、Trigger | TC-STR-* | Planned |
 | FR-MDL-* | Model Configuration、KMS | TC-MDL-* | Planned |
 | FR-AI-* | Model Gateway、Portfolio Coordinator | TC-AI-* | Planned |
@@ -53,6 +55,9 @@
 | NFR-PERF-002 | 风控链路压测 | TC-PERF-002 | Planned |
 | NFR-PERF-003 | 事件触发压测 | TC-PERF-003 | Planned |
 | NFR-PERF-004 | WebSocket 容量测试 | TC-PERF-004 | Planned |
+| NFR-CNMD-001~003 | 全市场采集与查询压测 | QT-TP-CNMD-001 第 6 节 | Planned |
+| NFR-CNMD-004~007 | 重放、幂等与缓存恢复 | TC-CNMD-REL-* | Planned |
+| NFR-CNMD-008~010 | 前端性能、可访问性与敏感信息检查 | TC-CNMD-WEB-* | Planned |
 | NFR-OBS-* | 指标、日志、告警演练 | TC-OBS-* | Planned |
 | NFR-MNT-* | 架构与契约审查 | TC-ARC-* | Planned |
 

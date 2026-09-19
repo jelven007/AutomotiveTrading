@@ -219,6 +219,11 @@ GET /ws/v1?access_token=<short-lived-token>
 频道：
 
 - `quotes:{instrument_id}`
+- `quotes:cn:all`
+- `quotes:cn:watchlist:{watchlist_id}`
+- `quotes:cn:strategy:{strategy_id}`
+- `quality:cn`
+- `backfills:{job_id}`
 - `backtests:{task_id}`
 - `orders:{account_id}`
 - `balances:{account_id}`
@@ -228,6 +233,11 @@ GET /ws/v1?access_token=<short-lived-token>
 - `strategies:{strategy_id}`
 
 客户端必须支持断线重连、序列号检查和 REST 补偿查询。
+
+A 股行情 REST、WebSocket 和事件契约的专项设计见
+[`QT-DES-CNMD-001`](../plans/2026-09-20-a-share-market-data-design.md)。
+全市场频道只发送增量变化，客户端发现序列号缺口后必须停止合并并重新获取
+REST 快照。
 
 ## 7. 事件信封
 
