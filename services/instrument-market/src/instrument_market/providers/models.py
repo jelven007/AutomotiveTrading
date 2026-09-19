@@ -47,6 +47,7 @@ class QuoteRecord:
     provider: ProviderName | str = ProviderName.MOOTDX
     source_id: str = ""
     payload_hash: str = ""
+    quality_reasons: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.source_time.tzinfo is None or self.collected_at.tzinfo is None:

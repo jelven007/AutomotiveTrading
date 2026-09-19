@@ -15,8 +15,10 @@
 不兼容。生产部署必须将 mootdx 放在隔离采集 Sidecar 中，核心服务通过
 内部鉴权接口或 Kafka 接收原始数据，禁止为兼容 mootdx 降级全仓依赖。
 
-当前里程碑已完成服务骨架、核心标准化规则、ClickHouse DDL 与容器配置。
-真实 Provider 采集和 Kafka 消费者按实施计划后续任务继续实现。
+当前已接入独立 [mootdx Sidecar](../mootdx-collector/README.md)，由内部 HTTP 接收
+原始快照和证券/覆盖报告。MySQL 保存批次确认凭证，ClickHouse 保存原始行、
+标准行、源时间依据和质量原因；重试内容冲突返回 409，坏行隔离并保留原始内容。
+Kafka 消费者、MinIO 长期归档和 Redis 投影仍待后续实现。
 
 ## 验证
 

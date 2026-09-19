@@ -33,4 +33,7 @@ def database_is_ready() -> bool:
 
 
 def create_local_schema() -> None:
+    from instrument_market.storage.receipts import metadata as receipt_metadata
+
     Base.metadata.create_all(get_engine())
+    receipt_metadata.create_all(get_engine())

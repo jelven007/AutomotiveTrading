@@ -4,6 +4,7 @@ SHELL := /usr/bin/env bash
 
 bootstrap:
 	uv sync --all-packages
+	uv sync --directory services/mootdx-collector --frozen
 	pnpm install --frozen-lockfile=false
 
 check-workspace:
@@ -21,6 +22,7 @@ format:
 
 test:
 	uv run pytest
+	uv run --directory services/mootdx-collector pytest
 	pnpm test
 
 build:

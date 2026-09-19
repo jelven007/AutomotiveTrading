@@ -16,6 +16,7 @@ PUBLIC_PATHS = frozenset(
         "/docs",
         "/openapi.json",
         "/internal/v1/market/quotes",
+        "/internal/v1/market/reports",
     }
 )
 

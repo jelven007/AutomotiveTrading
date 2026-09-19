@@ -22,11 +22,13 @@ dev = [
 
 [tool.uv.workspace]
 members = ["packages/*", "services/*"]
-exclude = ["packages/contracts", "packages/ts-api-client", "services/.gitkeep"]
+exclude = ["packages/contracts", "packages/ts-api-client", "services/.gitkeep", "services/mootdx-collector"]
 
 [tool.pytest.ini_options]
 addopts = "-ra --import-mode=importlib"
 testpaths = ["packages", "services", "scripts/tests", "tests"]
+# Sidecar 使用自己的依赖与测试环境，避免根 pytest 混用两个 httpx 版本。
+norecursedirs = ["mootdx-collector", ".*", "node_modules", "dist", "build"]
 
 [tool.ruff]
 target-version = "py312"

@@ -15,6 +15,7 @@ usage() {
 命令：
   init      生成部署环境文件和强随机密钥
   up        构建镜像、执行迁移并启动全部服务
+  market-up  仅升级行情核心与采集 Sidecar，保留现有基础组件
   readonly-up  启动默认服务及币安只读 UAT Profile
   status    查看容器状态
   logs      查看日志，可追加服务名
@@ -56,6 +57,11 @@ upgrade_market_env() {
   append_env_if_missing TDX_DATA_PATH ""
   append_env_if_missing QUOTE_SHARD_COUNT 8
   append_env_if_missing QUOTE_SWEEP_SECONDS 2
+  append_env_if_missing MOOTDX_COLLECTOR_PORT 8010
+  append_env_if_missing COLLECTOR_CLOSED_SECONDS 300
+  append_env_if_missing COLLECTOR_ENDPOINTS ""
+  append_env_if_missing COLLECTOR_MAX_PENDING 10000
+  append_env_if_missing COLLECTOR_MAX_SPOOL_BYTES 10737418240
   chmod 600 "${ENV_FILE}"
 }
 
@@ -258,7 +264,7 @@ wait_for_jobs() {
 wait_for_services() {
   local services=(
     mysql redis clickhouse kafka minio mailpit
-    identity-tenant audit model-config instrument-market web
+    identity-tenant audit model-config instrument-market mootdx-collector web
   )
   if readonly_profile_enabled; then
     services+=(kms-adapter risk trading)
@@ -330,6 +336,16 @@ case "${command}" in
     echo "币安只读 UAT 部署完成：$(env_value PUBLIC_BASE_URL)"
     compose_cmd ps -a
     ;;
+  market-up)
+    require_deployment
+    compose_cmd config --quiet
+    compose_cmd build instrument-market-migrate mootdx-collector
+    compose_cmd run --rm --no-deps instrument-market-migrate
+    compose_cmd up -d --no-deps instrument-market
+    compose_cmd up -d --no-deps mootdx-collector
+    echo "行情服务已更新；请用 status 和 /status 核验采集覆盖与发送队列。"
+    compose_cmd ps instrument-market mootdx-collector
+    ;;
   status)
     require_deployment
     compose_cmd ps -a
@@ -341,7 +357,7 @@ case "${command}" in
     ;;
   restart)
     require_deployment
-    compose_cmd restart identity-tenant audit model-config instrument-market web
+    compose_cmd restart identity-tenant audit model-config instrument-market mootdx-collector web
     compose_cmd ps -a
     ;;
   down)

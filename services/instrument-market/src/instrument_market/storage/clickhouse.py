@@ -22,6 +22,7 @@ REQUIRED_TABLES = frozenset(
         "financial_metric",
         "block_membership_history",
         "ingest_observation",
+        "collector_report",
     }
 )
 
@@ -150,6 +151,22 @@ CREATE TABLE IF NOT EXISTS ingest_observation (
 ) ENGINE = MergeTree
 PARTITION BY toDate(observed_at)
 ORDER BY (dataset, observed_at, shard_id);
+
+CREATE TABLE IF NOT EXISTS collector_report (
+    batch_id UUID,
+    kind LowCardinality(String),
+    observed_at DateTime64(3, 'UTC'),
+    body String
+) ENGINE = ReplacingMergeTree
+PARTITION BY toYYYYMM(observed_at)
+ORDER BY (kind, batch_id);
+
+ALTER TABLE market_quote_raw ADD COLUMN IF NOT EXISTS batch_id String DEFAULT '';
+ALTER TABLE market_quote_raw ADD COLUMN IF NOT EXISTS row_index UInt32 DEFAULT 0;
+ALTER TABLE market_quote_raw ADD COLUMN IF NOT EXISTS metadata_json String DEFAULT '{}';
+ALTER TABLE market_quote ADD COLUMN IF NOT EXISTS batch_id String DEFAULT '';
+ALTER TABLE market_quote ADD COLUMN IF NOT EXISTS quality_reasons String DEFAULT '[]';
+ALTER TABLE market_quote ADD COLUMN IF NOT EXISTS metadata_json String DEFAULT '{}';
 """.strip()
 
 

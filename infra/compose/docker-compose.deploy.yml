@@ -281,6 +281,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  mootdx-collector:
+    build:
+      context: ../../services/mootdx-collector
+    image: qt/mootdx-collector:latest
+    environment:
+      COLLECTOR_CORE_URL: http://instrument-market:8000
+      MARKET_INGEST_SERVICE_TOKEN: ${MARKET_INGEST_SERVICE_TOKEN:-}
+      TUSHARE_TOKEN: ${TUSHARE_TOKEN:-}
+      COLLECTOR_SPOOL_PATH: /data/collector.sqlite3
+      COLLECTOR_WORKERS: ${QUOTE_SHARD_COUNT:-8}
+      COLLECTOR_SWEEP_SECONDS: ${QUOTE_SWEEP_SECONDS:-2}
+      COLLECTOR_CLOSED_SECONDS: ${COLLECTOR_CLOSED_SECONDS:-300}
+      COLLECTOR_ENDPOINTS: ${COLLECTOR_ENDPOINTS:-}
+      COLLECTOR_MAX_PENDING: ${COLLECTOR_MAX_PENDING:-10000}
+      COLLECTOR_MAX_SPOOL_BYTES: ${COLLECTOR_MAX_SPOOL_BYTES:-10737418240}
+    volumes:
+      - mootdx-collector-data:/data
+    ports:
+      - "127.0.0.1:${MOOTDX_COLLECTOR_PORT:-8010}:8010"
+    depends_on:
+      instrument-market:
+        condition: service_healthy
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 128
+    stop_grace_period: 90s
+    restart: unless-stopped
+
   # Web 是唯一公网入口，同时提供静态页面和同源 API 反向代理。
   web:
     build:
@@ -302,3 +330,4 @@ services:
 
 volumes:
   instrument-market-wal:
+  mootdx-collector-data:
