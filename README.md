@@ -11,4 +11,9 @@
 - [核心测试用例](docs/testing/test-cases.md)
 - [Ubuntu 单机部署指南](docs/operations/ubuntu-single-node-deployment.md)
 
+## 本地开发
+
+- Web 管理页面本地固定运行在 `http://127.0.0.1:6173`（Vite `strictPort`，端口占用时直接报错而非静默切换）。
+- 启动 Web：`pnpm --filter web dev`。
+
 在需求、外部交易通道和合规边界确认前，不进入真实资金交易。

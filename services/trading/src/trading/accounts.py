@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from trading.binance.errors import BinanceConnectorError
 from trading.models import (
     AccountScopeType,
     AccountStatus,
@@ -31,11 +32,15 @@ class AccountPermissionSnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     external_account_ref: str
+    ip_restricted: bool
     can_read: bool
     can_spot_trade: bool
     can_margin_trade: bool
     can_futures_trade: bool
     can_withdraw: bool
+    can_internal_transfer: bool
+    can_universal_transfer: bool
+    trading_authority_expiration_time_ms: int | None = None
 
 
 class AccountPermissionProbe(Protocol):
@@ -173,11 +178,15 @@ class TradingAccountService:
             status=AccountStatus.READ_ONLY,
             connection_status=ConnectionStatus.CONNECTED,
             trading_enabled=False,
+            ip_restricted=permissions.ip_restricted,
             can_read=permissions.can_read,
             can_spot_trade=permissions.can_spot_trade,
             can_margin_trade=permissions.can_margin_trade,
             can_futures_trade=permissions.can_futures_trade,
             can_withdraw=permissions.can_withdraw,
+            can_internal_transfer=permissions.can_internal_transfer,
+            can_universal_transfer=permissions.can_universal_transfer,
+            trading_authority_expiration_time_ms=(permissions.trading_authority_expiration_time_ms),
             last_permission_check_at=utc_now(),
             last_synced_at=utc_now(),
             created_by=actor_user_id,
@@ -250,29 +259,29 @@ class TradingAccountService:
         credential_type = account.credential_type
         if credential_type is None:
             raise ValueError("account credential type is unavailable")
-        permissions = self.permission_probe.inspect(
-            credential_type=credential_type,
-            api_key=credentials["api_key"],
-            private_key_or_secret=credentials["private_key_or_secret"],
-            scopes=tuple(scope.scope_type for scope in scopes),
-            isolated_symbols=tuple(
-                scope.symbol
-                for scope in scopes
-                if scope.scope_type is AccountScopeType.ISOLATED_MARGIN and scope.symbol is not None
-            ),
-        )
+        try:
+            permissions = self.permission_probe.inspect(
+                credential_type=credential_type,
+                api_key=credentials["api_key"],
+                private_key_or_secret=credentials["private_key_or_secret"],
+                scopes=tuple(scope.scope_type for scope in scopes),
+                isolated_symbols=tuple(
+                    scope.symbol
+                    for scope in scopes
+                    if scope.scope_type is AccountScopeType.ISOLATED_MARGIN
+                    and scope.symbol is not None
+                ),
+            )
+        except BinanceConnectorError:
+            self._disable_account(account, scopes)
+            raise
         account.last_permission_check_at = utc_now()
         self._apply_permissions(account, permissions)
-        if permissions.can_withdraw:
-            account.status = AccountStatus.DISABLED
-            account.connection_status = ConnectionStatus.ERROR
-            account.trading_enabled = False
-            for scope in scopes:
-                scope.enabled = False
-            self._publish_account(account, "trading.account.disabled")
-            self.session.commit()
-            raise ValueError("withdrawal permission is forbidden")
-        self._validate_read_permissions(permissions)
+        try:
+            self._validate_read_permissions(permissions)
+        except ValueError:
+            self._disable_account(account, scopes)
+            raise
         account.connection_status = ConnectionStatus.CONNECTED
         if account.status is AccountStatus.DISABLED:
             account.status = AccountStatus.READ_ONLY
@@ -376,6 +385,12 @@ class TradingAccountService:
     ) -> None:
         if permissions.can_withdraw:
             raise ValueError("withdrawal permission is forbidden")
+        if permissions.can_internal_transfer:
+            raise ValueError("internal transfer permission is forbidden")
+        if permissions.can_universal_transfer:
+            raise ValueError("universal transfer permission is forbidden")
+        if not permissions.ip_restricted:
+            raise ValueError("API key IP restriction is required")
         if not permissions.can_read:
             raise ValueError("account read permission is required")
 
@@ -386,10 +401,17 @@ class TradingAccountService:
         permissions: AccountPermissionSnapshot,
     ) -> None:
         cls._validate_read_permissions(permissions)
+        spot_margin_unexpired = (
+            permissions.trading_authority_expiration_time_ms is None
+            or permissions.trading_authority_expiration_time_ms
+            > int(datetime.now(UTC).timestamp() * 1000)
+        )
         checks = {
-            AccountScopeType.SPOT: permissions.can_spot_trade,
-            AccountScopeType.CROSS_MARGIN: permissions.can_margin_trade,
-            AccountScopeType.ISOLATED_MARGIN: permissions.can_margin_trade,
+            AccountScopeType.SPOT: permissions.can_spot_trade and spot_margin_unexpired,
+            AccountScopeType.CROSS_MARGIN: (permissions.can_margin_trade and spot_margin_unexpired),
+            AccountScopeType.ISOLATED_MARGIN: (
+                permissions.can_margin_trade and spot_margin_unexpired
+            ),
             AccountScopeType.USDM_FUTURES: permissions.can_futures_trade,
         }
         if missing := [scope.value for scope in scopes if not checks[scope]]:
@@ -434,11 +456,15 @@ class TradingAccountService:
     def _permission_snapshot(account: TradingAccount) -> AccountPermissionSnapshot:
         return AccountPermissionSnapshot(
             external_account_ref=account.external_account_ref or "",
+            ip_restricted=account.ip_restricted,
             can_read=account.can_read,
             can_spot_trade=account.can_spot_trade,
             can_margin_trade=account.can_margin_trade,
             can_futures_trade=account.can_futures_trade,
             can_withdraw=account.can_withdraw,
+            can_internal_transfer=account.can_internal_transfer,
+            can_universal_transfer=account.can_universal_transfer,
+            trading_authority_expiration_time_ms=(account.trading_authority_expiration_time_ms),
         )
 
     @staticmethod
@@ -447,11 +473,30 @@ class TradingAccountService:
         permissions: AccountPermissionSnapshot,
     ) -> None:
         account.external_account_ref = permissions.external_account_ref
+        account.ip_restricted = permissions.ip_restricted
         account.can_read = permissions.can_read
         account.can_spot_trade = permissions.can_spot_trade
         account.can_margin_trade = permissions.can_margin_trade
         account.can_futures_trade = permissions.can_futures_trade
         account.can_withdraw = permissions.can_withdraw
+        account.can_internal_transfer = permissions.can_internal_transfer
+        account.can_universal_transfer = permissions.can_universal_transfer
+        account.trading_authority_expiration_time_ms = (
+            permissions.trading_authority_expiration_time_ms
+        )
+
+    def _disable_account(
+        self,
+        account: TradingAccount,
+        scopes: list[TradingAccountScope],
+    ) -> None:
+        account.status = AccountStatus.DISABLED
+        account.connection_status = ConnectionStatus.ERROR
+        account.trading_enabled = False
+        for scope in scopes:
+            scope.enabled = False
+        self._publish_account(account, "trading.account.disabled")
+        self.session.commit()
 
     def _publish_account(self, account: TradingAccount, event_type: str) -> None:
         self.outbox.publish(

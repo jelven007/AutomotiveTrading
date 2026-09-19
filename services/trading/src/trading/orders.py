@@ -204,7 +204,7 @@ class OrderService:
             return self._view(existing)
 
         account = self._account(tenant_id, command.account_id)
-        self._validate_account(account)
+        self._validate_account(account, command.account_scope)
         self._validate_scope(tenant_id, account.id, command)
         self._ensure_kill_switch_inactive(tenant_id, account.id)
         approved = self.risk_authorizer.authorize(
@@ -437,11 +437,29 @@ class OrderService:
         return order
 
     @staticmethod
-    def _validate_account(account: TradingAccount) -> None:
+    def _validate_account(
+        account: TradingAccount,
+        scope: AccountScopeType,
+    ) -> None:
+        spot_margin_expired = (
+            scope
+            in {
+                AccountScopeType.SPOT,
+                AccountScopeType.CROSS_MARGIN,
+                AccountScopeType.ISOLATED_MARGIN,
+            }
+            and account.trading_authority_expiration_time_ms is not None
+            and account.trading_authority_expiration_time_ms
+            <= int(datetime.now(UTC).timestamp() * 1000)
+        )
         if (
             account.status is not AccountStatus.ACTIVE
             or not account.trading_enabled
+            or not account.ip_restricted
             or account.can_withdraw
+            or account.can_internal_transfer
+            or account.can_universal_transfer
+            or spot_margin_expired
         ):
             raise TradingGuardError("trading account is not enabled")
 

@@ -90,17 +90,63 @@ class BinanceClient:
             private_key_or_secret=private_key_or_secret,
             credential_type=credential_type,
         )
+        key_permissions = self.signed_request(
+            "GET",
+            "/sapi/v1/account/apiRestrictions",
+            credentials,
+        )
+        ip_restricted = self._required_boolean(key_permissions, "ipRestrict")
+        can_read = self._required_boolean(key_permissions, "enableReading")
+        spot_and_margin_trading = self._required_boolean(
+            key_permissions,
+            "enableSpotAndMarginTrading",
+        )
+        margin_enabled = self._required_boolean(key_permissions, "enableMargin")
+        can_futures_trade = self._required_boolean(key_permissions, "enableFutures")
+        can_withdraw = self._required_boolean(key_permissions, "enableWithdrawals")
+        can_internal_transfer = self._required_boolean(
+            key_permissions,
+            "enableInternalTransfer",
+        )
+        can_universal_transfer = self._required_boolean(
+            key_permissions,
+            "permitsUniversalTransfer",
+        )
+        expiration_time_ms = self._required_non_negative_integer(
+            key_permissions,
+            "tradingAuthorityExpirationTime",
+        )
+        trading_authority_expiration_time_ms = expiration_time_ms or None
+        fallback_ref = f"key-{sha256(api_key.encode()).hexdigest()[:16]}"
+        if (
+            not can_read
+            or can_withdraw
+            or can_internal_transfer
+            or can_universal_transfer
+            or not ip_restricted
+        ):
+            return AccountPermissionSnapshot(
+                external_account_ref=fallback_ref,
+                ip_restricted=ip_restricted,
+                can_read=can_read,
+                can_spot_trade=spot_and_margin_trading,
+                can_margin_trade=spot_and_margin_trading and margin_enabled,
+                can_futures_trade=can_futures_trade,
+                can_withdraw=can_withdraw,
+                can_internal_transfer=can_internal_transfer,
+                can_universal_transfer=can_universal_transfer,
+                trading_authority_expiration_time_ms=(trading_authority_expiration_time_ms),
+            )
+
         spot = self.signed_request("GET", "/api/v3/account", credentials)
         requested = set(scopes)
 
-        margin_checks: list[bool] = []
         if AccountScopeType.CROSS_MARGIN in requested:
-            cross = self.signed_request(
+            self.signed_request(
                 "GET",
                 "/sapi/v1/margin/account",
                 credentials,
             )
-            margin_checks.append(bool(cross.get("tradeEnabled")))
         if AccountScopeType.ISOLATED_MARGIN in requested:
             isolated = self.signed_request(
                 "GET",
@@ -109,28 +155,35 @@ class BinanceClient:
                 params={"symbols": ",".join(isolated_symbols)},
             )
             assets = isolated.get("assets", [])
-            margin_checks.append(
-                isinstance(assets, list)
-                and bool(assets)
-                and all(bool(asset.get("enabled", True)) for asset in assets)
-            )
+            enabled_symbols = {
+                str(asset.get("symbol", "")).upper()
+                for asset in assets
+                if isinstance(asset, dict) and asset.get("enabled") is True
+            }
+            if not set(isolated_symbols).issubset(enabled_symbols):
+                raise BinanceConnectorError(
+                    "binance.scope_unavailable",
+                    "Binance isolated margin scope is unavailable",
+                )
 
-        futures: dict[str, Any] = {}
         if AccountScopeType.USDM_FUTURES in requested:
-            futures = self.signed_request(
+            self.signed_request(
                 "GET",
                 "/fapi/v3/account",
                 credentials,
             )
 
-        fallback_ref = f"key-{sha256(api_key.encode()).hexdigest()[:16]}"
         return AccountPermissionSnapshot(
             external_account_ref=str(spot.get("uid") or fallback_ref),
-            can_read=True,
-            can_spot_trade=bool(spot.get("canTrade")),
-            can_margin_trade=all(margin_checks) if margin_checks else False,
-            can_futures_trade=bool(futures.get("canTrade")),
-            can_withdraw=bool(spot.get("canWithdraw")) or bool(futures.get("canWithdraw")),
+            ip_restricted=ip_restricted,
+            can_read=can_read,
+            can_spot_trade=spot_and_margin_trading,
+            can_margin_trade=spot_and_margin_trading and margin_enabled,
+            can_futures_trade=can_futures_trade,
+            can_withdraw=can_withdraw,
+            can_internal_transfer=can_internal_transfer,
+            can_universal_transfer=can_universal_transfer,
+            trading_authority_expiration_time_ms=trading_authority_expiration_time_ms,
         )
 
     def submit_order(
@@ -518,6 +571,26 @@ class BinanceClient:
         if isinstance(value, bool):
             return str(value).lower()
         return str(value)
+
+    @staticmethod
+    def _required_boolean(payload: Mapping[str, Any], field: str) -> bool:
+        value = payload.get(field)
+        if not isinstance(value, bool):
+            raise BinanceConnectorError(
+                "binance.response_invalid",
+                f"Binance API key permissions are missing {field}",
+            )
+        return value
+
+    @staticmethod
+    def _required_non_negative_integer(payload: Mapping[str, Any], field: str) -> int:
+        value = payload.get(field)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise BinanceConnectorError(
+                "binance.response_invalid",
+                f"Binance API key permissions are missing {field}",
+            )
+        return value
 
     @staticmethod
     def _response_json(response: httpx.Response) -> dict[str, Any]:

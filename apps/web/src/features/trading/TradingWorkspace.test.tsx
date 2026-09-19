@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BinanceTradingPage } from "../../pages/trading/BinanceTradingPage";
+import { renderWithAuth } from "../../test/authTestUtils";
 
 function jsonResponse(body: object, status = 200): Response {
   return {
@@ -45,7 +46,7 @@ describe("TradingWorkspace API integration", () => {
         ),
       );
     vi.stubGlobal("fetch", fetchMock);
-    render(
+    renderWithAuth(
       <MemoryRouter initialEntries={["/trading/binance"]}>
         <BinanceTradingPage />
       </MemoryRouter>,
@@ -89,34 +90,55 @@ describe("TradingWorkspace API integration", () => {
     );
   });
 
-  it("does not create a local account when the login session is missing", async () => {
+  it("does not open account entry when the login session is missing", async () => {
     const user = userEvent.setup();
-    render(
+    renderWithAuth(
       <MemoryRouter initialEntries={["/trading/binance"]}>
         <BinanceTradingPage />
       </MemoryRouter>,
+      {
+        status: "anonymous",
+        accessToken: null,
+        claims: null,
+        hasRecentMfa: () => false,
+      },
     );
 
     await user.click(screen.getByRole("button", { name: "添加帐号" }));
-    await user.type(
-      screen.getByRole("textbox", { name: "帐号别名" }),
-      "未保存帐号",
-    );
-    await user.type(screen.getByLabelText("API Key"), "api-key-sensitive");
-    await user.type(
-      screen.getByLabelText("Ed25519 私钥"),
-      "private-key-sensitive",
-    );
-    await user.click(
-      screen.getByRole("checkbox", {
-        name: "已配置固定出口 IP 白名单",
-      }),
-    );
-    await user.click(screen.getByRole("button", { name: "保存为只读帐号" }));
 
     expect(
-      await screen.findByText("登录会话不可用，帐号未保存。"),
+      await screen.findByText("只有租户管理员可以添加交易帐号。"),
     ).toBeInTheDocument();
-    expect(screen.queryByText("未保存帐号")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "添加交易帐号" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("requires recent MFA before opening Binance credential entry", async () => {
+    const user = userEvent.setup();
+    const verifyMfa = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse([])));
+    renderWithAuth(
+      <MemoryRouter initialEntries={["/trading/binance"]}>
+        <BinanceTradingPage />
+      </MemoryRouter>,
+      {
+        verifyMfa,
+        hasRecentMfa: () => false,
+      },
+    );
+
+    await user.click(screen.getByRole("button", { name: "添加帐号" }));
+    expect(
+      screen.getByRole("dialog", { name: "验证身份" }),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("动态验证码"), "123456");
+    await user.click(screen.getByRole("button", { name: "验证并继续" }));
+
+    await waitFor(() => expect(verifyMfa).toHaveBeenCalledWith("123456"));
+    expect(
+      screen.getByRole("dialog", { name: "添加交易帐号" }),
+    ).toBeInTheDocument();
   });
 });

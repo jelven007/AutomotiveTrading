@@ -17,6 +17,7 @@ from trading.models import (
     TradingAccountScope,
     TradingProvider,
 )
+from trading.orders import TradingGuardError
 from trading.secrets import InMemoryEncryptedSecretBackend
 
 
@@ -67,11 +68,14 @@ def account_and_secrets(
         status=AccountStatus.ACTIVE,
         connection_status=ConnectionStatus.CONNECTED,
         trading_enabled=True,
+        ip_restricted=True,
         can_read=True,
         can_spot_trade=True,
         can_margin_trade=True,
         can_futures_trade=True,
         can_withdraw=False,
+        can_internal_transfer=False,
+        can_universal_transfer=False,
         created_by="user-a",
     )
     session.add(account)
@@ -155,6 +159,49 @@ def test_margin_transactions_are_idempotent(
     assert first.status == "completed"
     assert repeated.id == first.id
     assert len(connector.calls) == 1
+
+
+def test_expired_trading_authority_blocks_borrow_but_allows_repayment(
+    session: Session,
+) -> None:
+    account, secret_backend = account_and_secrets(session)
+    account.trading_authority_expiration_time_ms = 1
+    session.commit()
+    connector = StubAccountConnector()
+    operations = AccountOperationsService(
+        session,
+        secret_backend,
+        connector,
+        StubRiskAuthorizer(),
+    )
+    command = MarginTransactionCommand(
+        account_id=account.id,
+        account_scope="cross_margin",
+        asset="USDT",
+        amount="10",
+    )
+
+    with pytest.raises(TradingGuardError, match="not enabled"):
+        operations.margin_transaction(
+            tenant_id="tenant-a",
+            actor_roles=("trader",),
+            mfa_verified_at=datetime.now(UTC),
+            idempotency_key="expired-borrow",
+            risk_approval_token="risk-approved",
+            action="BORROW",
+            command=command,
+        )
+
+    repaid = operations.margin_transaction(
+        tenant_id="tenant-a",
+        actor_roles=("trader",),
+        mfa_verified_at=datetime.now(UTC),
+        idempotency_key="expired-repay",
+        risk_approval_token="",
+        action="REPAY",
+        command=command,
+    )
+    assert repaid.status == "completed"
 
 
 def test_futures_leverage_respects_platform_cap_and_risk_approval(

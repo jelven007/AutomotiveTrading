@@ -20,18 +20,19 @@
 - Web 可将 `/api/v1/trading` 请求代理到 Trading Service。
 - 默认云端部署不自动启用币安只读链路，必须显式执行 `readonly-up`。
 
-真实余额和持仓的页面展示、登录/MFA 页面不属于本阶段。
+真实余额和持仓的页面展示不属于本阶段；登录、注册和按需 MFA 已在后续实现中补齐。
 
 ## 2. 只读绑定语义
 
 帐号绑定与交易启用使用不同校验：
 
-- 绑定：要求 Binance 身份有效、读取接口可访问、提现权限关闭。
+- 绑定：通过 `/sapi/v1/account/apiRestrictions` 要求读取权限开启、IP 限制开启，
+  提现、内部划转和通用划转权限关闭。
 - 绑定：访问用户选中的现货、全仓、逐仓、U 本位接口，验证产品可用性，但不要求
-  `canTrade=true`。
+  帐户接口中的 `canTrade=true`。
 - 绑定成功：状态固定为 `read_only`，所有 Scope 固定为 `enabled=false`。
 - 启用交易：要求近期 MFA、KMS、Risk、固定出口和全局交易开关全部就绪，并重新
-  校验每个 Scope 的交易权限。
+  从 API Key 权限接口校验每个 Scope 的交易权限及交易权限有效期。
 
 这样可以先使用真正的只读 Key 完成数据验证，避免为查看资产而提前授予交易权限。
 
@@ -67,7 +68,8 @@ KMS、Risk、Trading 的 Alembic 迁移。
 ## 5. 安全边界
 
 - `LIVE_TRADING_ENABLED=false` 固定为只读阶段默认值。
-- API Key 禁止提现权限；检测到提现权限立即拒绝绑定。
+- API Key 强制启用 IP 限制并禁止提现、内部划转和通用划转权限；检测到不安全
+  配置立即拒绝绑定或停用已绑定帐号。
 - Binance Secret/私钥只经 Trading 内存传递到 KMS Broker，不进入业务数据库、
   日志或错误响应。
 - KMS、Risk 使用不同随机服务令牌。

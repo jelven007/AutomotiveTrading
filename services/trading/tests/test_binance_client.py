@@ -31,21 +31,43 @@ def credentials() -> BinanceCredentials:
     )
 
 
+def api_key_permissions(**overrides: bool | int) -> dict[str, bool | int]:
+    permissions: dict[str, bool | int] = {
+        "ipRestrict": True,
+        "enableReading": True,
+        "enableSpotAndMarginTrading": False,
+        "enableMargin": False,
+        "enableFutures": False,
+        "enableWithdrawals": False,
+        "enableInternalTransfer": False,
+        "permitsUniversalTransfer": False,
+        "tradingAuthorityExpirationTime": 0,
+    }
+    permissions.update(overrides)
+    return permissions
+
+
 def test_permission_probe_checks_spot_margin_and_futures_without_leaking_secret() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         responses = {
             "/api/v3/time": {"serverTime": 1_700_000_000_100},
             "/fapi/v1/time": {"serverTime": 1_700_000_000_120},
+            "/sapi/v1/account/apiRestrictions": api_key_permissions(
+                enableSpotAndMarginTrading=True,
+                enableMargin=True,
+                enableFutures=True,
+                tradingAuthorityExpirationTime=1_800_000_000_000,
+            ),
             "/api/v3/account": {
                 "uid": 42,
-                "canTrade": True,
-                "canWithdraw": False,
+                "canTrade": False,
+                "canWithdraw": True,
             },
-            "/sapi/v1/margin/account": {"tradeEnabled": True},
+            "/sapi/v1/margin/account": {"tradeEnabled": False},
             "/sapi/v1/margin/isolated/account": {
                 "assets": [{"symbol": "BTCUSDT", "enabled": True}]
             },
-            "/fapi/v3/account": {"canTrade": True, "canWithdraw": False},
+            "/fapi/v3/account": {"canTrade": False, "canWithdraw": True},
         }
         return httpx.Response(200, json=responses[request.url.path])
 
@@ -61,16 +83,21 @@ def test_permission_probe_checks_spot_margin_and_futures_without_leaking_secret(
 
     assert result == AccountPermissionSnapshot(
         external_account_ref="42",
+        ip_restricted=True,
         can_read=True,
         can_spot_trade=True,
         can_margin_trade=True,
         can_futures_trade=True,
         can_withdraw=False,
+        can_internal_transfer=False,
+        can_universal_transfer=False,
+        trading_authority_expiration_time_ms=1_800_000_000_000,
     )
     paths = {request.url.path for request in requests}
     assert {
         "/api/v3/time",
         "/fapi/v1/time",
+        "/sapi/v1/account/apiRestrictions",
         "/api/v3/account",
         "/sapi/v1/margin/account",
         "/sapi/v1/margin/isolated/account",
@@ -81,6 +108,91 @@ def test_permission_probe_checks_spot_margin_and_futures_without_leaking_secret(
         assert "hmac-secret" not in str(request.url)
         if "signature" in request.url.params:
             assert int(request.url.params["recvWindow"]) <= 5_000
+
+
+def test_permission_probe_fails_closed_when_a_key_permission_is_missing() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v3/time":
+            return httpx.Response(200, json={"serverTime": 1_700_000_000_000})
+        permissions = api_key_permissions()
+        permissions.pop("permitsUniversalTransfer")
+        return httpx.Response(200, json=permissions)
+
+    client, _ = mock_client(handler)
+
+    with pytest.raises(BinanceConnectorError) as captured:
+        client.inspect(
+            credential_type=CredentialType.HMAC,
+            api_key="production-api-key",
+            private_key_or_secret="hmac-secret",
+            scopes=(AccountScopeType.SPOT,),
+            isolated_symbols=(),
+        )
+
+    assert captured.value.code == "binance.response_invalid"
+    assert "permitsUniversalTransfer" in str(captured.value)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "attribute"),
+    [
+        ("ipRestrict", False, "ip_restricted"),
+        ("enableWithdrawals", True, "can_withdraw"),
+        ("enableInternalTransfer", True, "can_internal_transfer"),
+        ("permitsUniversalTransfer", True, "can_universal_transfer"),
+    ],
+)
+def test_permission_probe_maps_unsafe_api_key_restrictions(
+    field: str,
+    value: bool,
+    attribute: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v3/time":
+            return httpx.Response(200, json={"serverTime": 1_700_000_000_000})
+        return httpx.Response(200, json=api_key_permissions(**{field: value}))
+
+    client, requests = mock_client(handler)
+
+    result = client.inspect(
+        credential_type=CredentialType.HMAC,
+        api_key="production-api-key",
+        private_key_or_secret="hmac-secret",
+        scopes=(AccountScopeType.SPOT,),
+        isolated_symbols=(),
+    )
+
+    assert getattr(result, attribute) is value
+    assert {request.url.path for request in requests} == {
+        "/api/v3/time",
+        "/sapi/v1/account/apiRestrictions",
+    }
+
+
+def test_permission_probe_requires_every_requested_isolated_symbol() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        responses = {
+            "/api/v3/time": {"serverTime": 1_700_000_000_000},
+            "/sapi/v1/account/apiRestrictions": api_key_permissions(),
+            "/api/v3/account": {"uid": 42},
+            "/sapi/v1/margin/isolated/account": {
+                "assets": [{"symbol": "ETHUSDT", "enabled": True}]
+            },
+        }
+        return httpx.Response(200, json=responses[request.url.path])
+
+    client, _ = mock_client(handler)
+
+    with pytest.raises(BinanceConnectorError) as captured:
+        client.inspect(
+            credential_type=CredentialType.HMAC,
+            api_key="production-api-key",
+            private_key_or_secret="hmac-secret",
+            scopes=(AccountScopeType.ISOLATED_MARGIN,),
+            isolated_symbols=("BTCUSDT",),
+        )
+
+    assert captured.value.code == "binance.scope_unavailable"
 
 
 @pytest.mark.parametrize(

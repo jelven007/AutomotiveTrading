@@ -1,12 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
+import { renderWithAuth } from "../test/authTestUtils";
 import { AppShell } from "./AppShell";
 
 function renderShell(initialPath = "/") {
-  return render(
+  return renderWithAuth(
     <MemoryRouter initialEntries={[initialPath]}>
       <AppShell />
     </MemoryRouter>,

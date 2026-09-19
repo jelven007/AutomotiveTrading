@@ -26,11 +26,14 @@ class AllowingPermissionProbe:
     def inspect(self, **_: object) -> AccountPermissionSnapshot:
         return AccountPermissionSnapshot(
             external_account_ref="42",
+            ip_restricted=True,
             can_read=True,
             can_spot_trade=True,
             can_margin_trade=True,
             can_futures_trade=True,
             can_withdraw=False,
+            can_internal_transfer=False,
+            can_universal_transfer=False,
         )
 
 

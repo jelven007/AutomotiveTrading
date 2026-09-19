@@ -196,6 +196,7 @@ class AccountOperationsService:
             self._require_risk_increase_allowed(
                 tenant_id,
                 account,
+                command.account_scope,
                 command.model_dump(mode="json"),
                 risk_approval_token,
             )
@@ -247,6 +248,7 @@ class AccountOperationsService:
         self._require_risk_increase_allowed(
             tenant_id,
             account,
+            AccountScopeType.USDM_FUTURES,
             command.model_dump(mode="json"),
             risk_approval_token,
         )
@@ -370,10 +372,30 @@ class AccountOperationsService:
         self,
         tenant_id: str,
         account: TradingAccount,
+        scope: AccountScopeType,
         payload: dict[str, Any],
         approval_token: str,
     ) -> None:
-        if account.status is not AccountStatus.ACTIVE or not account.trading_enabled:
+        spot_margin_expired = (
+            scope
+            in {
+                AccountScopeType.SPOT,
+                AccountScopeType.CROSS_MARGIN,
+                AccountScopeType.ISOLATED_MARGIN,
+            }
+            and account.trading_authority_expiration_time_ms is not None
+            and account.trading_authority_expiration_time_ms
+            <= int(datetime.now(UTC).timestamp() * 1000)
+        )
+        if (
+            account.status is not AccountStatus.ACTIVE
+            or not account.trading_enabled
+            or not account.ip_restricted
+            or account.can_withdraw
+            or account.can_internal_transfer
+            or account.can_universal_transfer
+            or spot_margin_expired
+        ):
             raise TradingGuardError("trading account is not enabled")
         switch = self.session.scalar(
             select(KillSwitch.id).where(

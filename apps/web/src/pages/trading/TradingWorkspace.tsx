@@ -8,11 +8,12 @@ import {
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 
+import { useAuth } from "../../features/auth/AuthContext";
+import { MfaDialog } from "../../features/auth/MfaDialog";
 import { AccountBindingDialog } from "../../features/trading/AccountBindingDialog";
 import {
   bindTradingAccount,
   fetchTradingAccounts,
-  getTradingAccessToken,
   TradingApiError,
 } from "../../features/trading/api";
 import type {
@@ -63,15 +64,17 @@ export function TradingWorkspace({
   providers,
   products,
 }: Props) {
+  const auth = useAuth();
   const providerNames = providers.map((provider) => providerLabels[provider]);
   const isBinance = marketGroup === "binance";
+  const [showMfa, setShowMfa] = useState(false);
   const [showBinding, setShowBinding] = useState(false);
   const [accounts, setAccounts] = useState<TradingAccount[]>([]);
   const [activeProduct, setActiveProduct] = useState(products?.[0]?.id);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    const accessToken = getTradingAccessToken();
+    const accessToken = auth.accessToken;
     if (!accessToken) {
       return;
     }
@@ -92,10 +95,10 @@ export function TradingWorkspace({
     return () => {
       active = false;
     };
-  }, [marketGroup]);
+  }, [auth.accessToken, marketGroup]);
 
   async function saveAccount(draft: TradingAccountDraft) {
-    const accessToken = getTradingAccessToken();
+    const accessToken = auth.accessToken;
     if (!accessToken) {
       setNotice("登录会话不可用，帐号未保存。");
       setShowBinding(false);
@@ -112,6 +115,18 @@ export function TradingWorkspace({
     } finally {
       setShowBinding(false);
     }
+  }
+
+  function beginAccountBinding() {
+    if (!auth.claims?.roles.includes("tenant_admin")) {
+      setNotice("只有租户管理员可以添加交易帐号。");
+      return;
+    }
+    if (isBinance && !auth.hasRecentMfa()) {
+      setShowMfa(true);
+      return;
+    }
+    setShowBinding(true);
   }
 
   return (
@@ -139,7 +154,7 @@ export function TradingWorkspace({
         <div className="page-actions">
           <button
             className="button button--primary"
-            onClick={() => setShowBinding(true)}
+            onClick={beginAccountBinding}
           >
             <Plus size={16} />
             添加帐号
@@ -321,6 +336,15 @@ export function TradingWorkspace({
           providers={providers}
           onCancel={() => setShowBinding(false)}
           onSave={saveAccount}
+        />
+      )}
+      {showMfa && (
+        <MfaDialog
+          onCancel={() => setShowMfa(false)}
+          onVerified={() => {
+            setShowMfa(false);
+            setShowBinding(true);
+          }}
         />
       )}
     </div>

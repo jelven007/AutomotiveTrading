@@ -51,6 +51,7 @@ def test_registration_and_login_issue_oidc_compatible_token(
     assert claims["sid"]
     assert claims["jti"]
     assert claims["exp"] > claims["iat"]
+    assert claims["mfa_enabled"] is False
 
 
 def test_refresh_token_rotates_and_replay_revokes_session_family(
@@ -125,6 +126,8 @@ def test_totp_secret_is_encrypted_and_mfa_timestamp_is_recorded(
     assert user.mfa_enabled is True
     assert user.mfa_confirmed_at is not None
     assert user.mfa_confirmed_at <= datetime.now(UTC).replace(tzinfo=None)
+    with pytest.raises(AuthenticationError, match="already configured"):
+        auth_service.begin_totp_enrollment(registration.user_id)
 
 
 def test_totp_verification_marks_session_for_high_risk_operations(
@@ -161,6 +164,7 @@ def test_totp_verification_marks_session_for_high_risk_operations(
         issuer=auth_service.settings.issuer,
     )
     assert claims["amr"] == ["pwd", "otp"]
+    assert claims["mfa_enabled"] is True
     assert claims["mfa_time"] <= int(datetime.now(UTC).timestamp())
     assert claims["mfa_time"] > claims["iat"] - 2
 

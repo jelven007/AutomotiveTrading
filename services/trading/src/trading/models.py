@@ -3,7 +3,17 @@ from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from trading.db import Base
@@ -99,11 +109,15 @@ class TradingAccount(Base):
         Enum(ConnectionStatus, native_enum=False, values_callable=enum_values)
     )
     trading_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    ip_restricted: Mapped[bool] = mapped_column(Boolean, default=False)
     can_read: Mapped[bool] = mapped_column(Boolean, default=False)
     can_spot_trade: Mapped[bool] = mapped_column(Boolean, default=False)
     can_margin_trade: Mapped[bool] = mapped_column(Boolean, default=False)
     can_futures_trade: Mapped[bool] = mapped_column(Boolean, default=False)
     can_withdraw: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_internal_transfer: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_universal_transfer: Mapped[bool] = mapped_column(Boolean, default=True)
+    trading_authority_expiration_time_ms: Mapped[int | None] = mapped_column(BigInteger)
     last_permission_check_at: Mapped[datetime | None] = mapped_column(DateTime)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_by: Mapped[str] = mapped_column(String(36), nullable=False)

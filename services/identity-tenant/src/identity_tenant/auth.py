@@ -229,6 +229,8 @@ class AuthService:
         user = self.session.get(User, user_id)
         if user is None:
             raise AuthenticationError("user not found")
+        if user.mfa_enabled:
+            raise AuthenticationError("TOTP is already configured")
         secret = pyotp.random_base32()
         user.totp_secret_encrypted = self.totp_cipher.encrypt(secret.encode()).decode()
         user.mfa_enabled = False
@@ -319,6 +321,7 @@ class AuthService:
         roles: list[Role],
     ) -> str:
         now = datetime.now(UTC)
+        user = self.session.get(User, auth_session.user_id)
         claims = {
             "iss": self.settings.issuer,
             "aud": self.settings.audience,
@@ -341,6 +344,7 @@ class AuthService:
             "exp": now + timedelta(seconds=self.settings.access_token_ttl_seconds),
             "auth_time": int(auth_session.created_at.replace(tzinfo=UTC).timestamp()),
             "amr": ["pwd"] + (["otp"] if auth_session.mfa_verified_at else []),
+            "mfa_enabled": bool(user and user.mfa_enabled),
             "mfa_time": (
                 int(auth_session.mfa_verified_at.replace(tzinfo=UTC).timestamp())
                 if auth_session.mfa_verified_at

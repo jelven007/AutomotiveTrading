@@ -6,6 +6,7 @@ import type {
   TradingAccountDraft,
   TradingProvider,
 } from "./types";
+import { readAccessToken } from "../auth/session";
 
 type AccountResponse = {
   id: string;
@@ -34,7 +35,7 @@ export class TradingApiError extends Error {
 }
 
 export function getTradingAccessToken(): string | null {
-  return sessionStorage.getItem("qt.access_token");
+  return readAccessToken();
 }
 
 export async function fetchTradingAccounts(

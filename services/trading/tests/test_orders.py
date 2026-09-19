@@ -82,11 +82,14 @@ def enabled_account(
         status=AccountStatus.ACTIVE,
         connection_status=ConnectionStatus.CONNECTED,
         trading_enabled=True,
+        ip_restricted=True,
         can_read=True,
         can_spot_trade=True,
         can_margin_trade=True,
         can_futures_trade=True,
         can_withdraw=False,
+        can_internal_transfer=False,
+        can_universal_transfer=False,
         created_by="user-a",
     )
     session.add(account)
@@ -267,6 +270,43 @@ def test_order_guards_fail_closed(
             actor_roles=roles,
             mfa_verified_at=datetime.now(UTC) - timedelta(seconds=mfa_age),
             idempotency_key=f"guard-{expected}",
+            risk_approval_token="risk-approved",
+            command=command(account.id, AccountScopeType.SPOT),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("ip_restricted", False),
+        ("can_withdraw", True),
+        ("can_internal_transfer", True),
+        ("can_universal_transfer", True),
+        ("trading_authority_expiration_time_ms", 1),
+    ],
+)
+def test_order_guard_rejects_unsafe_api_key_permissions(
+    session: Session,
+    field: str,
+    value: bool | int,
+) -> None:
+    secret_backend = InMemoryEncryptedSecretBackend()
+    account = enabled_account(session, secret_backend)
+    setattr(account, field, value)
+    session.commit()
+    order_service = OrderService(
+        session,
+        secret_backend,
+        StubExecutionConnector(),
+        StubRiskAuthorizer(),
+    )
+
+    with pytest.raises(TradingGuardError, match="not enabled"):
+        order_service.submit(
+            tenant_id="tenant-a",
+            actor_roles=("trader",),
+            mfa_verified_at=datetime.now(UTC),
+            idempotency_key=f"unsafe-{field}",
             risk_approval_token="risk-approved",
             command=command(account.id, AccountScopeType.SPOT),
         )
