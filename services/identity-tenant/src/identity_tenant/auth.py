@@ -341,6 +341,11 @@ class AuthService:
             "exp": now + timedelta(seconds=self.settings.access_token_ttl_seconds),
             "auth_time": int(auth_session.created_at.replace(tzinfo=UTC).timestamp()),
             "amr": ["pwd"] + (["otp"] if auth_session.mfa_verified_at else []),
+            "mfa_time": (
+                int(auth_session.mfa_verified_at.replace(tzinfo=UTC).timestamp())
+                if auth_session.mfa_verified_at
+                else None
+            ),
         }
         return jwt.encode(
             claims,

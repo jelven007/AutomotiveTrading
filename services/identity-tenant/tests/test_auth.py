@@ -161,6 +161,8 @@ def test_totp_verification_marks_session_for_high_risk_operations(
         issuer=auth_service.settings.issuer,
     )
     assert claims["amr"] == ["pwd", "otp"]
+    assert claims["mfa_time"] <= int(datetime.now(UTC).timestamp())
+    assert claims["mfa_time"] > claims["iat"] - 2
 
 
 def test_wrong_password_is_rejected(auth_service: AuthService) -> None:
