@@ -2,7 +2,7 @@
 
 > 文档编号：QT-DM-001
 >
-> 版本：1.0-draft
+> 版本：1.1-draft
 
 ## 1. 建模规则
 
@@ -87,7 +87,8 @@ input_tokens, output_tokens, cost, latency_ms, status, error_code, created_at
 ### instrument
 
 ```text
-id, market, exchange, symbol, name, currency, timezone, lot_size, status
+id, asset_class, market, exchange, symbol, base_asset, quote_asset, name,
+currency, timezone, lot_size, price_tick, quantity_step, status
 UNIQUE(market, exchange, symbol)
 ```
 
@@ -170,18 +171,44 @@ status, created_at
 ### trading_account
 
 ```text
-id, tenant_id, broker_type, environment, external_account_ref, secret_ref,
-currency, status, connection_status, last_synced_at
+id, tenant_id, market_group, provider, environment, external_account_ref,
+credential_type, api_key_fingerprint, secret_ref, currency, status,
+connection_status, trading_enabled, last_permission_check_at, last_synced_at,
+created_by, created_at, updated_at
 ```
+
+约束：
+
+- `market_group` 为 `cn_equity|hk_us_equity|binance`。
+- `provider` 一期为
+  `tonghuashun|caixin|futu|longbridge|binance`。
+- 币安生产帐号禁止保存明文 API Key、Secret 或私钥。
+- 币安帐号必须记录查询、现货交易、杠杆交易、合约交易和提现权限检查结果；
+  检测到提现权限时不得启用。
+
+### trading_account_scope
+
+```text
+id, tenant_id, account_id, scope_type, scope_key, symbol, enabled, status,
+position_mode, margin_mode, leverage_limit, last_synced_at
+UNIQUE(tenant_id, account_id, scope_type, scope_key)
+```
+
+`scope_type` 为
+`spot|cross_margin|isolated_margin|usdm_futures`。逐仓杠杆必须填写
+`symbol`，且 `scope_key` 使用交易对；其他 Scope 的 `symbol` 为空，
+`scope_key` 固定为 `global`，避免 MySQL 对 `NULL` 唯一键的特殊语义。
 
 ### order
 
 ```text
 id, tenant_id, account_id, client_order_id, broker_order_id,
-instrument_id, side, order_type, quantity, limit_price, filled_quantity,
-average_price, status, source, decision_id, idempotency_key,
-submitted_at, updated_at
+account_scope, instrument_id, side, position_side, order_type, time_in_force,
+quantity, limit_price, stop_price, reduce_only, margin_side_effect,
+filled_quantity, average_price, status, source, decision_id, idempotency_key,
+request_fingerprint, submitted_at, updated_at
 UNIQUE(tenant_id, idempotency_key)
+UNIQUE(tenant_id, account_id, client_order_id)
 ```
 
 ### execution
@@ -197,6 +224,54 @@ UNIQUE(tenant_id, account_id, broker_execution_id)
 ```text
 tenant_id, account_id, instrument_id, total_quantity, sellable_quantity,
 average_cost, market_value, unrealized_pnl, snapshot_at
+```
+
+### margin_asset_snapshot
+
+```text
+id, tenant_id, account_id, account_scope, symbol, asset, free, locked,
+borrowed, interest, net_asset, margin_level, margin_level_status,
+liquidation_price, snapshot_at
+```
+
+全仓杠杆的 `symbol` 为空；逐仓杠杆按交易对保存。风险快照只能追加，
+最新状态通过派生视图查询。
+
+### margin_loan
+
+```text
+id, tenant_id, account_id, account_scope, symbol, asset, operation,
+amount, external_transaction_id, status, idempotency_key, requested_by,
+requested_at, completed_at
+UNIQUE(tenant_id, idempotency_key)
+UNIQUE(tenant_id, account_id, external_transaction_id)
+```
+
+`operation` 为 `borrow|repay`。待处理借还款不得并发重试。
+
+### futures_position_snapshot
+
+```text
+id, tenant_id, account_id, instrument_id, position_side, margin_mode,
+leverage, quantity, entry_price, mark_price, liquidation_price,
+initial_margin, maintenance_margin, unrealized_pnl, snapshot_at
+```
+
+### account_transfer
+
+```text
+id, tenant_id, account_id, from_scope, to_scope, asset, amount,
+external_transaction_id, status, idempotency_key, requested_by,
+requested_at, completed_at
+UNIQUE(tenant_id, idempotency_key)
+```
+
+### funding_payment
+
+```text
+id, tenant_id, account_id, instrument_id, external_transaction_id,
+funding_rate, amount, asset, occurred_at
+UNIQUE(tenant_id, account_id, external_transaction_id)
 ```
 
 ### ledger_entry

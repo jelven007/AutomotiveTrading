@@ -15,7 +15,8 @@
 | QT-UAT-001 | [验收与发布准入](testing/acceptance-plan.md) | 业务验收与上线关卡 |
 | QT-SEC-001 | [安全与威胁模型](security/security-and-threat-model.md) | 威胁、控制和安全验收 |
 | QT-OPS-001 | [部署与运维方案](operations/deployment-and-operations.md) | 火山引擎部署、监控和 Runbook |
-| QT-INT-001 | [交易通道接入计划](integrations/broker-integration-plan.md) | 富途、同花顺、财信接入 |
+| QT-INT-001 | [交易通道接入计划](integrations/broker-integration-plan.md) | 同花顺、财信、富途、长桥、币安接入 |
+| QT-DES-TRD-001 | [交易帐号与币安接入设计](plans/2026-09-19-trading-account-and-binance-integration-design.md) | 交易页面、帐号绑定和币安生产交易设计 |
 | QT-PLAN-001 | [详细实施计划](plans/2026-09-18-quant-trading-saas-implementation-plan.md) | 任务、文件、测试和提交顺序 |
 
 ## 文档优先级

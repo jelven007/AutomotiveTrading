@@ -2,7 +2,7 @@
 
 > 文档编号：QT-TDS-001
 >
-> 版本：1.0-draft
+> 版本：1.1-draft
 
 ## 1. 架构目标
 
@@ -34,7 +34,7 @@
 | --- | --- | --- |
 | identity-tenant | 用户、租户、角色、会话 | 登录、MFA、RBAC、租户上下文 |
 | subscription-billing | 套餐、权益、用量 | 配额校验、计量和账单 |
-| instrument | 证券、市场、交易日历、映射 | 三市场标准主数据 |
+| instrument | 证券、数字资产、市场、交易日历、映射 | 多市场标准主数据 |
 | market-data | 行情元数据与采集任务 | Provider、标准化、查询和推送 |
 | news | 资讯与关联 | 采集、去重、标签、快照 |
 | strategy | 策略、源码、版本、参数 | 策略生命周期 |
@@ -46,7 +46,7 @@
 | backtest-runner | 无长期业务数据 | 沙箱执行 |
 | risk | 风控策略和校验记录 | 确定性交易风控 |
 | trading | 账户镜像、订单、成交、账本 | 交易核心状态机 |
-| broker-connectors | 连接与映射状态 | 富途、同花顺模拟、财信 |
+| broker-connectors | 连接、签名与外部状态 | 富途、长桥、同花顺、财信、币安 |
 | reconciliation | 对账任务和差异 | 账户一致性 |
 | notification | 通知模板与投递 | 站内、邮件、短信、Webhook |
 | audit | 不可变审计记录 | 安全和业务审计 |
@@ -71,10 +71,11 @@
 2. Trading 创建 `created` 订单。
 3. Risk 返回通过或拒绝。
 4. Trading 以 Outbox 发布提交事件。
-5. Connector 调用券商并保存原始结果摘要。
-6. 券商推送或轮询更新订单状态。
+5. Connector 按现货、杠杆或合约产品归一化请求，调用券商/交易所并保存
+   原始结果摘要。
+6. 券商/交易所推送或轮询更新订单状态。
 7. Trading 更新账本、持仓和资金镜像。
-8. Reconciliation 定时校验券商实际状态。
+8. Reconciliation 定时校验券商/交易所实际状态。
 
 ### 4.3 回测链路
 
@@ -125,27 +126,60 @@
 | Ollama | 是 | 是 | 否 | 否 |
 | vLLM | 是 | 是 | 否 | 否 |
 
-## 8. 网络与安全边界
+## 8. 币安 Connector 架构
+
+币安生产接入使用独立 Connector，不允许 Web、策略或 Trading Service
+直接访问币安 API。Connector 内部分为：
+
+1. Credential Provider：按租户和帐号从 KMS 临时解密 Ed25519 私钥、
+   HMAC Secret 或 RSA 私钥，不写入磁盘。
+2. Time Sync：持续校准币安服务器时间，签名请求默认
+   `recvWindow <= 5000 ms`。
+3. Spot Client：账户、余额、订单、成交和现货交易。
+4. Margin Client：全仓/逐仓账户、划转、借还款、负债、利息和杠杆订单。
+5. USD-M Futures Client：账户、持仓、保证金模式、杠杆、订单、成交和
+   资金费率。
+6. Stream Supervisor：维护用户数据流，检测序列中断并触发 REST 补偿。
+7. Rate Limit Governor：按 IP、UID、订单窗口和接口权重限流。
+
+统一帐号下按 `spot`、`cross_margin`、`isolated_margin` 和
+`usdm_futures` 建立四类 `account_scope`。所有写请求先进入 Trading
+状态机和 Risk Service，再由 Connector 生成币安 `clientOrderId`；
+网络超时返回 `unknown`，只能查询确认，不得直接重发。
+
+杠杆和合约额外规则：
+
+- 借款、还款和划转使用独立幂等流水，串行处理币安返回的待处理状态。
+- 全仓与逐仓风险快照分开存储，逐仓快照必须包含交易对。
+- 合约下单前同步单向/双向持仓模式、全仓/逐仓保证金模式和杠杆倍数。
+- 保护模式只允许撤单、还款、追加保证金和 `reduceOnly` 减仓。
+- 币本位合约、期权和未声明产品由能力矩阵直接拒绝。
+
+## 9. 网络与安全边界
 
 - 公网入口只开放 WAF 和 Gateway。
 - 服务位于私有子网。
 - Broker Connector 使用独立命名空间、节点池和出口白名单。
+- 币安生产 Key 必须配置固定出口 IP 白名单，禁止提现权限。
+- 币安查询权限和交易权限分别校验；生产写权限默认关闭。
 - Backtest Runner 默认无网络策略。
 - 模型调用只能由 Model Gateway 发起。
 - KMS 权限按服务身份授予，业务数据库只保存 Secret ID。
 - 生产访问通过堡垒机、短期身份和审批。
 
-## 9. 故障与降级
+## 10. 故障与降级
 
 - Market Data 异常：停止新分析或返回观望。
 - Model Provider 异常：按策略允许的备用模型降级，否则观望。
 - Risk 异常：Fail closed。
 - Broker 异常：禁止新订单，保留撤单与减仓。
+- 币安用户数据流异常：切换 REST 补偿并暂停新增风险，恢复后先对账。
+- 杠杆/合约进入追加保证金、预强平或强平状态：强制进入保护模式。
 - Kafka 异常：本地 Outbox 持久化，不确认未落盘事件。
 - ClickHouse 异常：交易主链路继续，分析查询降级。
 - Audit 异常：高风险操作无法可靠缓冲时拒绝。
 
-## 10. 扩展性
+## 11. 扩展性
 
 - Provider、模型和券商均以 Adapter 接入。
 - OpenAPI、Protobuf 和事件 Schema 版本化。
@@ -154,7 +188,7 @@
 - 模型任务按租户和策略公平调度。
 - 回测使用按任务弹性创建的计算资源。
 
-## 11. 架构决策记录
+## 12. 架构决策记录
 
 | ADR | 决策 |
 | --- | --- |
@@ -164,5 +198,7 @@
 | ADR-004 | 实盘订单以幂等状态机和对账闭环 |
 | ADR-005 | Python 回测使用隔离 Kubernetes Job |
 | ADR-006 | 一期 Ollama/vLLM 仅配置，不调用 |
+| ADR-007 | 币安按产品域拆分帐号 Scope，共享统一订单状态机 |
+| ADR-008 | 币安生产密钥优先 Ed25519，KMS 托管且禁止提现权限 |
 
 正式实施前应将每项 ADR 独立成文，记录背景、备选方案和后果。

@@ -74,7 +74,7 @@ Kubernetes/VKE、pytest、Playwright。
 | M3 策略与决策 | 标的池逐股产生结构化决策 |
 | M4 模拟交易 | 决策通过风控后进入模拟撮合 |
 | M5 回测 | 策略在隔离 Runner 中回测 |
-| M6 外部适配 | 三个 Connector 通过统一契约测试 |
+| M6 外部适配 | 证券 Connector 与币安四类帐号 Scope 通过契约测试 |
 | M7 生产准备 | VKE 部署、安全、性能和灾备通过 |
 
 ### Task 1: 初始化 Monorepo 与工具链
@@ -877,13 +877,18 @@ git commit -m "feat: complete strategy to simulated order flow"
 - Create: `apps/web/src/features/strategies/ModelSelector.tsx`
 - Create: `apps/web/src/pages/trading/SimulationPage.tsx`
 - Create: `apps/web/src/pages/trading/LiveTradingPage.tsx`
+- Create: `apps/web/src/pages/trading/CnTradingPage.tsx`
+- Create: `apps/web/src/pages/trading/HkUsTradingPage.tsx`
+- Create: `apps/web/src/pages/trading/BinanceTradingPage.tsx`
+- Create: `apps/web/src/features/trading/AccountBindingDialog.tsx`
 - Create: `apps/web/src/features/trading/OrderTicket.tsx`
 - Test: `apps/web/src/features/**/*.test.tsx`
 - Test: `tests/e2e/web/strategy-trading.spec.ts`
 
 #### Task 18 Step 1: 写失败测试
 
-验证创建策略、导入标的、选模型、触发分析、确认信号和查看模拟成交。
+验证创建策略、导入标的、选模型、触发分析、确认信号、三个交易子页面、
+通道白名单、添加帐号和查看模拟成交。
 
 #### Task 18 Step 2: 验证失败
 
@@ -896,7 +901,10 @@ Expected: FAIL。
 - Monaco 编辑器。
 - 参数表单由 JSON Schema 生成。
 - 模型只显示租户已启用配置。
-- 交易页面固定显示环境和账户状态。
+- 交易页面固定提供沪深、港美、币安三个二级入口。
+- 每个交易页面右上角提供“添加帐号”，并限制可选通道。
+- 币安页面提供现货、全仓、逐仓和 U 本位产品标签。
+- 交易页面固定显示环境、帐号 Scope 和连接状态。
 - 自动交易开关要求确认。
 
 #### Task 18 Step 4: 验证
@@ -964,19 +972,22 @@ git add services/backtest infra tests/integration
 git commit -m "feat: add isolated backtest execution"
 ```
 
-### Task 20: 定义 BrokerAdapter 与三个 Stub Connector
+### Task 20: 定义 BrokerAdapter 与五个 Stub Connector
 
 **Files:**
 
 - Create: `packages/py-common/src/qt_common/broker.py`
 - Create: `services/broker-connectors/futu/`
+- Create: `services/broker-connectors/longbridge/`
 - Create: `services/broker-connectors/tonghuashun-sim/`
 - Create: `services/broker-connectors/caixin/`
+- Create: `services/broker-connectors/binance/`
 - Create: `tests/contract/brokers/test_broker_contract.py`
 
 #### Task 20 Step 1: 写统一契约测试
 
-覆盖连接、账户、资金、持仓、下单、撤单、查询、回报和对账。
+覆盖连接、账户、资金、持仓、下单、撤单、查询、回报和对账。币安额外覆盖
+现货、全仓杠杆、逐仓杠杆、U 本位永续、借还款和强平保护。
 
 #### Task 20 Step 2: 验证失败
 
@@ -993,7 +1004,7 @@ Stub 支持正常、拒单、部分成交、断连、超时、重复回报和未
 
 Run: `uv run pytest tests/contract/brokers -v`
 
-Expected: 三个 Stub 全部 PASS。
+Expected: 五个 Stub 全部 PASS。
 
 #### Task 20 Step 5: 提交
 
@@ -1007,8 +1018,10 @@ git commit -m "feat: add broker adapter contract and stubs"
 **Files:**
 
 - Modify: `services/broker-connectors/futu/`
+- Modify: `services/broker-connectors/longbridge/`
 - Modify: `services/broker-connectors/tonghuashun-sim/`
 - Modify: `services/broker-connectors/caixin/`
+- Modify: `services/broker-connectors/binance/`
 - Create: `docs/integrations/capability-matrix.md`
 - Create: `docs/integrations/integration-test-report-template.md`
 
@@ -1017,6 +1030,9 @@ git commit -m "feat: add broker adapter contract and stubs"
 必须已有官方协议、测试账号、正式文档和授权结论。任何一项缺失时，
 该 Connector 保持 Stub，任务状态标记 Blocked，不自行逆向。
 
+币安还必须准备固定出口 IP、KMS、生产只读 Key、现货/杠杆/U 本位资格和
+书面合规结论；检测到提现权限时立即阻断。
+
 #### Task 21 Step 2: 为每个真实接口运行契约测试
 
 Run:
@@ -1024,15 +1040,18 @@ Run:
 ```bash
 uv run pytest tests/contract/brokers \
   --broker=futu-test \
+  --broker=longbridge-test \
   --broker=tonghuashun-sim-test \
-  --broker=caixin-test
+  --broker=caixin-test \
+  --broker=binance-testnet
 ```
 
 Expected: 按能力矩阵通过；不支持能力明确 Skip 并附证据。
 
 #### Task 21 Step 3: 运行故障和对账测试
 
-验证断连、超时、重连、重复回报、未知订单和账实差异。
+验证断连、超时、重连、重复回报、未知订单和账实差异。币安额外验证 API
+限频、时间偏差、流失效、借还款待处理、预强平、强平和 ADL 风险。
 
 #### Task 21 Step 4: 生成联调报告
 
@@ -1042,9 +1061,14 @@ Expected: 按能力矩阵通过；不支持能力明确 Skip 并附证据。
 
 ```bash
 git commit -m "feat: integrate futu test connector"
+git commit -m "feat: integrate longbridge test connector"
 git commit -m "feat: integrate tonghuashun simulation connector"
 git commit -m "feat: integrate caixin test connector"
+git commit -m "feat: integrate binance connector"
 ```
+
+币安生产灰度按只读、最小金额现货、全仓、逐仓、U 本位顺序独立审批；
+每阶段完成对账后才允许进入下一阶段。
 
 ### Task 22: 建立 Kubernetes 与火山引擎部署
 
@@ -1171,10 +1195,16 @@ Expected:
 1. 富途 OpenAPI 申请与测试环境。
 2. 同花顺模拟盘商务和技术确认。
 3. 财信证券正式量化通道确认。
-4. 行情与资讯数据授权采购。
-5. 法务、合规和隐私评审。
+4. 长桥 OpenAPI 申请与测试环境。
+5. 币安生产现货、全仓/逐仓杠杆和 U 本位永续帐号资格。
+6. 币安固定出口 IP、Ed25519 Key、KMS 和只读联调。
+7. 行情与资讯数据授权采购。
+8. 法务、合规、税务和隐私评审。
 
 外部依赖不得阻塞 Mock 闭环，但会阻塞真实通道生产验收。
+币安生产接入按
+[`QT-DES-TRD-001`](2026-09-19-trading-account-and-binance-integration-design.md)
+拆分后续实现任务，完成只读同步和小额人工灰度前不得启用自动交易。
 
 ## 6. 首次执行建议
 

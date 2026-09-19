@@ -2,7 +2,7 @@
 
 > 文档编号：QT-API-001
 >
-> 版本：1.0-draft
+> 版本：1.1-draft
 
 ## 1. 通用规范
 
@@ -134,8 +134,17 @@ POST /model-decisions/{id}/reject
 ```text
 GET    /trading/accounts
 POST   /trading/accounts/bind
+POST   /trading/accounts/{id}/test
+POST   /trading/accounts/{id}/enable-trading
 POST   /trading/accounts/{id}/connect
 POST   /trading/accounts/{id}/disconnect
+GET    /trading/accounts/{id}/balances
+GET    /trading/accounts/{id}/margin-risk
+GET    /trading/accounts/{id}/futures-positions
+POST   /trading/accounts/{id}/transfers
+POST   /trading/accounts/{id}/margin-loans
+POST   /trading/accounts/{id}/margin-repayments
+PUT    /trading/accounts/{id}/futures-settings
 GET    /trading/positions
 GET    /trading/orders
 POST   /trading/orders
@@ -146,20 +155,58 @@ POST   /trading/kill-switch
 DELETE /trading/kill-switch/{id}
 ```
 
+币安帐号绑定请求：
+
+```json
+{
+  "market_group": "binance",
+  "provider": "binance",
+  "environment": "production",
+  "credential_type": "ed25519|hmac|rsa",
+  "api_key": "write-only",
+  "private_key_or_secret": "write-only",
+  "enabled_scopes": [
+    "spot",
+    "cross_margin",
+    "isolated_margin",
+    "usdm_futures"
+  ],
+  "ip_whitelist_confirmed": true
+}
+```
+
+响应不得返回 `api_key`、私钥或 Secret，只返回脱敏指纹、KMS 引用状态、
+权限检查结果和帐号 Scope。具有提现权限、未配置固定出口 IP 白名单或未完成
+近期 MFA 时，绑定或启用生产交易必须失败。
+
 下单请求：
 
 ```json
 {
   "account_id": "uuid",
   "instrument_id": "uuid",
+  "account_scope": "spot|cross_margin|isolated_margin|usdm_futures",
   "side": "buy|sell",
   "order_type": "market|limit",
   "quantity": "100",
   "limit_price": "12.30",
+  "margin_mode": "cross|isolated|null",
+  "position_side": "both|long|short|null",
+  "reduce_only": false,
+  "margin_side_effect": "none|borrow|repay|auto_borrow_repay",
   "decision_id": "uuid|null",
   "source": "manual|strategy"
 }
 ```
+
+币安请求规则：
+
+- `account_scope=isolated_margin` 时必须提供交易对并使用逐仓资产。
+- `account_scope=usdm_futures` 时必须校验持仓模式、保证金模式和杠杆配置。
+- `reduce_only` 仅用于合约风险降低语义，双向持仓模式按币安约束处理。
+- 借款、还款、划转、杠杆调整和生产写权限启用必须使用独立
+  `Idempotency-Key`。
+- 外部超时统一返回 `order_status=unknown`，不得自动重放。
 
 ## 6. WebSocket
 
@@ -174,6 +221,9 @@ GET /ws/v1?access_token=<short-lived-token>
 - `quotes:{instrument_id}`
 - `backtests:{task_id}`
 - `orders:{account_id}`
+- `balances:{account_id}`
+- `margin-risk:{account_id}`
+- `futures-positions:{account_id}`
 - `alerts:{tenant_id}`
 - `strategies:{strategy_id}`
 
@@ -236,6 +286,49 @@ GET /ws/v1?access_token=<short-lived-token>
   "severity": "medium|high|critical",
   "expected": {},
   "actual": {}
+}
+```
+
+### 8.4 trading.account_bound.v1
+
+```json
+{
+  "account_id": "uuid",
+  "provider": "binance",
+  "environment": "production",
+  "credential_type": "ed25519",
+  "enabled_scopes": ["spot", "cross_margin", "isolated_margin", "usdm_futures"],
+  "trading_enabled": false
+}
+```
+
+### 8.5 margin.risk_changed.v1
+
+```json
+{
+  "account_id": "uuid",
+  "account_scope": "cross_margin|isolated_margin",
+  "symbol": "BTCUSDT|null",
+  "margin_level": "1.42",
+  "status": "normal|margin_call|pre_liquidation|force_liquidation",
+  "occurred_at": "ISO-8601"
+}
+```
+
+### 8.6 futures.position_changed.v1
+
+```json
+{
+  "account_id": "uuid",
+  "symbol": "BTCUSDT",
+  "position_side": "both|long|short",
+  "margin_mode": "cross|isolated",
+  "leverage": 5,
+  "quantity": "0.010",
+  "mark_price": "62000.00",
+  "liquidation_price": "51000.00",
+  "unrealized_pnl": "15.20",
+  "occurred_at": "ISO-8601"
 }
 ```
 
