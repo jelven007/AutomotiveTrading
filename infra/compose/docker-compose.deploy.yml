@@ -228,6 +228,59 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  instrument-market-migrate:
+    build:
+      context: ../../services/instrument-market
+    image: qt/instrument-market:latest
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_market
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  instrument-market:
+    image: qt/instrument-market:latest
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_market
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-qt_market}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-qt_market}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: market-raw
+      TUSHARE_TOKEN: ${TUSHARE_TOKEN:-}
+      INGEST_SERVICE_TOKEN: ${MARKET_INGEST_SERVICE_TOKEN:-}
+      MOOTDX_SOURCE_ID: ${MOOTDX_SOURCE_ID:-tdx-auto}
+      TDX_DATA_PATH: ${TDX_DATA_PATH:-}
+      WAL_PATH: /app/data/wal
+      QUOTE_SHARD_COUNT: ${QUOTE_SHARD_COUNT:-8}
+      QUOTE_SWEEP_SECONDS: ${QUOTE_SWEEP_SECONDS:-2}
+      QUOTE_STALE_AFTER_SECONDS: 3
+    ports:
+      - "${QT_BIND_HOST:-127.0.0.1}:${INSTRUMENT_MARKET_PORT:-8007}:8000"
+    volumes:
+      - instrument-market-wal:/app/data/wal
+    depends_on:
+      instrument-market-migrate:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
   # Web 是唯一公网入口，同时提供静态页面和同源 API 反向代理。
   web:
     build:
@@ -243,4 +296,9 @@ services:
         condition: service_healthy
       model-config:
         condition: service_healthy
+      instrument-market:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  instrument-market-wal:

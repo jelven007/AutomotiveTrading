@@ -53,9 +53,13 @@
 
 ### 3.1 A 股行情专项实现
 
-A 股行情一期由单一 `instrument-market` 服务承载，使用 mootdx 的
-`Quotes`、`Reader` 和 `Affair` 三类通道获取其可提供的全部数据，并使用
-Tushare 补充北交所主数据、历史数据和日终交叉校验。
+A 股行情一期由 `instrument-market` 核心服务和隔离的 mootdx 采集 Sidecar
+共同承载。Sidecar 使用 mootdx 的 `Quotes`、`Reader` 和 `Affair` 三类通道
+获取其可提供的全部数据，通过内部鉴权接口或 Kafka 发送到核心服务；核心服务
+使用 Tushare 补充北交所主数据、历史数据和日终交叉校验。
+
+mootdx 0.11.7 固定依赖 `httpx < 0.26`，因此不得与平台统一使用
+`httpx 0.28` 的核心服务安装在同一 Python 环境。
 
 数据按职责写入：
 

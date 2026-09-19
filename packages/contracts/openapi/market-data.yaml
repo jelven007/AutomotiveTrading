@@ -1,0 +1,116 @@
+openapi: 3.1.0
+info:
+  title: Instrument Market API
+  version: 0.1.0
+  description: A 股主数据、行情查询与内部采集接口。
+paths:
+  /health/live:
+    get:
+      operationId: marketLiveness
+      responses:
+        "200":
+          description: Process is alive.
+  /health/ready:
+    get:
+      operationId: marketReadiness
+      responses:
+        "200":
+          description: MySQL and ClickHouse are ready.
+        "503":
+          description: One or more dependencies are unavailable.
+  /api/v1/market/data-catalog:
+    get:
+      operationId: listMarketDatasets
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Dataset capability catalog.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataCatalog"
+  /internal/v1/market/quotes:
+    post:
+      operationId: ingestMootdxQuotes
+      parameters:
+        - $ref: "#/components/parameters/InternalToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteBatch"
+      responses:
+        "202":
+          description: Batch persisted to raw and canonical ClickHouse tables.
+        "401":
+          description: Internal service token is invalid.
+components:
+  parameters:
+    TenantId:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+    InternalToken:
+      name: X-Service-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+  schemas:
+    DataCatalog:
+      type: object
+      required: [provider, verification_provider, datasets]
+      properties:
+        provider:
+          const: mootdx
+        verification_provider:
+          const: tushare
+        datasets:
+          type: array
+          items:
+            type: object
+            required: [key, name, primary_store, raw_archive, completeness]
+            properties:
+              key:
+                type: string
+              name:
+                type: string
+              primary_store:
+                type: string
+              raw_archive:
+                type: boolean
+              completeness:
+                type: string
+    QuoteBatch:
+      type: object
+      additionalProperties: false
+      required:
+        [batch_id, exchange, trade_date, source_id, collected_at, quotes]
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        exchange:
+          type: string
+          enum: [SSE, SZSE, BSE]
+        trade_date:
+          type: string
+          format: date
+        source_id:
+          type: string
+          minLength: 1
+        collected_at:
+          type: string
+          format: date-time
+        quotes:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: true

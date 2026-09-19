@@ -1,5 +1,7 @@
 # A 股 mootdx 全量数据与前端分析设计
 
+<!-- markdownlint-disable MD013 -->
+
 > 文档编号：QT-DES-CNMD-001
 >
 > 状态：Review
@@ -12,8 +14,12 @@
 
 ## 1. 设计结论
 
-新增 `instrument-market` 服务，在一个部署单元内完成证券主数据、mootdx
-采集、Tushare 校验、标准化、质量判断、查询和 WebSocket 推送。
+新增 `instrument-market` 逻辑模块，核心服务负责证券主数据、Tushare 校验、
+标准化、质量判断、查询和 WebSocket 推送。mootdx 采集运行在独立 Sidecar，
+通过内部鉴权接口或 Kafka 将原始数据交给核心服务。
+
+隔离 Sidecar 的原因是 mootdx 0.11.7 固定依赖 `httpx < 0.26`，与平台统一的
+`httpx 0.28` 无法在同一 uv workspace 解析。不得为兼容 mootdx 降级其他服务。
 
 采用四类存储：
 
@@ -32,16 +38,17 @@ Kafka/Redpanda 作为采集与落库之间的持久缓冲，不作为最终数�
 | 全部写 ClickHouse | 行情查询快 | 配置事务、原始文件和正文管理不合适 | 不采用 |
 | MySQL + ClickHouse + MinIO + Redis | 职责清晰、可回放、查询稳定 | 多一个 ClickHouse 运维组件 | 推荐 |
 
-个人内部系统仍保留现有微服务边界，但不继续拆分采集、质量、查询等独立服务，
-避免增加部署和故障面。
+个人内部系统仍保留现有微服务边界。除依赖隔离所必需的 mootdx Sidecar 外，
+不继续拆分质量、查询等独立服务，避免增加部署和故障面。
 
 ## 3. 总体架构
 
 ```text
 mootdx Quotes ─┐
-mootdx Reader ─┼─> instrument-market collector
-mootdx Affair ─┘          │
-Tushare verifier ─────────┤
+mootdx Reader ─┼─> mootdx collector Sidecar
+mootdx Affair ─┘          │ 内部鉴权 API / Kafka
+                          v
+Tushare verifier ─> instrument-market core
                           ├─> local spool/WAL
                           └─> Kafka/Redpanda
                                   │
@@ -72,10 +79,9 @@ Tushare verifier ─────────┤
 
 ```text
 services/instrument-market/src/instrument_market/
-├── providers/
+├── clients/
 │   ├── base.py
-│   ├── mootdx_online.py
-│   ├── mootdx_reader.py
+│   ├── mootdx_collector.py
 │   └── tushare.py
 ├── collectors/
 │   ├── quote.py
@@ -101,6 +107,18 @@ services/instrument-market/src/instrument_market/
     ├── history.py
     ├── operations.py
     └── websocket.py
+```
+
+Sidecar 使用独立 Python 环境和镜像：
+
+```text
+services/mootdx-collector/
+├── providers/
+│   ├── quotes.py
+│   ├── reader.py
+│   └── affair.py
+├── scheduler/
+└── transport/
 ```
 
 ### 4.1 能力矩阵

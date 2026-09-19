@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quant-trading.local/schemas/market-bar-v1.json",
+  "title": "MarketBarV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "exchange",
+    "symbol",
+    "interval",
+    "adjustment",
+    "event_time",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "amount",
+    "provider",
+    "payload_hash",
+    "schema_version"
+  ],
+  "properties": {
+    "exchange": {
+      "type": "string",
+      "enum": ["SSE", "SZSE", "BSE"]
+    },
+    "symbol": {
+      "type": "string",
+      "pattern": "^[0-9]{6}$"
+    },
+    "interval": {
+      "type": "string",
+      "enum": ["1m", "5m", "15m", "30m", "1h", "1d", "1w", "1mo", "3mo", "1y"]
+    },
+    "adjustment": {
+      "type": "string",
+      "enum": ["none", "qfq", "hfq"]
+    },
+    "event_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "open": {
+      "$ref": "#/$defs/decimal"
+    },
+    "high": {
+      "$ref": "#/$defs/decimal"
+    },
+    "low": {
+      "$ref": "#/$defs/decimal"
+    },
+    "close": {
+      "$ref": "#/$defs/decimal"
+    },
+    "volume": {
+      "$ref": "#/$defs/decimal"
+    },
+    "amount": {
+      "$ref": "#/$defs/decimal"
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["mootdx", "tushare"]
+    },
+    "payload_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "schema_version": {
+      "const": 1
+    }
+  },
+  "$defs": {
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    }
+  }
+}

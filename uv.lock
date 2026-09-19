@@ -9,6 +9,7 @@ members = [
     "kms-adapter",
     "model-config",
     "qt-common",
+    "qt-instrument-market",
     "qt-service-template",
     "quant-trading-saas",
     "risk",
@@ -1174,6 +1175,47 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11,<3" },
     { name = "pydantic-settings", specifier = ">=2.10,<3" },
 ]
+
+[[package]]
+name = "qt-instrument-market"
+version = "0.1.0"
+source = { editable = "services/instrument-market" }
+dependencies = [
+    { name = "alembic" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation-fastapi" },
+    { name = "opentelemetry-sdk" },
+    { name = "pydantic-settings" },
+    { name = "pymysql" },
+    { name = "sqlalchemy" },
+    { name = "structlog" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.16,<2" },
+    { name = "fastapi", specifier = ">=0.116,<1" },
+    { name = "httpx", specifier = ">=0.28,<0.29" },
+    { name = "opentelemetry-api", specifier = ">=1.37,<2" },
+    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.58b0,<1" },
+    { name = "opentelemetry-sdk", specifier = ">=1.37,<2" },
+    { name = "pydantic-settings", specifier = ">=2.10,<3" },
+    { name = "pymysql", specifier = ">=1.1,<2" },
+    { name = "sqlalchemy", specifier = ">=2.0,<3" },
+    { name = "structlog", specifier = ">=25.4,<26" },
+    { name = "uvicorn", specifier = ">=0.35,<1" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.4,<9" }]
 
 [[package]]
 name = "qt-service-template"

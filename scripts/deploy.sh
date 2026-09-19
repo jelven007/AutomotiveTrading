@@ -35,10 +35,35 @@ fernet_key() {
   openssl rand -base64 32 | tr "+/" "-_" | tr -d "\n"
 }
 
+append_env_if_missing() {
+  local name="$1"
+  local value="$2"
+  if ! grep -q "^${name}=" "${ENV_FILE}"; then
+    printf '%s=%s\n' "${name}" "${value}" >>"${ENV_FILE}"
+  fi
+}
+
+upgrade_market_env() {
+  append_env_if_missing CLICKHOUSE_DATABASE qt_market
+  append_env_if_missing CLICKHOUSE_USER qt_market
+  append_env_if_missing CLICKHOUSE_PASSWORD "$(openssl rand -hex 24)"
+  append_env_if_missing QT_CLICKHOUSE_HTTP_PORT 8123
+  append_env_if_missing QT_CLICKHOUSE_NATIVE_PORT 9002
+  append_env_if_missing MARKET_INGEST_SERVICE_TOKEN "$(openssl rand -hex 48)"
+  append_env_if_missing INSTRUMENT_MARKET_PORT 8007
+  append_env_if_missing TUSHARE_TOKEN ""
+  append_env_if_missing MOOTDX_SOURCE_ID tdx-auto
+  append_env_if_missing TDX_DATA_PATH ""
+  append_env_if_missing QUOTE_SHARD_COUNT 8
+  append_env_if_missing QUOTE_SWEEP_SECONDS 2
+  chmod 600 "${ENV_FILE}"
+}
+
 init_env() {
   require_command openssl
   if [[ -e "${ENV_FILE}" ]]; then
-    echo "部署配置已存在，未覆盖：${ENV_FILE}"
+    upgrade_market_env
+    echo "部署配置已存在，已补全缺失字段且未覆盖原值：${ENV_FILE}"
     return
   fi
 
@@ -52,10 +77,15 @@ MYSQL_USER=qt_app
 MYSQL_PASSWORD=$(openssl rand -hex 24)
 MINIO_ROOT_USER=qt_minio
 MINIO_ROOT_PASSWORD=$(openssl rand -hex 24)
+CLICKHOUSE_DATABASE=qt_market
+CLICKHOUSE_USER=qt_market
+CLICKHOUSE_PASSWORD=$(openssl rand -hex 24)
 
 QT_BIND_HOST=127.0.0.1
 QT_MYSQL_PORT=3306
 QT_REDIS_PORT=6379
+QT_CLICKHOUSE_HTTP_PORT=8123
+QT_CLICKHOUSE_NATIVE_PORT=9002
 QT_KAFKA_PORT=9092
 QT_SCHEMA_REGISTRY_PORT=8081
 QT_MINIO_PORT=9000
@@ -68,6 +98,7 @@ AUTH_TOTP_ENCRYPTION_KEY=$(fernet_key)
 SECRET_ENCRYPTION_KEY=$(fernet_key)
 KMS_SERVICE_TOKEN=$(openssl rand -hex 48)
 RISK_SERVICE_TOKEN=$(openssl rand -hex 48)
+MARKET_INGEST_SERVICE_TOKEN=$(openssl rand -hex 48)
 
 KMS_KEY_ID=
 KMS_REGION=cn-beijing
@@ -85,7 +116,15 @@ MODEL_CONFIG_PORT=8003
 TRADING_PORT=8004
 RISK_PORT=8005
 KMS_ADAPTER_PORT=8006
+INSTRUMENT_MARKET_PORT=8007
+
+TUSHARE_TOKEN=
+MOOTDX_SOURCE_ID=tdx-auto
+TDX_DATA_PATH=
+QUOTE_SHARD_COUNT=8
+QUOTE_SWEEP_SECONDS=2
 EOF
+  upgrade_market_env
   chmod 600 "${ENV_FILE}"
   echo "已生成部署配置：${ENV_FILE}"
 }
@@ -99,6 +138,13 @@ require_deployment() {
     echo "部署配置仍包含 please-change 占位值，请删除后重新执行 init。" >&2
     exit 1
   fi
+  for name in CLICKHOUSE_PASSWORD MARKET_INGEST_SERVICE_TOKEN; do
+    value="$(env_value "${name}")"
+    if [[ -z "${value}" || ${#value} -lt 32 ]]; then
+      echo "部署配置需要 ${name}，且长度至少为 32 个字符。" >&2
+      exit 1
+    fi
+  done
   require_command docker
   docker compose version >/dev/null
 }
@@ -160,6 +206,7 @@ compose_cmd() {
 wait_for_jobs() {
   local jobs=(
     kafka-init identity-migrate audit-migrate model-config-migrate
+    instrument-market-migrate
   )
   if readonly_profile_enabled; then
     jobs+=(
@@ -210,8 +257,8 @@ wait_for_jobs() {
 
 wait_for_services() {
   local services=(
-    mysql redis kafka minio mailpit
-    identity-tenant audit model-config web
+    mysql redis clickhouse kafka minio mailpit
+    identity-tenant audit model-config instrument-market web
   )
   if readonly_profile_enabled; then
     services+=(kms-adapter risk trading)
@@ -294,7 +341,7 @@ case "${command}" in
     ;;
   restart)
     require_deployment
-    compose_cmd restart identity-tenant audit model-config web
+    compose_cmd restart identity-tenant audit model-config instrument-market web
     compose_cmd ps -a
     ;;
   down)

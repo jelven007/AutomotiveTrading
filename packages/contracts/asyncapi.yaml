@@ -9,6 +9,16 @@ servers:
     host: kafka:29092
     protocol: kafka
 channels:
+  marketRawReceived:
+    address: market.raw.received.v1
+    messages:
+      marketRawReceived:
+        $ref: "#/components/messages/MarketRawReceived"
+  marketQuoteUpdated:
+    address: market.quote.updated.v1
+    messages:
+      marketQuoteUpdated:
+        $ref: "#/components/messages/MarketQuoteUpdated"
   modelDecisionCreated:
     address: model.decision.created.v1
     messages:
@@ -25,6 +35,18 @@ channels:
       auditRecorded:
         $ref: "#/components/messages/AuditRecorded"
 operations:
+  receiveMarketRaw:
+    action: receive
+    channel:
+      $ref: "#/channels/marketRawReceived"
+    messages:
+      - $ref: "#/channels/marketRawReceived/messages/marketRawReceived"
+  receiveMarketQuote:
+    action: receive
+    channel:
+      $ref: "#/channels/marketQuoteUpdated"
+    messages:
+      - $ref: "#/channels/marketQuoteUpdated/messages/marketQuoteUpdated"
   receiveModelDecision:
     action: receive
     channel:
@@ -45,6 +67,45 @@ operations:
       - $ref: "#/channels/auditRecorded/messages/auditRecorded"
 components:
   messages:
+    MarketRawReceived:
+      name: market.raw.received.v1
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            properties:
+              payload:
+                type: object
+                required:
+                  - provider
+                  - dataset
+                  - source_time
+                  - collected_at
+                  - payload_hash
+                properties:
+                  provider:
+                    type: string
+                  dataset:
+                    type: string
+                  source_time:
+                    type: string
+                    format: date-time
+                  collected_at:
+                    type: string
+                    format: date-time
+                  payload_hash:
+                    type: string
+                  payload:
+                    type: object
+    MarketQuoteUpdated:
+      name: market.quote.updated.v1
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            properties:
+              payload:
+                $ref: "./jsonschema/market-quote-v1.json"
     ModelDecisionCreated:
       name: model.decision.created.v1
       payload:

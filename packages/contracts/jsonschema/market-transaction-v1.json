@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quant-trading.local/schemas/market-transaction-v1.json",
+  "title": "MarketTransactionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "exchange",
+    "symbol",
+    "event_time",
+    "price",
+    "quantity",
+    "side",
+    "source_offset",
+    "provider",
+    "source_id",
+    "payload_hash",
+    "coverage_status",
+    "schema_version"
+  ],
+  "properties": {
+    "exchange": {
+      "type": "string",
+      "enum": ["SSE", "SZSE", "BSE"]
+    },
+    "symbol": {
+      "type": "string",
+      "pattern": "^[0-9]{6}$"
+    },
+    "event_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "price": {
+      "$ref": "#/$defs/decimal"
+    },
+    "quantity": {
+      "$ref": "#/$defs/decimal"
+    },
+    "side": {
+      "type": "string",
+      "enum": ["buy", "sell", "neutral", "unknown"]
+    },
+    "source_offset": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["mootdx"]
+    },
+    "source_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "payload_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "coverage_status": {
+      "type": "string",
+      "enum": ["complete", "partial", "unknown"]
+    },
+    "schema_version": {
+      "const": 1
+    }
+  },
+  "$defs": {
+    "decimal": {
+      "type": "string",
+      "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    }
+  }
+}

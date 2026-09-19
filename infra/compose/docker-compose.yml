@@ -38,6 +38,30 @@ services:
       retries: 30
     restart: unless-stopped
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8-alpine
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-qt_market}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-qt_market}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-change-me-clickhouse}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "${QT_BIND_HOST:-0.0.0.0}:${QT_CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${QT_BIND_HOST:-0.0.0.0}:${QT_CLICKHOUSE_NATIVE_PORT:-9002}:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'clickhouse-client --user "$${CLICKHOUSE_USER}" --password "$${CLICKHOUSE_PASSWORD}" --query "SELECT 1" | grep -q ''^1$''',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
   kafka:
     image: redpandadata/redpanda:v24.2.18
     command:
@@ -124,6 +148,8 @@ services:
     restart: unless-stopped
 
 volumes:
+  clickhouse-data:
+  clickhouse-logs:
   kafka-data:
   mailpit-data:
   minio-data:

@@ -37,6 +37,7 @@ def http_healthy(url: str, timeout: float = 1.0) -> bool:
     [
         ("MySQL", service_port("MySQL", 3306)),
         ("Redis", service_port("Redis", 6379)),
+        ("ClickHouse HTTP", service_port("ClickHouse HTTP", 8123)),
         ("Kafka", service_port("Kafka", 9092)),
         ("Schema Registry", service_port("Schema Registry", 8081)),
         ("Mailpit", service_port("Mailpit", 8025)),

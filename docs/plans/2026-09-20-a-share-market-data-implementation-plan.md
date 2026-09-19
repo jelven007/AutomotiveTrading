@@ -1,5 +1,7 @@
 # A Share Market Data Implementation Plan
 
+<!-- markdownlint-disable MD013 MD032 MD036 -->
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Build a personal-use A-share data service that persists every supported mootdx dataset, validates selected facts with Tushare, and exposes real-time analysis and operations pages.
@@ -180,8 +182,8 @@ Expected: FAIL because the package is absent.
 **Step 3: Implement the service shell**
 
 Copy the repository service conventions, rename the package to `instrument_market`,
-and add typed settings for MySQL, ClickHouse, Redis, Kafka, MinIO, mootdx, Tushare,
-WAL, and Reader paths.
+and add typed settings for MySQL, ClickHouse, Redis, Kafka, MinIO, the isolated
+mootdx collector, Tushare, WAL, and Reader paths.
 
 **Step 4: Run tests and static checks**
 
@@ -200,38 +202,47 @@ git add services/instrument-market
 git commit -m "feat: scaffold instrument market service"
 ```
 
-### Task 4: Implement Provider contracts and recorded fixtures
+### Task 4: Implement isolated mootdx collector and Provider contracts
 
 **Files:**
-- Create: `services/instrument-market/src/instrument_market/providers/base.py`
-- Create: `services/instrument-market/src/instrument_market/providers/mootdx_online.py`
-- Create: `services/instrument-market/src/instrument_market/providers/mootdx_reader.py`
-- Create: `services/instrument-market/src/instrument_market/providers/tushare.py`
+- Create: `services/mootdx-collector/pyproject.toml`
+- Create: `services/mootdx-collector/Dockerfile`
+- Create: `services/mootdx-collector/src/mootdx_collector/`
+- Create: `services/instrument-market/src/instrument_market/clients/base.py`
+- Create: `services/instrument-market/src/instrument_market/clients/mootdx_collector.py`
+- Create: `services/instrument-market/src/instrument_market/clients/tushare.py`
 - Create: `services/instrument-market/src/instrument_market/providers/models.py`
 - Create: `services/instrument-market/tests/fixtures/`
+- Test: `services/mootdx-collector/tests/`
 - Test: `services/instrument-market/tests/test_provider_contracts.py`
 
 **Step 1: Write failing Provider contract tests**
 
-Require every Provider result to include source time, collection time, Provider name,
+Require every collector result to include source time, collection time, Provider name,
 source identity, schema version, payload hash, raw payload, and capability status.
+Verify that the Sidecar requires an internal service token.
 
 **Step 2: Verify failure**
 
 ```bash
+uv run --project services/mootdx-collector pytest -v
 uv run pytest services/instrument-market/tests/test_provider_contracts.py -v
 ```
 
-Expected: FAIL because Provider implementations are absent.
+Expected: FAIL because collector and client implementations are absent.
 
 **Step 3: Implement adapters**
 
-Wrap blocking mootdx calls with a bounded worker pool. Pin `mootdx==0.11.7`.
-Implement Tushare through its HTTP/SDK adapter without exposing the Token.
+Run mootdx 0.11.7 in an isolated project because it requires `httpx < 0.26`.
+Do not add mootdx to the root uv workspace and do not downgrade platform HTTP
+dependencies. Wrap blocking calls with a bounded worker pool, then send raw batches
+through an internal authenticated API or Kafka. Implement Tushare in the core service
+without exposing the Token.
 
 **Step 4: Verify Provider tests**
 
 ```bash
+uv run --project services/mootdx-collector pytest -v
 uv run pytest services/instrument-market/tests/test_provider_contracts.py -v
 ```
 
@@ -240,7 +251,7 @@ Expected: PASS without external network access.
 **Step 5: Commit**
 
 ```bash
-git add services/instrument-market
+git add services/instrument-market services/mootdx-collector
 git commit -m "feat: add mootdx and tushare providers"
 ```
 
