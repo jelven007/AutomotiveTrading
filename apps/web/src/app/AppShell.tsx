@@ -9,14 +9,16 @@ import {
   Waypoints,
   Workflow,
 } from "lucide-react";
-import { NavLink, Route, Routes } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 
 import { DataPage } from "../pages/DataPage";
 import { HomePage } from "../pages/HomePage";
 import { NewsPage } from "../pages/NewsPage";
 import { ModelServicesPage } from "../pages/settings/ModelServicesPage";
 import { StrategiesPage } from "../pages/StrategiesPage";
-import { TradingPage } from "../pages/TradingPage";
+import { BinanceTradingPage } from "../pages/trading/BinanceTradingPage";
+import { CnTradingPage } from "../pages/trading/CnTradingPage";
+import { HkUsTradingPage } from "../pages/trading/HkUsTradingPage";
 
 const navigation = [
   { label: "首页", to: "/", icon: Home, end: true },
@@ -122,7 +124,13 @@ export function AppShell() {
           <Route path="/" element={<HomePage />} />
           <Route path="/news" element={<NewsPage />} />
           <Route path="/strategies" element={<StrategiesPage />} />
-          <Route path="/trading" element={<TradingPage />} />
+          <Route
+            path="/trading"
+            element={<Navigate replace to="/trading/cn" />}
+          />
+          <Route path="/trading/cn" element={<CnTradingPage />} />
+          <Route path="/trading/hk-us" element={<HkUsTradingPage />} />
+          <Route path="/trading/binance" element={<BinanceTradingPage />} />
           <Route path="/data" element={<DataPage />} />
           <Route
             path="/settings/model-services"

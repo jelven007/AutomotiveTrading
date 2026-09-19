@@ -1095,6 +1095,247 @@ td small {
   color: var(--accent);
 }
 
+.icon-button--danger {
+  border-color: #e6b9b9;
+  color: var(--negative);
+}
+
+.trading-workspace {
+  gap: 18px;
+}
+
+.trading-market-tabs,
+.product-tabs {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+
+.trading-market-tabs::-webkit-scrollbar,
+.product-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.trading-market-tab,
+.product-tabs button {
+  position: relative;
+  display: inline-flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.trading-market-tab::after,
+.product-tabs button::after {
+  position: absolute;
+  right: 10px;
+  bottom: -1px;
+  left: 10px;
+  height: 2px;
+  background: transparent;
+  content: "";
+}
+
+.trading-market-tab.is-active,
+.product-tabs button.is-active {
+  color: var(--accent);
+}
+
+.trading-market-tab.is-active::after,
+.product-tabs button.is-active::after {
+  background: var(--accent);
+}
+
+.production-guard {
+  display: grid;
+  min-height: 58px;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 14px;
+  border: 1px solid #e8c7c2;
+  border-left: 3px solid var(--negative);
+  border-radius: 6px;
+  background: #fff9f8;
+  color: #9f3030;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.production-guard strong,
+.production-guard small {
+  display: block;
+}
+
+.production-guard strong {
+  font-size: 12px;
+}
+
+.production-guard small {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.state--warning {
+  padding: 4px 7px;
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.account-list {
+  min-height: 250px;
+}
+
+.trading-empty {
+  display: flex;
+  min-height: 195px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 30px;
+  text-align: center;
+}
+
+.trading-empty__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 11px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
+.trading-empty h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.trading-empty p {
+  max-width: 420px;
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.trading-empty--compact {
+  min-height: 110px;
+}
+
+.product-tabs {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.account-binding-dialog {
+  width: min(680px, 100%);
+}
+
+.field > textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.scope-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.scope-fieldset legend {
+  margin-bottom: 7px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.scope-options {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.scope-options label {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.scope-options label:last-child {
+  border-right: 0;
+}
+
+.security-confirmation,
+.connector-notice {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+}
+
+.security-confirmation input {
+  flex: 0 0 auto;
+}
+
+.security-confirmation strong,
+.security-confirmation small,
+.connector-notice strong,
+.connector-notice small {
+  display: block;
+}
+
+.security-confirmation strong,
+.connector-notice strong {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.security-confirmation small,
+.connector-notice small {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .provider-strip {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1611,6 +1852,27 @@ td small {
 
   .field--wide {
     grid-column: auto;
+  }
+
+  .production-guard {
+    align-items: flex-start;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .production-guard .state {
+    grid-column: 2;
+  }
+
+  .scope-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .scope-options label:nth-child(2) {
+    border-right: 0;
+  }
+
+  .scope-options label:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border);
   }
 }
 

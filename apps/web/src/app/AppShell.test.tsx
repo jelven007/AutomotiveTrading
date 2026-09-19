@@ -30,17 +30,42 @@ describe("AppShell", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps simulation and live environments visible on trading page", async () => {
+  it("redirects trading to the cn workspace and exposes market navigation", async () => {
     const user = userEvent.setup();
     renderShell();
 
     await user.click(screen.getByRole("link", { name: /交易/ }));
 
     expect(
-      screen.getByRole("heading", { name: "模拟交易", level: 2 }),
+      await screen.findByRole("heading", { name: "沪深交易", level: 1 }),
+    ).toBeInTheDocument();
+    const marketNavigation = screen.getByRole("navigation", {
+      name: "交易市场",
+    });
+    for (const label of ["沪深", "港美", "币安"]) {
+      expect(marketNavigation).toHaveTextContent(label);
+    }
+    expect(
+      screen.getByRole("button", { name: "添加帐号" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "实盘交易", level: 2 }),
+      screen.getByRole("heading", { name: "尚未添加帐号", level: 2 }),
     ).toBeInTheDocument();
+    expect(screen.queryByText("贵州茅台")).not.toBeInTheDocument();
+  });
+
+  it("shows all supported product scopes in the binance workspace", () => {
+    renderShell("/trading/binance");
+
+    expect(
+      screen.getByRole("heading", { name: "币安交易", level: 1 }),
+    ).toBeInTheDocument();
+    const productNavigation = screen.getByRole("tablist", {
+      name: "币安产品",
+    });
+    for (const label of ["现货", "全仓杠杆", "逐仓杠杆", "U 本位永续"]) {
+      expect(productNavigation).toHaveTextContent(label);
+    }
+    expect(screen.getByText("生产交易未启用")).toBeInTheDocument();
   });
 });
