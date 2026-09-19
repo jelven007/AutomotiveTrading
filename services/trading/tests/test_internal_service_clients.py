@@ -6,6 +6,42 @@ from trading.risk import HttpRiskAuthorizer
 from trading.secrets import HttpKmsSecretBackend, InMemoryEncryptedSecretBackend
 
 
+def test_internal_http_requires_explicit_allowlist() -> None:
+    with httpx.Client() as http:
+        with pytest.raises(ValueError, match="HTTPS"):
+            HttpKmsSecretBackend(
+                http,
+                "http://kms-adapter:8000",
+                "kms-service-token",
+            )
+        with pytest.raises(ValueError, match="HTTPS"):
+            HttpRiskAuthorizer(
+                http,
+                "http://risk:8000",
+                "risk-service-token",
+            )
+        with pytest.raises(ValueError, match="HTTPS"):
+            HttpKmsSecretBackend(
+                http,
+                "http://untrusted.example.com",
+                "kms-service-token",
+                allow_insecure_internal_http=True,
+            )
+
+        HttpKmsSecretBackend(
+            http,
+            "http://kms-adapter:8000",
+            "kms-service-token",
+            allow_insecure_internal_http=True,
+        )
+        HttpRiskAuthorizer(
+            http,
+            "http://risk:8000",
+            "risk-service-token",
+            allow_insecure_internal_http=True,
+        )
+
+
 def test_secret_backend_contract_rejects_cross_tenant_access() -> None:
     backend = InMemoryEncryptedSecretBackend()
     secret_ref = backend.put("tenant-a", {"api_key": "secret"})

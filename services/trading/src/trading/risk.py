@@ -1,7 +1,8 @@
 from typing import Any, Protocol
-from urllib.parse import urlparse
 
 import httpx
+
+from trading.internal_urls import validate_internal_service_url
 
 
 class RiskAuthorizer(Protocol):
@@ -34,10 +35,14 @@ class HttpRiskAuthorizer:
         http: httpx.Client,
         base_url: str,
         service_token: str,
+        *,
+        allow_insecure_internal_http: bool = False,
     ) -> None:
-        parsed = urlparse(base_url)
-        if parsed.scheme != "https" or not parsed.hostname:
-            raise ValueError("risk service URL must use HTTPS")
+        validate_internal_service_url(
+            base_url,
+            service_host="risk",
+            allow_insecure_internal_http=allow_insecure_internal_http,
+        )
         if not service_token:
             raise ValueError("risk service token is required")
         self._http = http

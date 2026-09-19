@@ -26,6 +26,7 @@ KMS_URL=https://...
 KMS_SERVICE_TOKEN=<至少 32 字节的独立服务令牌>
 RISK_SERVICE_URL=https://...
 RISK_SERVICE_TOKEN=<至少 32 字节的独立服务令牌>
+ALLOW_INSECURE_INTERNAL_HTTP=false
 FIXED_EGRESS_IP_CONFIGURED=true
 LIVE_TRADING_ENABLED=true
 ```
@@ -36,6 +37,10 @@ LIVE_TRADING_ENABLED=true
 KMS Broker 的解析和删除请求始终同时传递 `tenant_id`；Risk 校验同时传递
 `X-Service-Token` 与单次使用的 `X-Risk-Approval`。两个服务不可用、返回非
 2xx 或响应格式错误时，Trading 均失败关闭。
+
+单机 UAT Compose Profile 使用 Docker 私有网络和
+`ALLOW_INSECURE_INTERNAL_HTTP=true`。该开关只接受 `kms-adapter`、`risk` 或
+本机回环地址，且生产环境会拒绝启动。正式生产必须使用内部 HTTPS。
 
 Create and apply a migration:
 

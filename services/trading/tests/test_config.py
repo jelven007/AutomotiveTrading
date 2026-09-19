@@ -81,3 +81,16 @@ def test_production_rejects_short_internal_service_tokens(field: str) -> None:
 
     with pytest.raises(ValidationError, match="at least 32"):
         Settings(**values)
+
+
+def test_production_rejects_insecure_internal_http() -> None:
+    with pytest.raises(ValidationError, match="internal HTTPS"):
+        Settings(
+            environment="production",
+            auth_jwt_secret="test-signing-secret-that-is-at-least-32-bytes",
+            secret_backend="kms",
+            kms_url="https://kms.internal",
+            kms_service_token="kms-service-token-that-is-at-least-32-bytes",
+            risk_service_token="risk-service-token-that-is-at-least-32-bytes",
+            allow_insecure_internal_http=True,
+        )

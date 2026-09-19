@@ -73,6 +73,7 @@ KMS、Risk、Trading 的 Alembic 迁移。
 - KMS、Risk 使用不同随机服务令牌。
 - `ALLOW_INSECURE_INTERNAL_HTTP` 在生产环境禁止启用。
 - 本阶段不把 Risk/KMS API 暴露到公网。
+- 页面允许提交真实凭据前，必须由外部负载均衡或反向代理完成公网 HTTPS 终止。
 
 ## 6. 验证
 

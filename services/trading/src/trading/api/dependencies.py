@@ -60,7 +60,12 @@ def get_secret_backend(
                 status_code=503,
             )
         token = settings.kms_service_token.get_secret_value()
-        return HttpKmsSecretBackend(http, settings.kms_url, token)
+        return HttpKmsSecretBackend(
+            http,
+            settings.kms_url,
+            token,
+            allow_insecure_internal_http=settings.allow_insecure_internal_http,
+        )
     if settings.local_secret_encryption_key is None:
         raise ServiceError(
             code="trading.local_secret_key_missing",
@@ -100,6 +105,7 @@ def get_risk_authorizer(
         http,
         settings.risk_service_url,
         settings.risk_service_token.get_secret_value(),
+        allow_insecure_internal_http=settings.allow_insecure_internal_http,
     )
 
 

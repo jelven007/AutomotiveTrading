@@ -1,13 +1,13 @@
 import hmac
 import json
 from typing import Protocol
-from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
 from cryptography.fernet import Fernet
 from sqlalchemy.orm import Session
 
+from trading.internal_urls import validate_internal_service_url
 from trading.models import LocalEncryptedSecret
 
 
@@ -109,10 +109,14 @@ class HttpKmsSecretBackend:
         http: httpx.Client,
         base_url: str,
         service_token: str,
+        *,
+        allow_insecure_internal_http: bool = False,
     ) -> None:
-        parsed = urlparse(base_url)
-        if parsed.scheme != "https" or not parsed.hostname:
-            raise ValueError("KMS URL must use HTTPS")
+        validate_internal_service_url(
+            base_url,
+            service_host="kms-adapter",
+            allow_insecure_internal_http=allow_insecure_internal_http,
+        )
         if not service_token:
             raise ValueError("KMS service token is required")
         self._http = http

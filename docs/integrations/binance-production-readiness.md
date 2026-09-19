@@ -10,6 +10,8 @@
 
 - 交易页面固定提供沪深、港美、币安三个入口和通道白名单。
 - 币安帐号绑定支持 Ed25519、HMAC、RSA，凭据字段提交后立即清理。
+- 只读 API Key 可以绑定；绑定阶段只要求读取权限并强制禁止提现权限。
+- Scope 交易权限只在启用交易时检查，绑定成功后所有 Scope 默认保持禁用。
 - `trading` 服务按租户保存帐号、Scope、订单、操作、急停和 Outbox。
 - 币安请求使用服务器时间偏移，`recvWindow` 不超过 5000 ms。
 - 帐号绑定检查读取、现货、杠杆、U 本位和提现权限；提现权限会拒绝或停用。
@@ -63,6 +65,7 @@ apps/web/src/app/AppShell.test.tsx
 - 火山引擎 KMS 适配器的真实联调和密钥轮换演练。
 - 固定出口 EIP、币安 Key IP 白名单和生产网络域名白名单。
 - 生产帐号、产品资格、司法辖区、服务条款和法务合规书面确认。
+- Web 的余额、负债和持仓详情组件；当前页面只显示帐号、Scope 和连接状态。
 
 ## 4. 生产闸门
 
@@ -77,12 +80,13 @@ KMS_SERVICE_TOKEN=<独立服务令牌，至少 32 字节>
 RISK_SERVICE_URL=https://...
 RISK_SERVICE_TOKEN=<独立服务令牌，至少 32 字节>
 FIXED_EGRESS_IP_CONFIGURED=true
+PUBLIC_BASE_URL=https://<已完成 TLS 终止的访问域名>
 LIVE_TRADING_ENABLED=false
 ```
 
 `LIVE_TRADING_ENABLED` 默认保持关闭。启用顺序固定为：
 
-1. 只读帐号权限与时间同步。
+1. 使用只读 Key 完成帐号权限与时间同步。
 2. 余额、负债和持仓快照。
 3. User Data Stream 与 REST 补偿。
 4. 最小金额现货人工订单。

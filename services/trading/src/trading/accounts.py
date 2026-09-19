@@ -157,7 +157,7 @@ class TradingAccountService:
             scopes=tuple(command.enabled_scopes),
             isolated_symbols=tuple(command.isolated_symbols),
         )
-        self._validate_permissions(command.enabled_scopes, permissions)
+        self._validate_read_permissions(permissions)
 
         secret_ref = self.secret_backend.put(tenant_id, credentials)
         account = TradingAccount(
@@ -222,7 +222,7 @@ class TradingAccountService:
             or utc_now() - account.last_permission_check_at > timedelta(minutes=5)
         ):
             raise ValueError("a recent account permission check is required")
-        self._validate_permissions(
+        self._validate_trading_permissions(
             [scope.scope_type for scope in scopes],
             self._permission_snapshot(account),
         )
@@ -272,7 +272,7 @@ class TradingAccountService:
             self._publish_account(account, "trading.account.disabled")
             self.session.commit()
             raise ValueError("withdrawal permission is forbidden")
-        self._validate_permissions([scope.scope_type for scope in scopes], permissions)
+        self._validate_read_permissions(permissions)
         account.connection_status = ConnectionStatus.CONNECTED
         if account.status is AccountStatus.DISABLED:
             account.status = AccountStatus.READ_ONLY
@@ -371,14 +371,21 @@ class TradingAccountService:
         return records
 
     @staticmethod
-    def _validate_permissions(
-        scopes: list[AccountScopeType],
+    def _validate_read_permissions(
         permissions: AccountPermissionSnapshot,
     ) -> None:
         if permissions.can_withdraw:
             raise ValueError("withdrawal permission is forbidden")
         if not permissions.can_read:
             raise ValueError("account read permission is required")
+
+    @classmethod
+    def _validate_trading_permissions(
+        cls,
+        scopes: list[AccountScopeType],
+        permissions: AccountPermissionSnapshot,
+    ) -> None:
+        cls._validate_read_permissions(permissions)
         checks = {
             AccountScopeType.SPOT: permissions.can_spot_trade,
             AccountScopeType.CROSS_MARGIN: permissions.can_margin_trade,

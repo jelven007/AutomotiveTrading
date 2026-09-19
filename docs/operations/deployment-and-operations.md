@@ -17,9 +17,42 @@
 当前 M2 的开发、演示和集成验证可使用
 [Ubuntu 单机部署指南](ubuntu-single-node-deployment.md)。该方案不替代以下生产架构。
 
-`trading` 服务当前仅纳入本地开发与自动化验证，默认端口为 `8004`。在外部 KMS、
-Risk Service、固定出口 EIP 和币安 IP 白名单完成前，不加入现有单机云端默认
-编排；不得通过把 `ENVIRONMENT` 改为 `local` 绕过生产启动校验。
+`trading`、`risk` 和 `kms-adapter` 已纳入可选的 `binance-readonly` UAT
+Profile，默认诊断端口分别为 `8004`、`8005` 和 `8006`，且只绑定宿主机回环
+地址。默认部署不会启动该 Profile。
+
+### 1.1 币安只读 UAT
+
+先执行常规初始化：
+
+```bash
+bash scripts/deploy.sh init
+```
+
+然后在 `infra/compose/.env.deploy` 中配置：
+
+```text
+KMS_KEY_ID=<火山引擎 KMS 主密钥 ID>
+KMS_REGION=cn-beijing
+VOLCENGINE_ACCESS_KEY=<由运行环境安全注入>
+VOLCENGINE_SECRET_KEY=<由运行环境安全注入>
+VOLCENGINE_SESSION_TOKEN=<使用临时凭据时填写>
+FIXED_EGRESS_IP_CONFIGURED=true
+PUBLIC_BASE_URL=https://<已完成 TLS 终止的访问域名>
+```
+
+只有确认 ECS 固定出口 IP 已加入币安 API Key 白名单后，才能把
+`FIXED_EGRESS_IP_CONFIGURED` 改为 `true`；只有公网入口已经由负载均衡或反向
+代理完成 HTTPS 终止后，才能填写 `PUBLIC_BASE_URL`。启动命令：
+
+```bash
+bash scripts/deploy.sh readonly-up
+```
+
+该命令会创建或确认 `qt_kms`、`qt_risk`、`qt_trading` 数据库，执行三个服务的
+迁移并启动只读链路。`LIVE_TRADING_ENABLED` 固定为 `false`，不能通过该 Profile
+启用实盘写操作。UAT Docker 网络允许显式内部 HTTP；正式生产必须改为内部 HTTPS，
+不得开启 `ALLOW_INSECURE_INTERNAL_HTTP`。
 
 ## 2. VKE 部署
 

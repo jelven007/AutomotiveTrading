@@ -107,6 +107,43 @@ def test_binance_binding_externalizes_credentials_and_starts_read_only(
     assert "private-key-sensitive" not in outbox.payload_json
 
 
+def test_read_only_binance_key_can_bind_but_cannot_enable_trading(
+    session: Session,
+) -> None:
+    account_service, _ = service(
+        session,
+        snapshot=permission_snapshot(
+            can_spot_trade=False,
+            can_margin_trade=False,
+            can_futures_trade=False,
+        ),
+    )
+
+    bound = account_service.bind(
+        tenant_id="tenant-a",
+        actor_roles=("tenant_admin",),
+        mfa_verified_at=datetime.now(UTC),
+        command=binance_command(),
+    )
+    checked = account_service.test_connection(
+        tenant_id="tenant-a",
+        account_id=bound.id,
+        actor_roles=("tenant_admin",),
+    )
+
+    assert checked.status == "read_only"
+    assert checked.connection_status == "connected"
+    assert checked.trading_enabled is False
+    assert all(scope.enabled is False for scope in checked.scopes)
+    with pytest.raises(ValueError, match="missing trading permissions"):
+        account_service.enable_trading(
+            tenant_id="tenant-a",
+            account_id=bound.id,
+            actor_roles=("tenant_admin",),
+            mfa_verified_at=datetime.now(UTC),
+        )
+
+
 def test_account_listing_is_tenant_isolated(session: Session) -> None:
     account_service, _ = service(session)
     account_service.bind(

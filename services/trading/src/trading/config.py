@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     kms_service_token: SecretStr | None = None
     risk_service_url: str | None = None
     risk_service_token: SecretStr | None = None
+    allow_insecure_internal_http: bool = False
     live_trading_enabled: bool = False
     fixed_egress_ip_configured: bool = False
     max_futures_leverage: int = Field(default=20, ge=1, le=125)
@@ -41,6 +42,8 @@ class Settings(BaseSettings):
     def validate_production_dependencies(self) -> "Settings":
         if self.environment != "production":
             return self
+        if self.allow_insecure_internal_http:
+            raise ValueError("production requires internal HTTPS")
         if self.auth_jwt_secret is None:
             raise ValueError("production requires an authentication signing secret")
         if self.secret_backend is not SecretBackendType.KMS or not self.kms_url:

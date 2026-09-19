@@ -1,6 +1,6 @@
 name: quant-trading-saas
 
-# 云端单机一键部署编排：在本地依赖组件（compose）之上，追加 Web 和 3 个业务服务。
+# 云端单机一键部署编排：默认追加 Web 和 3 个业务服务；币安只读链路使用可选 Profile。
 # 依赖组件（mysql/redis/kafka/minio/mailpit）复用基础 docker-compose.yml，
 # 通过 `-f docker-compose.yml -f docker-compose.deploy.yml` 叠加启动。
 #
@@ -94,6 +94,138 @@ services:
     depends_on:
       model-config-migrate:
         condition: service_completed_successfully
+    restart: unless-stopped
+
+  # 币安只读 UAT 使用显式 Profile，不影响默认演示环境。
+  readonly-databases-init:
+    profiles: ["binance-readonly"]
+    image: mysql:8.4
+    entrypoint: ["/bin/sh", "/ensure-readonly-databases.sh"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER:-qt_app}
+    volumes:
+      - ./mysql/ensure-readonly-databases.sh:/ensure-readonly-databases.sh:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  kms-adapter-migrate:
+    profiles: ["binance-readonly"]
+    build:
+      context: ../../services/kms-adapter
+    image: qt/kms-adapter:latest
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      ENVIRONMENT: uat
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_kms
+      SERVICE_TOKEN: ${KMS_SERVICE_TOKEN}
+      KMS_KEY_ID: ${KMS_KEY_ID}
+      KMS_REGION: ${KMS_REGION:-cn-beijing}
+      VOLCENGINE_ACCESS_KEY: ${VOLCENGINE_ACCESS_KEY}
+      VOLCENGINE_SECRET_KEY: ${VOLCENGINE_SECRET_KEY}
+      VOLCENGINE_SESSION_TOKEN: ${VOLCENGINE_SESSION_TOKEN:-}
+    depends_on:
+      readonly-databases-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  kms-adapter:
+    profiles: ["binance-readonly"]
+    image: qt/kms-adapter:latest
+    environment:
+      ENVIRONMENT: uat
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_kms
+      SERVICE_TOKEN: ${KMS_SERVICE_TOKEN}
+      KMS_KEY_ID: ${KMS_KEY_ID}
+      KMS_REGION: ${KMS_REGION:-cn-beijing}
+      VOLCENGINE_ACCESS_KEY: ${VOLCENGINE_ACCESS_KEY}
+      VOLCENGINE_SECRET_KEY: ${VOLCENGINE_SECRET_KEY}
+      VOLCENGINE_SESSION_TOKEN: ${VOLCENGINE_SESSION_TOKEN:-}
+    ports:
+      - "${QT_BIND_HOST:-127.0.0.1}:${KMS_ADAPTER_PORT:-8006}:8000"
+    depends_on:
+      kms-adapter-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  risk-migrate:
+    profiles: ["binance-readonly"]
+    build:
+      context: ../../services/risk
+    image: qt/risk:latest
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      ENVIRONMENT: uat
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_risk
+      SERVICE_TOKEN: ${RISK_SERVICE_TOKEN}
+    depends_on:
+      readonly-databases-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  risk:
+    profiles: ["binance-readonly"]
+    image: qt/risk:latest
+    environment:
+      ENVIRONMENT: uat
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_risk
+      SERVICE_TOKEN: ${RISK_SERVICE_TOKEN}
+    ports:
+      - "${QT_BIND_HOST:-127.0.0.1}:${RISK_PORT:-8005}:8000"
+    depends_on:
+      risk-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  trading-migrate:
+    profiles: ["binance-readonly"]
+    build:
+      context: ../../services/trading
+    image: qt/trading:latest
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      ENVIRONMENT: uat
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_trading
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      SECRET_BACKEND: kms
+      KMS_URL: http://kms-adapter:8000
+      KMS_SERVICE_TOKEN: ${KMS_SERVICE_TOKEN}
+      RISK_SERVICE_URL: http://risk:8000
+      RISK_SERVICE_TOKEN: ${RISK_SERVICE_TOKEN}
+      ALLOW_INSECURE_INTERNAL_HTTP: "true"
+      LIVE_TRADING_ENABLED: "false"
+      FIXED_EGRESS_IP_CONFIGURED: ${FIXED_EGRESS_IP_CONFIGURED:-false}
+    depends_on:
+      readonly-databases-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  trading:
+    profiles: ["binance-readonly"]
+    image: qt/trading:latest
+    environment:
+      ENVIRONMENT: uat
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_trading
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      SECRET_BACKEND: kms
+      KMS_URL: http://kms-adapter:8000
+      KMS_SERVICE_TOKEN: ${KMS_SERVICE_TOKEN}
+      RISK_SERVICE_URL: http://risk:8000
+      RISK_SERVICE_TOKEN: ${RISK_SERVICE_TOKEN}
+      ALLOW_INSECURE_INTERNAL_HTTP: "true"
+      LIVE_TRADING_ENABLED: "false"
+      FIXED_EGRESS_IP_CONFIGURED: ${FIXED_EGRESS_IP_CONFIGURED:-false}
+    ports:
+      - "${QT_BIND_HOST:-127.0.0.1}:${TRADING_PORT:-8004}:8000"
+    depends_on:
+      trading-migrate:
+        condition: service_completed_successfully
+      kms-adapter:
+        condition: service_healthy
+      risk:
+        condition: service_healthy
     restart: unless-stopped
 
   # Web 是唯一公网入口，同时提供静态页面和同源 API 反向代理。
