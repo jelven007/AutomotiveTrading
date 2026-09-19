@@ -1,4 +1,5 @@
 import base64
+import json
 from types import SimpleNamespace
 from typing import Any
 
@@ -48,13 +49,14 @@ def test_generate_and_decrypt_use_exact_context_and_32_byte_key() -> None:
 
     generate_request = api.generated_requests[0]
     decrypt_request = api.decrypted_requests[0]
+    expected_context = json.dumps(context, sort_keys=True, separators=(",", ":"))
     assert generate_request.key_id == "volc-key-id"
     assert generate_request.number_of_bytes == 32
-    assert generate_request.encryption_context == context
+    assert generate_request.encryption_context == expected_context
     assert generated.plaintext == b"k" * 32
     assert generated.ciphertext == base64.b64encode(b"wrapped-data-key")
     assert decrypt_request.ciphertext_blob == generated.ciphertext.decode()
-    assert decrypt_request.encryption_context == context
+    assert decrypt_request.encryption_context == expected_context
     assert decrypted == b"k" * 32
 
 

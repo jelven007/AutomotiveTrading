@@ -1,6 +1,7 @@
 import base64
 import binascii
 import importlib
+import json
 from collections.abc import Callable
 from typing import Any, Protocol, cast
 
@@ -48,7 +49,7 @@ class VolcengineKmsProvider:
             request = models.GenerateDataKeyRequest(
                 key_id=key_id,
                 number_of_bytes=32,
-                encryption_context=dict(encryption_context),
+                encryption_context=self._encode_context(encryption_context),
             )
             response = api.generate_data_key(request)
         except Exception:
@@ -75,7 +76,7 @@ class VolcengineKmsProvider:
             api, models = self._get_sdk()
             request = models.DecryptRequest(
                 ciphertext_blob=ciphertext_blob,
-                encryption_context=dict(encryption_context),
+                encryption_context=self._encode_context(encryption_context),
             )
             response = api.decrypt(request)
         except Exception:
@@ -117,3 +118,12 @@ class VolcengineKmsProvider:
         if len(decoded) != 32:
             raise KmsProviderError("Volcengine KMS returned an invalid response")
         return decoded
+
+    @staticmethod
+    def _encode_context(encryption_context: dict[str, str]) -> str:
+        return json.dumps(
+            encryption_context,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
