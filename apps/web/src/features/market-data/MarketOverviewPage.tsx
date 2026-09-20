@@ -10,8 +10,9 @@ import {
 
 import { useAuth } from "../auth/AuthContext";
 import { getLatestQuotes } from "./api";
+import { InstrumentHistory } from "./InstrumentHistory";
 import { MarketTable } from "./MarketTable";
-import type { Exchange, LatestQuotesResponse } from "./types";
+import type { Exchange, LatestQuotesResponse, MarketQuote } from "./types";
 
 type ExchangeFilter = "ALL" | Exchange;
 
@@ -23,6 +24,7 @@ export function MarketOverviewPage() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [exchange, setExchange] = useState<ExchangeFilter>("ALL");
+  const [selectedQuote, setSelectedQuote] = useState<MarketQuote | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
@@ -181,9 +183,17 @@ export function MarketOverviewPage() {
             正在读取真实行情
           </div>
         ) : (
-          <MarketTable quotes={visibleQuotes} />
+          <MarketTable
+            onSelect={setSelectedQuote}
+            quotes={visibleQuotes}
+            selected={selectedQuote}
+          />
         )}
       </section>
+
+      {selectedQuote && (
+        <InstrumentHistory quote={selectedQuote} tenantId={tenantId} />
+      )}
     </div>
   );
 }

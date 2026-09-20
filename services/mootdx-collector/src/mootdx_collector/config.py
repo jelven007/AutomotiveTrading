@@ -24,6 +24,11 @@ class Settings:
     endpoints: str = ""
     health_host: str = "127.0.0.1"
     health_port: int = 8010
+    history_enabled: bool = True
+    history_request_interval: float = 0.25
+    history_bar_count: int = 800
+    history_transaction_page_size: int = 800
+    history_transaction_max_pages: int = 8
 
     def __post_init__(self) -> None:
         bounds = {
@@ -38,6 +43,10 @@ class Settings:
             "min_free_bytes": (0, 1024**4),
             "probe_limit": (1, 128),
             "health_port": (1024, 65535),
+            "history_request_interval": (0, 60),
+            "history_bar_count": (1, 800),
+            "history_transaction_page_size": (1, 800),
+            "history_transaction_max_pages": (1, 32),
         }
         for name, (lower, upper) in bounds.items():
             if not lower <= getattr(self, name) <= upper:
@@ -53,7 +62,14 @@ class Settings:
         for name in cls.__dataclass_fields__:
             value = os.getenv(f"COLLECTOR_{name.upper()}")
             if value is not None:
-                values[name] = type(getattr(defaults, name))(value)
+                default = getattr(defaults, name)
+                if isinstance(default, bool):
+                    normalized = value.strip().lower()
+                    if normalized not in {"true", "false", "1", "0"}:
+                        raise ValueError(f"invalid boolean for {name}")
+                    values[name] = normalized in {"true", "1"}
+                else:
+                    values[name] = type(default)(value)
         values["service_token"] = os.getenv(
             "MARKET_INGEST_SERVICE_TOKEN",
             values.get("service_token", ""),

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
-from instrument_market.api import health, quotes
+from instrument_market.api import health, history, quotes
 from instrument_market.main import app
 
 client = TestClient(app)
@@ -64,3 +64,36 @@ def test_latest_quotes_requires_tenant_and_uses_bounded_limit(monkeypatch) -> No
         "limit": 120,
         "items": [],
     }
+
+
+def test_history_routes_require_tenant_and_validate_symbol(monkeypatch) -> None:
+    class HistoryService:
+        def bars(self, **kwargs):
+            return {"kind": "bars", **kwargs}
+
+        def minutes(self, **kwargs):
+            return {"kind": "minutes", **kwargs}
+
+        def transactions(self, **kwargs):
+            return {"kind": "transactions", **kwargs}
+
+    monkeypatch.setattr(history, "get_history_view_service", lambda: HistoryService())
+    headers = {"X-Tenant-ID": "tenant-1"}
+
+    assert client.get("/api/v1/market/bars/SSE/600000").status_code == 400
+    bars = client.get("/api/v1/market/bars/SSE/600000?limit=120", headers=headers)
+    minutes = client.get(
+        "/api/v1/market/minutes/SZSE/000001?trade_date=2026-09-18",
+        headers=headers,
+    )
+    transactions = client.get(
+        "/api/v1/market/transactions/SSE/600000?limit=50",
+        headers=headers,
+    )
+
+    assert bars.status_code == 200
+    assert bars.json()["limit"] == 120
+    assert minutes.json()["trade_date"] == "2026-09-18"
+    assert transactions.json()["limit"] == 50
+    assert client.get("/api/v1/market/bars/SSE/not-a-code", headers=headers).status_code == 422
+    assert client.get("/api/v1/market/bars/BSE/920002", headers=headers).status_code == 422

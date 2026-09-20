@@ -61,6 +61,11 @@ upgrade_market_env() {
   append_env_if_missing COLLECTOR_ENDPOINTS ""
   append_env_if_missing COLLECTOR_MAX_PENDING 10000
   append_env_if_missing COLLECTOR_MAX_SPOOL_BYTES 10737418240
+  append_env_if_missing COLLECTOR_HISTORY_ENABLED true
+  append_env_if_missing COLLECTOR_HISTORY_REQUEST_INTERVAL 0.25
+  append_env_if_missing COLLECTOR_HISTORY_BAR_COUNT 800
+  append_env_if_missing COLLECTOR_HISTORY_TRANSACTION_PAGE_SIZE 800
+  append_env_if_missing COLLECTOR_HISTORY_TRANSACTION_MAX_PAGES 8
   chmod 600 "${ENV_FILE}"
 }
 

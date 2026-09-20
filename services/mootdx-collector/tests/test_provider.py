@@ -37,6 +37,51 @@ def test_quotes_reject_out_of_scope_exchange():
         provider.quotes("SSE", ["600000"] * 81)
 
 
+def test_history_methods_use_explicit_market_and_bounded_protocol_calls():
+    calls = []
+
+    class API:
+        def get_security_bars(self, *args):
+            calls.append(("bars", args))
+            return [{"datetime": "2026-09-18 15:00"}]
+
+        def get_history_minute_time_data(self, *args):
+            calls.append(("minutes", args))
+            return [{"price": 10}]
+
+        def get_history_transaction_data(self, *args):
+            calls.append(("transactions", args))
+            return [{"time": "09:31"}]
+
+    node = Node("127.0.0.1", 7709)
+    provider = Provider(Settings(), [node])
+    provider.local.connection = SimpleNamespace(client=API())
+    provider.local.node = node
+
+    assert provider.daily_bars("SSE", "600000", 800)["rows"]
+    assert provider.minute_history("SZSE", "000001", "2026-09-18")["rows"]
+    assert provider.transaction_page("SSE", "600000", "2026-09-18", 800, 800)["rows"]
+    assert calls == [
+        ("bars", (9, 1, "600000", 0, 800)),
+        ("minutes", (0, "000001", 20260918)),
+        ("transactions", (1, "600000", 800, 800, 20260918)),
+    ]
+
+
+@pytest.mark.parametrize(
+    "method,args",
+    [
+        ("daily_bars", ("SSE", "600000", 801)),
+        ("minute_history", ("BSE", "920002", "2026-09-18")),
+        ("transaction_page", ("SSE", "600000", "2026-09-18", 0, 801)),
+    ],
+)
+def test_history_methods_reject_unsupported_protocol_bounds(method, args):
+    provider = Provider(Settings(), [Node("127.0.0.1", 7709)])
+    with pytest.raises(ValueError):
+        getattr(provider, method)(*args)
+
+
 def test_provider_constructs_library_wrapper(monkeypatch, tmp_path):
     from mootdx import config
     from mootdx.quotes import Quotes, StdQuotes

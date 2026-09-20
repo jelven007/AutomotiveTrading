@@ -439,6 +439,11 @@ git commit -m "feat: project market quotes to storage"
 
 ### Task 9: Implement bars, minute data, and transaction pipelines
 
+2026-09-20 首个可运行增量按
+[`2026-09-20-mootdx-history-data.md`](2026-09-20-mootdx-history-data.md)
+执行。该计划先交付最近 800 根未复权日 K、最近交易日分时和有界分页分笔；
+全部周期、复权与多交易日回填继续保留在本任务的后续范围。
+
 **Files:**
 - Create: `services/instrument-market/src/instrument_market/collectors/bar.py`
 - Create: `services/instrument-market/src/instrument_market/collectors/transaction.py`

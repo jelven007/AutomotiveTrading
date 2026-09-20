@@ -46,6 +46,8 @@ def test_deploy_compose_has_one_public_entrypoint() -> None:
     assert "clickhouse:" in base_compose
     assert "instrument-market:" in deploy_compose
     assert "instrument-market-migrate:" in deploy_compose
+    assert "COLLECTOR_HISTORY_ENABLED: ${COLLECTOR_HISTORY_ENABLED:-true}" in deploy_compose
+    assert "COLLECTOR_HISTORY_TRANSACTION_MAX_PAGES" in deploy_compose
     assert 'profiles: ["binance-readonly"]' in deploy_compose
     for service in ("kms-adapter", "risk", "trading"):
         assert f"  {service}:" in deploy_compose
@@ -78,6 +80,9 @@ def test_deploy_init_generates_valid_secrets(tmp_path: Path) -> None:
     assert re.fullmatch(r"[a-f0-9]{96}", values["RISK_SERVICE_TOKEN"])
     assert re.fullmatch(r"[a-f0-9]{48}", values["CLICKHOUSE_PASSWORD"])
     assert re.fullmatch(r"[a-f0-9]{96}", values["MARKET_INGEST_SERVICE_TOKEN"])
+    assert values["COLLECTOR_HISTORY_ENABLED"] == "true"
+    assert values["COLLECTOR_HISTORY_BAR_COUNT"] == "800"
+    assert values["COLLECTOR_HISTORY_TRANSACTION_MAX_PAGES"] == "8"
     assert values["KMS_SERVICE_TOKEN"] != values["RISK_SERVICE_TOKEN"]
     assert values["MARKET_INGEST_SERVICE_TOKEN"] not in {
         values["KMS_SERVICE_TOKEN"],

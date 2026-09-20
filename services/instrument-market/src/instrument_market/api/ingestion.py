@@ -13,6 +13,7 @@ from instrument_market.api.health import get_clickhouse_client
 from instrument_market.config import get_settings
 from instrument_market.db import get_engine
 from instrument_market.errors import ServiceError
+from instrument_market.services.history import HistoryIngestionService
 from instrument_market.services.quotes import QuoteIngestionService
 from instrument_market.storage.receipts import ReceiptStore
 
@@ -64,6 +65,14 @@ def get_ingestion_service() -> QuoteIngestionService:
     )
 
 
+@lru_cache
+def get_history_ingestion_service() -> HistoryIngestionService:
+    return HistoryIngestionService(
+        get_clickhouse_client(),
+        receipts=ReceiptStore(get_engine()),
+    )
+
+
 @router.post(
     "/quotes",
     status_code=status.HTTP_202_ACCEPTED,
@@ -81,9 +90,80 @@ def ingest_quotes(payload: QuoteBatch) -> dict[str, Any]:
     )
 
 
+class HistoryBatch(BaseModel):
+    batch_id: UUID
+    exchange: Literal["SSE", "SZSE"]
+    symbol: str = Field(pattern=r"^[0-9]{6}$")
+    trade_date: date
+    source_id: str = Field(min_length=1, max_length=128)
+    collected_at: datetime
+    rows: list[dict[str, Any]] = Field(min_length=1, max_length=6400)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("collected_at")
+    @classmethod
+    def require_collected_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("collected_at must be timezone-aware")
+        return value
+
+
+def _ingest_history(dataset: str, payload: HistoryBatch) -> dict[str, Any]:
+    return get_history_ingestion_service().ingest(
+        dataset=dataset,
+        batch_id=str(payload.batch_id),
+        exchange=payload.exchange,
+        symbol=payload.symbol,
+        trade_date=payload.trade_date.isoformat(),
+        source_id=payload.source_id,
+        collected_at=payload.collected_at,
+        rows=payload.rows,
+        metadata=payload.metadata,
+    )
+
+
+@router.post(
+    "/bars",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_service_token)],
+)
+def ingest_bars(payload: HistoryBatch) -> dict[str, Any]:
+    if len(payload.rows) > 800:
+        raise ServiceError(
+            code="market.batch_too_large",
+            message="Bar batch exceeds 800 rows",
+            status_code=422,
+        )
+    return _ingest_history("bar", payload)
+
+
+@router.post(
+    "/minutes",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_service_token)],
+)
+def ingest_minutes(payload: HistoryBatch) -> dict[str, Any]:
+    if len(payload.rows) > 240:
+        raise ServiceError(
+            code="market.batch_too_large",
+            message="Minute batch exceeds 240 rows",
+            status_code=422,
+        )
+    return _ingest_history("minute", payload)
+
+
+@router.post(
+    "/transactions",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_service_token)],
+)
+def ingest_transactions(payload: HistoryBatch) -> dict[str, Any]:
+    return _ingest_history("transaction", payload)
+
+
 class CollectorReport(BaseModel):
     batch_id: UUID
-    kind: Literal["universe", "coverage"]
+    kind: Literal["universe", "coverage", "history_coverage"]
     observed_at: datetime
     body: dict[str, Any]
 

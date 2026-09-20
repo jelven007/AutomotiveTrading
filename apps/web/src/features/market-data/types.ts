@@ -56,3 +56,55 @@ export type LatestQuotesResponse = {
   coverage: MarketCoverage | null;
   items: MarketQuote[];
 };
+
+export type HistoryCoverage = "collected" | "partial" | "pending";
+
+type HistoryResponse<T> = {
+  provider: "mootdx";
+  exchange: Exchange;
+  symbol: string;
+  trade_date?: string | null;
+  coverage: HistoryCoverage;
+  items: T[];
+};
+
+export type MarketBar = {
+  event_time: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+  amount: string;
+  source_id: string;
+  quality_status: "healthy" | "partial";
+};
+
+export type MarketMinute = {
+  event_time: string;
+  price: string;
+  volume: string;
+  source_offset: number;
+  source_id: string;
+  quality_status: "healthy" | "partial";
+};
+
+export type MarketTransaction = {
+  event_time: string;
+  price: string;
+  quantity: string;
+  side: "buy" | "sell" | "neutral";
+  source_offset: number;
+  source_id: string;
+  quality_status: "healthy" | "partial";
+};
+
+export type BarsResponse = HistoryResponse<MarketBar>;
+export type MinutesResponse = HistoryResponse<MarketMinute>;
+export type TransactionsResponse = HistoryResponse<MarketTransaction>;
+
+export type InstrumentHistoryResponse = {
+  bars: BarsResponse;
+  minutes: MinutesResponse;
+  transactions: TransactionsResponse;
+};

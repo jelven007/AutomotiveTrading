@@ -10,6 +10,9 @@ from mootdx_collector.config import Settings
         {"batch_size": 81},
         {"timeout": 0},
         {"max_pending": 0},
+        {"history_bar_count": 801},
+        {"history_transaction_page_size": 801},
+        {"history_transaction_max_pages": 0},
         {"core_url": "ftp://localhost"},
         {"core_url": "http://user:password@localhost"},
     ],
@@ -28,3 +31,11 @@ def test_settings_env_and_secret_redaction(monkeypatch, tmp_path):
     assert settings.spool_path == tmp_path / "spool.db"
     assert settings.service_token == "secret-test"
     assert "secret-test" not in repr(settings)
+
+
+def test_settings_parses_history_boolean(monkeypatch):
+    monkeypatch.setenv("COLLECTOR_HISTORY_ENABLED", "false")
+    assert Settings.from_env().history_enabled is False
+    monkeypatch.setenv("COLLECTOR_HISTORY_ENABLED", "invalid")
+    with pytest.raises(ValueError, match="invalid boolean"):
+        Settings.from_env()

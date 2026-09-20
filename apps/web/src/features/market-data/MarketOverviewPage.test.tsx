@@ -20,6 +20,22 @@ vi.mock("@tanstack/react-virtual", () => ({
   }),
 }));
 
+vi.mock("lightweight-charts", () => ({
+  CandlestickSeries: {},
+  ColorType: { Solid: "solid" },
+  HistogramSeries: {},
+  LineSeries: {},
+  createChart: () => ({
+    addSeries: () => ({
+      priceScale: () => ({ applyOptions: vi.fn() }),
+      setData: vi.fn(),
+    }),
+    applyOptions: vi.fn(),
+    remove: vi.fn(),
+    timeScale: () => ({ fitContent: vi.fn() }),
+  }),
+}));
+
 function quote(
   symbol: string,
   name: string,
@@ -124,5 +140,94 @@ describe("MarketOverviewPage", () => {
       expect(screen.queryByText("浦发银行")).not.toBeInTheDocument(),
     );
     expect(screen.getByText("平安银行")).toBeInTheDocument();
+  });
+
+  it("opens persisted minute, daily bar, and transaction views", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      const data = url.includes("/bars/")
+        ? {
+            provider: "mootdx",
+            exchange: "SSE",
+            symbol: "600000",
+            coverage: "collected",
+            items: [
+              {
+                event_time: "2026-09-18T07:00:00Z",
+                open: "9.05",
+                high: "9.15",
+                low: "9.00",
+                close: "9.07",
+                volume: "51759300",
+                amount: "469969408",
+                source_id: "tdx-node",
+                quality_status: "healthy",
+              },
+            ],
+          }
+        : url.includes("/minutes/")
+          ? {
+              provider: "mootdx",
+              exchange: "SSE",
+              symbol: "600000",
+              trade_date: "2026-09-18",
+              coverage: "collected",
+              items: [
+                {
+                  event_time: "2026-09-18T01:31:00Z",
+                  price: "9.02",
+                  volume: "1360400",
+                  source_offset: 0,
+                  source_id: "tdx-node",
+                  quality_status: "healthy",
+                },
+              ],
+            }
+          : url.includes("/transactions/")
+            ? {
+                provider: "mootdx",
+                exchange: "SSE",
+                symbol: "600000",
+                trade_date: "2026-09-18",
+                coverage: "partial",
+                items: [
+                  {
+                    event_time: "2026-09-18T01:31:00Z",
+                    price: "9.02",
+                    quantity: "300",
+                    side: "buy",
+                    source_offset: 0,
+                    source_id: "tdx-node",
+                    quality_status: "partial",
+                  },
+                ],
+              }
+            : response;
+      return Promise.resolve({ ok: true, status: 200, json: async () => data });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderWithAuth(<MarketOverviewPage />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /浦发银行 600000/ }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "浦发银行 600000" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "分时" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await user.click(screen.getByRole("tab", { name: "日 K" }));
+    expect(screen.getByText("1 根")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "分笔" }));
+    expect(screen.getByText("买入")).toBeInTheDocument();
+    expect(screen.getByText("覆盖可能不完整")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/market/minutes/SSE/600000",
+      expect.objectContaining({ headers: { "X-Tenant-ID": "tenant-a" } }),
+    );
   });
 });

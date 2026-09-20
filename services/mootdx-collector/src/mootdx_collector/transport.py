@@ -32,8 +32,9 @@ class Sender:
             result = response.json()
             if not isinstance(result, dict) or result.get("batch_id") != item["id"]:
                 raise ValueError("ack_batch_mismatch")
-            if item["route"].endswith("/quotes"):
-                count = len(item["body"]["quotes"])
+            if item["route"].endswith(("/quotes", "/bars", "/minutes", "/transactions")):
+                key = "quotes" if item["route"].endswith("/quotes") else "rows"
+                count = len(item["body"][key])
                 if (
                     result.get("received") != count
                     or type(result.get("accepted")) is not int
