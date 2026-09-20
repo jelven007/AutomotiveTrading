@@ -6,7 +6,7 @@
 >
 > 状态：Review
 >
-> 版本：0.2
+> 版本：0.3
 >
 > 日期：2026-09-20
 >
@@ -14,7 +14,7 @@
 
 ## 1. 设计结论
 
-新增 `instrument-market` 逻辑模块，核心服务负责证券主数据、Tushare 校验、
+新增 `instrument-market` 逻辑模块，核心服务负责证券主数据、内部一致性校验、
 标准化、质量判断、查询和 WebSocket 推送。mootdx 采集运行在独立 Sidecar，
 通过内部鉴权接口或 Kafka 将原始数据交给核心服务。
 
@@ -51,7 +51,7 @@ mootdx Quotes ─┐
 mootdx Reader ─┼─> mootdx collector Sidecar
 mootdx Affair ─┘          │ 内部鉴权 API / Kafka
                           v
-Tushare verifier ─> instrument-market core
+                 instrument-market core
                           ├─> local spool/WAL
                           └─> Kafka/Redpanda
                                   │
@@ -85,7 +85,6 @@ services/instrument-market/src/instrument_market/
 ├── clients/
 │   ├── base.py
 │   ├── mootdx_collector.py
-│   └── tushare.py
 ├── collectors/
 │   ├── quote.py
 │   ├── transaction.py
@@ -132,18 +131,17 @@ services/mootdx-collector/
 | K 线 | `bars`、`index`、`k` | 初始化回填 + 增量 | 可校验 |
 | 分时 | `minute`、`minutes` | 盘中/盘后补采 | 接口已知存在异常风险 |
 | 分笔 | `transaction`、`transactions` | 分页轮询 + 盘后补采 | 非 Level-2，不保证无遗漏 |
-| 证券列表 | `stocks`、`stock_all` | 每日同步，仅保留沪深 A 股 | Tushare 核验沪深全集 |
+| 证券列表 | `stocks`、`stock_all` | 每日同步，仅保留沪深 A 股 | MOOTDX 候选集合 |
 | 板块 | `block`、Reader block | 每日版本化 | 依赖 TDX 文件 |
 | F10 | `F10C`、`F10` | 沪深证券目录哈希变化后抓取 | 按证券记录覆盖 |
-| 除权除息 | `xdxr` | 每日同步 | Tushare 复核 |
-| 财务摘要 | `finance` | 每日同步 | Tushare 复核 |
+| 除权除息 | `xdxr` | 每日同步 | MOOTDX 单源 |
+| 财务摘要 | `finance` | 每日同步 | MOOTDX 单源 |
 | 专业财务文件 | `Affair.files/fetch/parse` | 文件哈希增量 | 原文件永久保留 |
 | 本地行情文件 | `Reader` | 文件变化监听 | 需要有效 `vipdoc` |
 
-沪深证券列表、交易日历和缺失字段由 Tushare 补充与校验。Tushare 返回的
-证券名单必须先按 `exchange in {SSE, SZSE}` 筛选，再用于主数据同步、回填和对账。
+沪深证券列表来自 MOOTDX/TDX，按 `60/68` 和 `00/30` 前缀筛选候选集合。
 Provider 在沪深范围内的能力必须在 `provider_capability` 中显式登记，
-接口不得返回虚构空值。
+接口不得返回虚构空值，也不得把候选集合描述为交易所权威全集。
 
 ## 5. 数据封装
 
@@ -264,7 +262,6 @@ cnmd:collector:lease:{shard_id}
 | 财务摘要 | 每日收盘后 |
 | Affair 文件 | 每日检查文件列表和 MD5 |
 | Reader 文件 | 文件系统变更后导入，收盘后兜底扫描 |
-| Tushare 校验 | 分钟抽检，收盘全量对账 |
 
 ## 8. 数据质量
 
@@ -282,7 +279,7 @@ healthy | stale | partial | conflict | invalid | unavailable
 - 买一不得长期高于卖一；集合竞价等特殊时段按市场状态处理。
 - 价格必须满足证券价格精度和当日涨跌幅规则。
 - 快照、分钟线和日线的成交量单位必须统一为股。
-- Tushare 与 mootdx 收盘价、成交量、成交额和复权因子差异超过阈值时生成冲突。
+- 快照与 MOOTDX 日 K 的交易日、收盘价和成交字段不一致时生成质量事件。
 
 `stale`、`invalid` 和高严重度 `conflict` 数据不得触发开仓分析。原始记录始终
 保留，质量判断只影响标准视图和下游使用。
@@ -407,7 +404,6 @@ Inter、SF Pro Text、苹方组合，行情数字使用等宽字体。布局以�
 - ClickHouse 不可用时原始数据继续进入 MinIO，恢复后重放。
 - MinIO 不可用时保留本地 WAL，不确认采集批次完成。
 - Redis 丢失时从 ClickHouse 最新标准记录重建。
-- Tushare 不可用不阻断 mootdx 主链路，仅暂停交叉校验。
 - 单个 mootdx 服务器失效时自动切换；全部失效时数据状态变为 `unavailable`。
 
 ## 13. 可观测性
@@ -427,12 +423,12 @@ Inter、SF Pro Text、苹方组合，行情数字使用等宽字体。布局以�
 - `raw_archive_backlog_bytes`
 - `websocket_sequence_gap_total`
 
-日志禁止记录 Tushare Token、完整本地路径和原始 F10 正文。
+日志禁止记录完整本地路径、真实节点地址和原始 F10 正文。
 
 ## 14. 已知风险
 
 1. mootdx 项目当前版本为 0.11.7，外部服务器和协议变化可能导致失效。
 2. 公共通达信服务器可能限流或返回空数据，3 秒目标必须实测。
-3. 未配置 Tushare 时，TDX 沪深候选集合尚未完成权威全集核验，需明确展示核验状态。
+3. MOOTDX/TDX 证券列表是前缀筛选后的候选集合，不具备交易所权威全集保证。
 4. 分笔接口是查询接口，不是带序号重传能力的 Level-2 流。
 5. 全量长期保存需要持续扩容和备份，单机磁盘是主要容量风险。

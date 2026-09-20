@@ -4,11 +4,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 建设仅覆盖上交所（SSE）和深交所（SZSE）A 股的个人数据服务，持久化 mootdx 支持的数据，通过 Tushare 校验并提供实时分析和运维页面。
+**Goal:** 建设仅覆盖上交所（SSE）和深交所（SZSE）A 股的个人数据服务，持久化 MOOTDX 支持的数据并提供实时分析和运维页面。
 
 **Architecture:** Add one FastAPI `instrument-market` service with isolated collectors, an idempotent Kafka pipeline, MySQL control-plane state, ClickHouse analytical tables, MinIO raw archives, and Redis latest projections. Extend the existing React/Vite data area with virtualized market, instrument detail, data catalog, and operations views.
 
-**Tech Stack:** Python 3.12, FastAPI, Pydantic, SQLAlchemy, mootdx 0.11.7, Tushare, Redpanda/Kafka, ClickHouse, Redis, MinIO/S3, React 19, TypeScript, TanStack Query/Virtual, Lightweight Charts, Vitest.
+**Tech Stack:** Python 3.12, FastAPI, Pydantic, SQLAlchemy, mootdx 0.11.7, Redpanda/Kafka, ClickHouse, Redis, MinIO/S3, React 19, TypeScript, TanStack Query/Virtual, Lightweight Charts, Vitest.
 
 ---
 
@@ -16,7 +16,8 @@
 
 本文中的 A-share universe 和 full-market 均限定为沪深 A 股。北交所不属于
 采集、历史回填、主数据补齐、查询展示、覆盖统计和验收范围。
-Tushare 名单须先筛选 SSE/SZSE；范围外市场不计入应采数量、不生成缺口或降级。
+证券范围由 MOOTDX/TDX 列表按沪深代码前缀筛选；范围外市场不计入应采数量、
+不生成缺口或降级。
 已交付 Sidecar 的旧范围分支仍需按
 [范围对齐状态](../../services/mootdx-collector/README.md#范围对齐状态) 完成代码同步；
 本次文档更新不代表该实现调整已通过测试。
@@ -25,7 +26,7 @@ Tushare 名单须先筛选 SSE/SZSE；范围外市场不计入应采数量、不
 
 - Work in an isolated Git worktree.
 - Keep `LIVE_TRADING_ENABLED=false`.
-- Never commit a Tushare Token, real source IP, production payload, or local absolute data path.
+- Never commit a real source IP, production payload, or local absolute data path.
 - Use recorded and anonymized Provider fixtures in automated tests.
 - Read `docs/requirements/a-share-market-data-requirements.md`.
 - Read `docs/plans/2026-09-20-a-share-market-data-design.md`.
@@ -194,7 +195,7 @@ Expected: FAIL because the package is absent.
 
 Copy the repository service conventions, rename the package to `instrument_market`,
 and add typed settings for MySQL, ClickHouse, Redis, Kafka, MinIO, the isolated
-mootdx collector, Tushare, WAL, and Reader paths.
+mootdx collector, WAL, and Reader paths.
 
 **Step 4: Run tests and static checks**
 
@@ -221,7 +222,6 @@ git commit -m "feat: scaffold instrument market service"
 - Create: `services/mootdx-collector/src/mootdx_collector/`
 - Create: `services/instrument-market/src/instrument_market/clients/base.py`
 - Create: `services/instrument-market/src/instrument_market/clients/mootdx_collector.py`
-- Create: `services/instrument-market/src/instrument_market/clients/tushare.py`
 - Create: `services/instrument-market/src/instrument_market/providers/models.py`
 - Create: `services/instrument-market/tests/fixtures/`
 - Test: `services/mootdx-collector/tests/`
@@ -247,8 +247,7 @@ Expected: FAIL because collector and client implementations are absent.
 Run mootdx 0.11.7 in an isolated project because it requires `httpx < 0.26`.
 Do not add mootdx to the root uv workspace and do not downgrade platform HTTP
 dependencies. Wrap blocking calls with a bounded worker pool, then send raw batches
-through an internal authenticated API or Kafka. Implement Tushare in the core service
-without exposing the Token.
+through an internal authenticated API or Kafka. MOOTDX is the only market-data Provider.
 
 **Step 4: Verify Provider tests**
 
@@ -263,7 +262,7 @@ Expected: PASS without external network access.
 
 ```bash
 git add services/instrument-market services/mootdx-collector
-git commit -m "feat: add mootdx and tushare providers"
+git commit -m "feat: add isolated mootdx provider"
 ```
 
 ### Task 5: Add raw envelope, WAL, and MinIO archive
@@ -320,8 +319,8 @@ git commit -m "feat: persist immutable market data payloads"
 
 **Step 1: Write failing synchronization tests**
 
-覆盖 SSE/SZSE 映射、退市证券、证券更名、重复代码，以及 mootdx 无法枚举沪深
-某市场时的 Tushare 回退。增加范围外证券过滤验证。
+覆盖 SSE/SZSE 映射、证券更名、重复代码、列表刷新失败使用缓存，
+以及范围外证券过滤。
 
 **Step 2: Verify failure**
 
@@ -333,8 +332,8 @@ Expected: FAIL.
 
 **Step 3: Implement synchronization**
 
-Tushare 名单仅保留 SSE/SZSE，作为沪深 A 股全集核验来源；mootdx 用于确认
-数据源能力。范围外市场不调度、不补齐、不计入缺口。
+MOOTDX/TDX 列表按沪深代码前缀筛选候选集合。范围外市场不调度、不补齐、
+不计入缺口；接口不得把候选集合描述为交易所权威全集。
 
 **Step 4: Verify tests**
 
@@ -379,7 +378,7 @@ Target a two-second sweep, prioritize the watchlist and active strategy pool, re
 coverage for every round, and publish one event per security keyed by exchange/symbol.
 
 分片与覆盖状态只聚合 SSE/SZSE；两个市场均完整时，不得因范围外市场状态
-将轮次标记为 `partial`。源时间、数据质量及权威全集核验仍独立判断。
+将轮次标记为 `partial`。源时间、数据质量及候选范围说明仍独立判断。
 
 **Step 4: Verify tests**
 
@@ -521,11 +520,10 @@ git add services/instrument-market
 git commit -m "feat: persist mootdx reference and financial data"
 ```
 
-### Task 11: Implement data quality and Tushare reconciliation
+### Task 11: Implement MOOTDX data quality
 
 **Files:**
 - Create: `services/instrument-market/src/instrument_market/pipeline/quality.py`
-- Create: `services/instrument-market/src/instrument_market/services/reconciliation.py`
 - Create: `services/instrument-market/src/instrument_market/api/operations.py`
 - Test: `services/instrument-market/tests/test_quality.py`
 - Test: `services/instrument-market/tests/test_reconciliation.py`
@@ -533,7 +531,7 @@ git commit -m "feat: persist mootdx reference and financial data"
 **Step 1: Write failing quality tests**
 
 Cover stale data, invalid OHLC, volume rollback, crossed books, price precision,
-Provider conflicts, missing Tushare validation, and signal eligibility.
+source endpoint conflicts, snapshot/bar inconsistencies, and signal eligibility.
 
 **Step 2: Verify failure**
 
@@ -809,8 +807,8 @@ git commit -m "feat: deploy a-share market data service"
 Cover empty-database initialization, one full quote sweep, raw-to-standard traceability,
 Redis rebuild, backfill, WebSocket recovery, and frontend data availability.
 
-按 `TC-CNMD-014` 验证范围外市场不进入采集与覆盖统计；真实覆盖率以当日沪深
-证券全集为分母，未核验的候选数量不能直接作为权威全集验收结论。
+按 `TC-CNMD-014` 验证范围外市场不进入采集与覆盖统计；真实覆盖率以当日
+MOOTDX 沪深候选集合为分母，不能描述为交易所权威全集。
 
 **Step 2: Run the acceptance suite before final wiring**
 

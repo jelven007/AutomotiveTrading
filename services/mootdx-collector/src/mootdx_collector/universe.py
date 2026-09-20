@@ -4,8 +4,6 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-import httpx
-
 from mootdx_collector.provider import MARKETS, Provider
 from mootdx_collector.spool import Spool
 
@@ -65,32 +63,7 @@ def enumerate_market(provider: Provider, spool: Spool, exchange: str) -> dict[st
     }
 
 
-def authoritative_universe(token: str) -> list[dict[str, str]]:
-    with httpx.Client(timeout=15, trust_env=False) as client:
-        response = client.post(
-            "https://api.tushare.pro",
-            json={
-                "api_name": "stock_basic",
-                "token": token,
-                "params": {"list_status": "L"},
-                "fields": "ts_code,symbol,name,exchange,list_status",
-            },
-        )
-        response.raise_for_status()
-        body = response.json()
-    if body.get("code") != 0 or not body.get("data", {}).get("items"):
-        raise ValueError("tushare_universe_unavailable")
-    data = body["data"]
-    rows = [dict(zip(data["fields"], row, strict=True)) for row in data["items"]]
-    mapping = {"SSE": "SSE", "SZSE": "SZSE"}
-    return [
-        {"code": row["symbol"], "name": row["name"], "exchange": mapping[row["exchange"]]}
-        for row in rows
-        if row["exchange"] in mapping and row["list_status"] == "L"
-    ]
-
-
-def sync_universe(provider: Provider, spool: Spool, token: str = "") -> dict[str, Any]:
+def sync_universe(provider: Provider, spool: Spool) -> dict[str, Any]:
     previous = spool.get("universe") or {}
     markets: dict[str, Any] = {}
     for exchange in MARKETS:
@@ -106,30 +79,11 @@ def sync_universe(provider: Provider, spool: Spool, token: str = "") -> dict[str
             result["last_success_at"] = datetime.now(UTC).isoformat()
         markets[exchange] = result
 
-    verification = "unverified"
-    authority_error = "tushare_token_missing"
-    if token:
-        try:
-            authority = authoritative_universe(token)
-            spool.put("", {"dataset": "tushare_stock_basic", "rows": authority})
-            for exchange, market in markets.items():
-                tdx = {row["code"]: row for row in market["instruments"]}
-                market["instruments"] = [
-                    {**tdx.get(row["code"], {}), **row}
-                    for row in authority
-                    if row["exchange"] == exchange
-                ]
-                market["missing_in_tdx"] = [
-                    row["code"] for row in market["instruments"] if row["code"] not in tdx
-                ]
-            verification, authority_error = "tushare_stock_basic", None
-        except Exception as error:
-            authority_error = type(error).__name__
     now = datetime.now(UTC).isoformat()
     universe = {
         "observed_at": now,
-        "verification": verification,
-        "authority_error": authority_error,
+        "source": "mootdx",
+        "scope": "sse_szse_candidate",
         "markets": markets,
         "instruments": [row for market in markets.values() for row in market["instruments"]],
     }

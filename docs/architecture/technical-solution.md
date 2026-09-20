@@ -2,7 +2,7 @@
 
 > 文档编号：QT-TDS-001
 >
-> 版本：1.3-draft
+> 版本：1.4-draft
 
 ## 1. 架构目标
 
@@ -58,8 +58,8 @@ A 股行情范围按 2026-09-20 确认限定为上交所（SSE）和深交所（
 
 该子域由 `instrument-market` 核心服务和隔离的 mootdx 采集 Sidecar
 共同承载。Sidecar 使用 mootdx 的 `Quotes`、`Reader` 和 `Affair` 三类通道
-获取沪深范围内可提供的全部数据，通过内部鉴权接口或 Kafka 发送到核心服务；
-Tushare 用于沪深主数据补充、历史数据回补和日终交叉校验，证券名单须先筛选 SSE/SZSE。
+获取沪深范围内可提供的全部数据，通过内部鉴权接口或 Kafka 发送到核心服务。
+MOOTDX 是该子域唯一 Provider，证券范围按 TDX 列表和沪深代码前缀筛选。
 
 mootdx 0.11.7 固定依赖 `httpx < 0.26`，因此不得与平台统一使用
 `httpx 0.28` 的核心服务安装在同一 Python 环境。

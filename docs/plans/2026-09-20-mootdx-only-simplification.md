@@ -4,7 +4,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 从 A 股行情方案、运行配置和页面中彻底移除 Tushare，仅保留 MOOTDX 沪深采集，并精简行情工作台。
+**Goal:** 从 A 股行情方案、运行配置和页面中移除外部校准源，仅保留 MOOTDX 沪深采集，并精简行情工作台。
 
 **Architecture:** MOOTDX Sidecar 负责沪深证券候选集合与行情采集，核心服务保存和查询原始及标准数据。系统不再进行外部主数据补齐或双源对账，覆盖率只描述 MOOTDX 候选集合内的采集结果。
 
@@ -12,7 +12,7 @@
 
 ---
 
-## Task 1：移除 Tushare 运行逻辑
+## Task 1：移除外部校准逻辑
 
 **Files:**
 
@@ -40,7 +40,7 @@
 - Modify: `services/mootdx-collector/.env.example`
 - Modify: `scripts/deploy.sh`
 
-1. 删除所有 `TUSHARE_TOKEN` 示例、自动补全和容器环境变量。
+1. 删除外部校准 Token 示例、自动补全和容器环境变量。
 2. 验证 Compose 渲染与部署脚本测试。
 
 ## Task 3：全面更新文档
@@ -52,10 +52,10 @@
 - Modify: two service README files
 
 1. 将双源架构统一改为 MOOTDX 单源。
-2. 删除 Tushare 校验、回填、故障和 Token 安全条目。
+2. 删除外部校验、回填、故障和 Token 安全条目。
 3. 明确“全市场”是 MOOTDX 前缀筛选得到的沪深候选集合。
 4. 保留历史运行事实，但不再把缺少外部校准列为待办。
-5. 搜索全仓，确认业务文档、代码和配置中无 Tushare 残留。
+5. 搜索全仓，确认业务文档、代码和配置中无外部校准源残留。
 
 ## Task 4：精简 Web 行情页
 
@@ -70,7 +70,7 @@
 1. 概览从五项收敛为覆盖、上交所、深交所三项。
 2. 工具栏只保留搜索、交易所分段和刷新。
 3. 表格只保留证券、最新价、涨跌幅、成交额、源时间和质量。
-4. 移除 Tushare 核验文案、排序/质量下拉和 ClickHouse 技术标签。
+4. 移除外部核验文案、排序/质量下拉和 ClickHouse 技术标签。
 5. 使用 Playwright 验证 1440 px 与 390 px 页面。
 
 ## Task 5：运行与交付

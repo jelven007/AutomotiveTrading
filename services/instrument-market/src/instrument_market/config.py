@@ -30,7 +30,6 @@ class Settings(BaseSettings):
     minio_secret_key: SecretStr = SecretStr("")
     minio_bucket: str = "market-raw"
 
-    tushare_token: SecretStr = SecretStr("")
     mootdx_collector_url: str = "http://mootdx-collector:8010"
     mootdx_collector_token: SecretStr = SecretStr("")
     ingest_service_token: SecretStr = SecretStr("")

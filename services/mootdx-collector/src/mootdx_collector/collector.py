@@ -23,8 +23,10 @@ def scoped_universe(universe: dict[str, Any] | None) -> dict[str, Any] | None:
         for exchange, market in universe.get("markets", {}).items()
         if exchange in MARKETS
     }
-    return {
+    scoped = {
         **universe,
+        "source": "mootdx",
+        "scope": "sse_szse_candidate",
         "markets": markets,
         "instruments": [
             instrument
@@ -32,6 +34,9 @@ def scoped_universe(universe: dict[str, Any] | None) -> dict[str, Any] | None:
             if instrument.get("exchange") in MARKETS
         ],
     }
+    scoped.pop("verification", None)
+    scoped.pop("authority_error", None)
+    return scoped
 
 
 def active_session(now: datetime) -> bool:
@@ -95,7 +100,7 @@ class Collector:
             or (now - datetime.fromisoformat(self.universe["observed_at"])).total_seconds()
             >= cfg.universe_refresh_seconds
         ):
-            self.universe = sync_universe(self.provider, self.spool, cfg.tushare_token)
+            self.universe = sync_universe(self.provider, self.spool)
         round_id, started = str(uuid4()), time.monotonic()
         self.spool.set("active_round", {"round_id": round_id, "started_at": now.isoformat()})
         dates = {}
@@ -154,7 +159,7 @@ class Collector:
                     "round_id": round_id,
                     "requested": codes,
                     "trade_date_basis": "daily_bar_inferred" if dates[exchange] else "unknown",
-                    "universe_verification": self.universe["verification"],
+                    "universe_source": self.universe["source"],
                     "instruments": {
                         row["code"]: {
                             "volunit": row.get("volunit"),
@@ -177,7 +182,7 @@ class Collector:
             "status": "partial"
             if any(row["missing"] or not row["universe_complete"] for row in markets.values())
             else "collected",
-            "universe_verification": self.universe["verification"],
+            "universe_source": self.universe["source"],
             "expected": sum(row["expected"] for row in markets.values()),
             "received": sum(row["received"] for row in markets.values()),
             "duration_ms": int((time.monotonic() - started) * 1000),

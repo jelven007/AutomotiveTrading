@@ -34,7 +34,7 @@ export type MarketCoverage = {
   missing: number;
   duration_ms: number;
   observed_at: string | null;
-  verification: string;
+  source: "mootdx";
   markets: Record<
     Exchange,
     {

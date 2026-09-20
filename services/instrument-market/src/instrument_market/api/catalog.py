@@ -18,7 +18,7 @@ DATASETS = (
     DatasetView("quote", "实时行情与五档盘口", "clickhouse", True, "best_effort"),
     DatasetView("bar", "K 线与分时", "clickhouse", True, "validated"),
     DatasetView("transaction", "当前及历史分笔", "clickhouse", True, "partial_possible"),
-    DatasetView("instrument", "证券主数据", "mysql", True, "tushare_completed"),
+    DatasetView("instrument", "证券主数据", "mysql", True, "candidate_universe"),
     DatasetView("block", "板块与成分", "mysql", True, "source_dependent"),
     DatasetView("corporate_action", "除权除息", "clickhouse", True, "validated"),
     DatasetView("financial", "财务摘要与专业财务", "clickhouse", True, "validated"),
@@ -30,6 +30,5 @@ DATASETS = (
 def data_catalog() -> dict[str, object]:
     return {
         "provider": "mootdx",
-        "verification_provider": "tushare",
         "datasets": [dataset.__dict__ for dataset in DATASETS],
     }

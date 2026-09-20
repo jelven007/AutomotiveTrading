@@ -48,10 +48,6 @@ export function MarketTable({ quotes }: Props) {
         <span role="columnheader">证券</span>
         <span role="columnheader">最新价</span>
         <span role="columnheader">涨跌幅</span>
-        <span role="columnheader">今开</span>
-        <span role="columnheader">最高</span>
-        <span role="columnheader">最低</span>
-        <span role="columnheader">成交量</span>
         <span role="columnheader">成交额</span>
         <span role="columnheader">源时间</span>
         <span role="columnheader">质量</span>
@@ -90,18 +86,6 @@ export function MarketTable({ quotes }: Props) {
                 >
                   {change > 0 ? "+" : ""}
                   {numberFormatter.format(change)}%
-                </span>
-                <span className="market-number" role="cell">
-                  {formatDecimal(quote.open_price)}
-                </span>
-                <span className="market-number" role="cell">
-                  {formatDecimal(quote.high_price)}
-                </span>
-                <span className="market-number" role="cell">
-                  {formatDecimal(quote.low_price)}
-                </span>
-                <span className="market-number" role="cell">
-                  {formatCompact(quote.volume)}
                 </span>
                 <span className="market-number" role="cell">
                   {formatCompact(quote.amount)}

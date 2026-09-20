@@ -5,11 +5,10 @@ from instrument_market.config import Settings
 from pydantic import ValidationError
 
 
-def test_settings_mask_tushare_token_in_repr() -> None:
-    settings = Settings(tushare_token="secret-token")
+def test_settings_expose_mootdx_market_source() -> None:
+    settings = Settings()
 
-    assert settings.tushare_token.get_secret_value() == "secret-token"
-    assert "secret-token" not in repr(settings)
+    assert settings.mootdx_collector_url == "http://mootdx-collector:8010"
 
 
 @pytest.mark.parametrize(

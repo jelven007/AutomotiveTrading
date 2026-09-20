@@ -58,7 +58,7 @@ const response: LatestQuotesResponse = {
     missing: 0,
     duration_ms: 2307,
     observed_at: "2026-09-20T01:31:04Z",
-    verification: "unverified",
+    source: "mootdx",
     markets: {
       SSE: {
         expected: 1,
@@ -101,8 +101,12 @@ describe("MarketOverviewPage", () => {
       await screen.findByRole("heading", { name: "沪深行情" }),
     ).toBeInTheDocument();
     expect(screen.getByText("沪深覆盖完整")).toBeInTheDocument();
+    expect(screen.getByText("MOOTDX 沪深候选集合")).toBeInTheDocument();
     expect(screen.getByText("浦发银行")).toBeInTheDocument();
     expect(screen.getByText("平安银行")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "质量状态" }),
+    ).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/market/quotes/latest?limit=10000",
       expect.objectContaining({
