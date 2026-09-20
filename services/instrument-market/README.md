@@ -22,8 +22,17 @@
 Kafka 消费者、MinIO 长期归档和 Redis 投影仍待后续实现。
 
 按新需求，行情契约、查询展示和覆盖统计须统一限定 SSE/SZSE。
-当前核心入参及 Sidecar 仍有旧 BSE 分支，本次文档更新未修改运行逻辑，
-实现对齐事项见 [Sidecar 范围对齐状态](../mootdx-collector/README.md#范围对齐状态)。
+核心接收契约与 Sidecar 已完成范围对齐，详情见
+[Sidecar 范围对齐状态](../mootdx-collector/README.md#范围对齐状态)。
+
+真实最新快照查询：
+
+```bash
+curl -H "X-Tenant-ID: <tenant-id>" \
+  "http://127.0.0.1:8007/api/v1/market/quotes/latest?limit=10000"
+```
+
+Web 页面通过同源接口访问，开发环境入口为 `http://127.0.0.1:6173/data`。
 
 ## 验证
 

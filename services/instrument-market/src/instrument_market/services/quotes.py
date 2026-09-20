@@ -120,10 +120,7 @@ class QuoteIngestionService:
                 symbol = str(payload.get("code") or payload.get("symbol") or "")
                 if metadata.get("requested") is not None and symbol not in metadata["requested"]:
                     raise ValueError("unexpected symbol")
-                if (
-                    "market" in payload
-                    and payload["market"] != {"SZSE": 0, "SSE": 1, "BSE": 2}[exchange]
-                ):
+                if "market" in payload and payload["market"] != {"SZSE": 0, "SSE": 1}[exchange]:
                     raise ValueError("unexpected market")
                 if symbol in seen:
                     raise ValueError("duplicate symbol")

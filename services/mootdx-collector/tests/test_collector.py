@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
-from mootdx_collector.collector import Collector, active_session, response_coverage
+from mootdx_collector.collector import Collector, active_session, response_coverage, scoped_universe
 from mootdx_collector.config import Settings
 from mootdx_collector.spool import Spool
 
@@ -49,7 +49,6 @@ def test_collector_persists_partial_response_and_round_checkpoint(tmp_path):
             "verification": "unverified",
             "markets": {
                 "SSE": {"instruments": instruments, "complete": True, "reason": None},
-                "BSE": {"instruments": [], "complete": False, "reason": "bse_protocol_unsupported"},
             },
         },
     )
@@ -86,3 +85,22 @@ def test_collector_persists_partial_response_and_round_checkpoint(tmp_path):
     assert spool.get("latest_round") == report
     collector.close()
     spool.close()
+
+
+def test_scoped_universe_drops_legacy_out_of_scope_market():
+    result = scoped_universe(
+        {
+            "markets": {
+                "SSE": {"instruments": [{"exchange": "SSE", "code": "600000"}]},
+                "BSE": {"instruments": [{"exchange": "BSE", "code": "920002"}]},
+            },
+            "instruments": [
+                {"exchange": "SSE", "code": "600000"},
+                {"exchange": "BSE", "code": "920002"},
+            ],
+        }
+    )
+
+    assert result is not None
+    assert set(result["markets"]) == {"SSE"}
+    assert result["instruments"] == [{"exchange": "SSE", "code": "600000"}]

@@ -13,18 +13,13 @@ from mootdx_collector.spool import Spool
 def is_candidate(exchange: str, code: str) -> bool:
     if len(code) != 6 or not code.isascii() or not code.isdigit():
         return False
-    return code.startswith(
-        {
-            "SSE": ("60", "68"),
-            "SZSE": ("00", "30"),
-            "BSE": ("920", "43", "83", "87", "88"),
-        }[exchange]
-    )
+    prefixes = {"SSE": ("60", "68"), "SZSE": ("00", "30")}.get(exchange)
+    return prefixes is not None and code.startswith(prefixes)
 
 
 def enumerate_market(provider: Provider, spool: Spool, exchange: str) -> dict[str, Any]:
-    if exchange == "BSE":
-        return {"instruments": [], "complete": False, "reason": "bse_protocol_unsupported"}
+    if exchange not in MARKETS:
+        raise ValueError("unsupported_exchange")
     market = MARKETS[exchange]
     count, _ = provider.call("get_security_count", market)
     if not isinstance(count, int) or not 0 < count <= 200000:
@@ -87,7 +82,7 @@ def authoritative_universe(token: str) -> list[dict[str, str]]:
         raise ValueError("tushare_universe_unavailable")
     data = body["data"]
     rows = [dict(zip(data["fields"], row, strict=True)) for row in data["items"]]
-    mapping = {"SSE": "SSE", "SZSE": "SZSE", "BSE": "BSE"}
+    mapping = {"SSE": "SSE", "SZSE": "SZSE"}
     return [
         {"code": row["symbol"], "name": row["name"], "exchange": mapping[row["exchange"]]}
         for row in rows

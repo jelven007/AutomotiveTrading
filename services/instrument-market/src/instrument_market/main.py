@@ -9,6 +9,7 @@ from instrument_market.api.catalog import router as catalog_router
 from instrument_market.api.health import get_clickhouse_client
 from instrument_market.api.health import router as health_router
 from instrument_market.api.ingestion import router as ingestion_router
+from instrument_market.api.quotes import router as quotes_router
 from instrument_market.config import get_settings
 from instrument_market.context import current_trace_id
 from instrument_market.db import create_local_schema
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(catalog_router)
     app.include_router(ingestion_router)
+    app.include_router(quotes_router)
 
     @app.exception_handler(ServiceError)
     async def service_error_handler(_: Request, error: ServiceError) -> JSONResponse:

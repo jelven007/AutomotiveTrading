@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
-from instrument_market.api import health
+from instrument_market.api import health, quotes
 from instrument_market.main import app
 
 client = TestClient(app)
@@ -39,3 +39,25 @@ def test_data_catalog_requires_tenant_and_discloses_partial_transactions() -> No
     assert response.status_code == 200
     transaction = next(item for item in response.json()["datasets"] if item["key"] == "transaction")
     assert transaction["completeness"] == "partial_possible"
+
+
+def test_latest_quotes_requires_tenant_and_uses_bounded_limit(monkeypatch) -> None:
+    class QuoteService:
+        def latest_quotes(self, *, limit):
+            return {"scope": ["SSE", "SZSE"], "returned": 0, "limit": limit, "items": []}
+
+    monkeypatch.setattr(quotes, "get_market_view_service", lambda: QuoteService())
+    missing_tenant = client.get("/api/v1/market/quotes/latest")
+    response = client.get(
+        "/api/v1/market/quotes/latest?limit=120",
+        headers={"X-Tenant-ID": "tenant-1"},
+    )
+
+    assert missing_tenant.status_code == 400
+    assert response.status_code == 200
+    assert response.json() == {
+        "scope": ["SSE", "SZSE"],
+        "returned": 0,
+        "limit": 120,
+        "items": [],
+    }

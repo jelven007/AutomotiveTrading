@@ -10,7 +10,7 @@ from mootdx_collector.universe import enumerate_market, is_candidate, sync_unive
         ("SZSE", "000001", True),
         ("SSE", "689009", True),
         ("SSE", "600000", True),
-        ("BSE", "920002", True),
+        ("BSE", "920002", False),
         ("SZSE", "159001", False),
         ("SSE", "000001", False),
         ("SSE", "\uff16\uff10\uff10\uff10\uff10\uff10", False),
@@ -78,7 +78,7 @@ def test_failed_refresh_preserves_cached_universe_and_gap(tmp_path):
     assert result["markets"]["SZSE"]["cached"] is True
     assert result["markets"]["SZSE"]["complete"] is False
     assert result["markets"]["SZSE"]["instruments"][0]["code"] == "000001"
-    assert result["markets"]["BSE"]["reason"] == "bse_protocol_unsupported"
+    assert set(result["markets"]) == {"SSE", "SZSE"}
     assert result["verification"] == "unverified"
     assert spool.get("universe") == result
     spool.close()

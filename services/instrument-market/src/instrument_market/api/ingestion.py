@@ -21,7 +21,7 @@ router = APIRouter(prefix="/internal/v1/market", tags=["market-ingestion"])
 
 class QuoteBatch(BaseModel):
     batch_id: UUID
-    exchange: Literal["SSE", "SZSE", "BSE"]
+    exchange: Literal["SSE", "SZSE"]
     trade_date: date | None = None
     source_id: str = Field(min_length=1, max_length=128)
     collected_at: datetime

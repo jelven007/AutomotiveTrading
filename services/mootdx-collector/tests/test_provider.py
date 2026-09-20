@@ -29,11 +29,10 @@ def test_quotes_use_explicit_market(exchange, market, code):
     assert result["rows"] == [{"code": code, "market": market}]
 
 
-def test_quotes_bse_is_explicitly_unavailable():
+def test_quotes_reject_out_of_scope_exchange():
     provider = Provider(Settings(), [Node("127.0.0.1", 7709)])
-    result = provider.quotes("BSE", ["920002"])
-    assert result["rows"] == []
-    assert result["error"] == "bse_protocol_unsupported"
+    with pytest.raises(ValueError, match="unsupported exchange"):
+        provider.quotes("BSE", ["920002"])
     with pytest.raises(ValueError, match=r"1\.\.80"):
         provider.quotes("SSE", ["600000"] * 81)
 

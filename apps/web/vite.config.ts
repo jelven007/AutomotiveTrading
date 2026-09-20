@@ -11,6 +11,7 @@ export default defineConfig({
     proxy: {
       "/api/v1/auth": "http://127.0.0.1:8001",
       "/api/v1/tenants": "http://127.0.0.1:8001",
+      "/api/v1/market": "http://127.0.0.1:8007",
       "/api/v1/trading": "http://127.0.0.1:8004",
     },
   },

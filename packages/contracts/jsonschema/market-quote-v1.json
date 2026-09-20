@@ -27,7 +27,7 @@
   "properties": {
     "exchange": {
       "type": "string",
-      "enum": ["SSE", "SZSE", "BSE"]
+      "enum": ["SSE", "SZSE"]
     },
     "symbol": {
       "type": "string",

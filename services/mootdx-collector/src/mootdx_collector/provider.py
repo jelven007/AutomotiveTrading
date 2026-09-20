@@ -13,7 +13,7 @@ from typing import Any
 
 from mootdx_collector.config import Settings
 
-MARKETS = {"SZSE": 0, "SSE": 1, "BSE": 2}
+MARKETS = {"SZSE": 0, "SSE": 1}
 FACTORY_LOCK = threading.Lock()
 
 
@@ -138,8 +138,8 @@ class Provider:
     def quotes(self, exchange: str, codes: list[str]) -> dict[str, Any]:
         if len(codes) > 80 or not codes:
             raise ValueError("quote batch must contain 1..80 symbols")
-        if exchange == "BSE":
-            return {"rows": [], "source_id": "tdx-unsupported", "error": "bse_protocol_unsupported"}
+        if exchange not in MARKETS:
+            raise ValueError("unsupported exchange")
         rows, source_id = self.call(
             "get_security_quotes",
             [(MARKETS[exchange], code) for code in codes],
@@ -147,8 +147,8 @@ class Provider:
         return {"rows": rows, "source_id": source_id, "error": None}
 
     def trade_date(self, exchange: str, code: str) -> str | None:
-        if exchange == "BSE":
-            return None
+        if exchange not in MARKETS:
+            raise ValueError("unsupported exchange")
         rows, _ = self.call("get_security_bars", 9, MARKETS[exchange], code, 0, 1)
         if not rows:
             return None

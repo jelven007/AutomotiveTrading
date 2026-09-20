@@ -97,7 +97,7 @@ components:
           format: uuid
         exchange:
           type: string
-          enum: [SSE, SZSE, BSE]
+          enum: [SSE, SZSE]
         trade_date:
           type: string
           format: date

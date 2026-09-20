@@ -15,6 +15,25 @@ from mootdx_collector.universe import sync_universe
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 
 
+def scoped_universe(universe: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not universe:
+        return universe
+    markets = {
+        exchange: market
+        for exchange, market in universe.get("markets", {}).items()
+        if exchange in MARKETS
+    }
+    return {
+        **universe,
+        "markets": markets,
+        "instruments": [
+            instrument
+            for instrument in universe.get("instruments", [])
+            if instrument.get("exchange") in MARKETS
+        ],
+    }
+
+
 def active_session(now: datetime) -> bool:
     local = now.astimezone(SHANGHAI)
     minute = local.hour * 60 + local.minute
@@ -46,7 +65,7 @@ class Collector:
     def __init__(self, settings: Settings, spool: Spool, provider: Provider) -> None:
         self.settings, self.spool, self.provider = settings, spool, provider
         self.executor = ThreadPoolExecutor(max_workers=settings.workers)
-        self.universe = spool.get("universe")
+        self.universe = scoped_universe(spool.get("universe"))
 
     def close(self) -> None:
         self.executor.shutdown(wait=True, cancel_futures=True)

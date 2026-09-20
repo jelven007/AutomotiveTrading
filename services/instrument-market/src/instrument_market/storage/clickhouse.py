@@ -280,6 +280,22 @@ class ClickHouseClient:
         )
         response.raise_for_status()
 
+    def query_json_each_row(
+        self,
+        query: str,
+        *,
+        parameters: Mapping[str, str | int] | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, str | int] = {
+            "database": self.database,
+            "query": f"{query.rstrip().rstrip(';')} FORMAT JSONEachRow",
+        }
+        for name, value in (parameters or {}).items():
+            params[f"param_{name}"] = value
+        response = self.http.post("/", params=params)
+        response.raise_for_status()
+        return [json.loads(line) for line in response.text.splitlines() if line]
+
     def insert_json_each_row(
         self,
         table: str,

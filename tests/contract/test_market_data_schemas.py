@@ -64,8 +64,8 @@ def test_market_quote_contract_accepts_complete_quote() -> None:
         (
             "market-bar-v1.json",
             {
-                "exchange": "BSE",
-                "symbol": "430047",
+                "exchange": "SSE",
+                "symbol": "600000",
                 "interval": "1m",
                 "adjustment": "none",
                 "event_time": "2026-09-20T01:31:00Z",
