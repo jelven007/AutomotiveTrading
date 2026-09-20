@@ -1,5 +1,9 @@
 # 币安生产交易 Implementation Plan
 
+**Superseded（2026-09-20）：** 本计划已由
+[`QT-PLAN-BIN-NT-001`](2026-09-20-binance-nautilustrader-integration-implementation-plan.md)
+取代，不得继续按本文实施。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use
 > superpowers:executing-plans to implement this plan task-by-task.
 

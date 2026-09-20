@@ -6,6 +6,10 @@
 >
 > 状态：已确认实施
 
+**Superseded（2026-09-20）：** 本文的 KMS/Risk/只读 Profile 方案已由
+[`QT-DES-BIN-NT-001`](2026-09-20-binance-nautilustrader-integration-design.md)
+取代。本文仅保留历史记录。
+
 ## 1. 目标
 
 在不开放实盘写操作的前提下，使用户能够使用币安生产 API Key 完成帐号绑定，

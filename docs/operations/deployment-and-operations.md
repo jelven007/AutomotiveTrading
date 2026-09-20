@@ -2,7 +2,10 @@
 
 > 文档编号：QT-OPS-001
 >
-> 版本：1.1-draft
+> 版本：1.2-draft
+
+币安单机部署和故障处理细节见
+[`QT-OPS-BIN-NT-001`](binance-nautilustrader-runbook.md)。
 
 ## 1. 环境
 
@@ -17,11 +20,13 @@
 当前 M2 的开发、演示和集成验证可使用
 [Ubuntu 单机部署指南](ubuntu-single-node-deployment.md)。该方案不替代以下生产架构。
 
-`trading`、`risk` 和 `kms-adapter` 已纳入可选的 `binance-readonly` UAT
-Profile，默认诊断端口分别为 `8004`、`8005` 和 `8006`，且只绑定宿主机回环
-地址。默认部署不会启动该 Profile。
+币安目标部署使用可选的 `binance-trading` Profile，仅启动 `trading` 服务并在
+进程内运行 NautilusTrader；不依赖 `risk` 和 `kms-adapter`。Trading 诊断端口
+默认使用 `8004` 且只绑定宿主机回环地址。当前代码仍使用旧
+`binance-readonly` Profile，迁移状态见
+[`QT-INT-BIN-001`](../integrations/binance-production-readiness.md)。
 
-### 1.1 币安只读 UAT
+### 1.1 币安 Nautilus UAT 目标
 
 先执行常规初始化：
 
@@ -29,30 +34,32 @@ Profile，默认诊断端口分别为 `8004`、`8005` 和 `8006`，且只绑定�
 bash scripts/deploy.sh init
 ```
 
-然后在 `infra/compose/.env.deploy` 中配置：
+部署脚本生成：
 
 ```text
-KMS_KEY_ID=<火山引擎 KMS 主密钥 ID>
-KMS_REGION=cn-beijing
-VOLCENGINE_ACCESS_KEY=<由运行环境安全注入>
-VOLCENGINE_SECRET_KEY=<由运行环境安全注入>
-VOLCENGINE_SESSION_TOKEN=<使用临时凭据时填写>
+/opt/quant-trading/secrets/credential-master-key
+```
+
+该文件必须为 `root:root`、权限 `600`，并只读挂载到 Trading 容器。普通配置：
+
+```text
+BINANCE_CREDENTIAL_MASTER_KEY_FILE=/run/secrets/binance_credential_master_key
 FIXED_EGRESS_IP_CONFIGURED=true
 PUBLIC_BASE_URL=https://<已完成 TLS 终止的访问域名>
+BINANCE_TESTNET=true
+BINANCE_LIVE_TRADING_ENABLED=false
 ```
 
 只有确认 ECS 固定出口 IP 已加入币安 API Key 白名单后，才能把
 `FIXED_EGRESS_IP_CONFIGURED` 改为 `true`；只有公网入口已经由负载均衡或反向
-代理完成 HTTPS 终止后，才能填写 `PUBLIC_BASE_URL`。启动命令：
+代理完成可信 HTTPS 终止后，才能填写 `PUBLIC_BASE_URL`。目标启动命令：
 
 ```bash
-bash scripts/deploy.sh readonly-up
+bash scripts/deploy.sh binance-up
 ```
 
-该命令会创建或确认 `qt_kms`、`qt_risk`、`qt_trading` 数据库，执行三个服务的
-迁移并启动只读链路。`LIVE_TRADING_ENABLED` 固定为 `false`，不能通过该 Profile
-启用实盘写操作。UAT Docker 网络允许显式内部 HTTP；正式生产必须改为内部 HTTPS，
-不得开启 `ALLOW_INSECURE_INTERNAL_HTTP`。
+该命令创建或确认 `qt_trading` 数据库、执行 Trading 迁移并启动 Nautilus
+Testnet 链路。生产写操作默认关闭，必须在 Testnet 和生产只读验收后显式启用。
 
 ## 2. VKE 部署
 
@@ -78,9 +85,10 @@ bash scripts/deploy.sh readonly-up
 - 禁止在仓库、镜像和 Helm Values 中存放明文密钥。
 - 生产变更需审批并保留审计。
 - Broker Connector 的出口和凭据单独管理。
-- Binance Connector 使用独立服务身份、固定出口 EIP 和域名白名单。
-- 币安生产 Key 优先采用 Ed25519，私钥仅由 Connector 从 KMS 临时读取。
-- 自动校验 Key 无提现权限；查询、现货、杠杆和合约权限分别记录。
+- 币安使用 Trading 内部 Nautilus Runtime、固定出口 EIP 和域名白名单。
+- 币安 HMAC/Ed25519 凭据使用本地主密钥 AES-256-GCM 加密入库。
+- 主密钥只读挂载且权限为 `600`，必须与数据库分开备份。
+- 币安 IP 白名单和禁止提现由管理员在控制台确认并记录。
 
 ## 5. 监控与告警
 
@@ -92,14 +100,14 @@ bash scripts/deploy.sh readonly-up
 - 账实重大差异。
 - 密钥泄漏。
 - 风控不可用但仍有订单提交。
-- 币安帐号进入预强平、强平或 ADL 高风险状态。
-- 检测到币安 Key 具有提现权限或固定出口 IP 不匹配。
+- 币安 U 本位帐号进入预强平、强平或 ADL 高风险状态。
+- 怀疑币安 Key 权限、IP 白名单或凭据安全状态发生变化。
 
 ### P1
 
 - 券商持续断连。
-- 币安用户数据流断开且 REST 补偿失败。
-- 杠杆风险率或合约强平距离低于阈值。
+- 币安 Nautilus 私有流断开且执行对账失败。
+- U 本位合约强平距离低于阈值。
 - 币安 API 限频持续触发。
 - 行情严重延迟。
 - `unknown` 订单超过阈值。
@@ -118,7 +126,7 @@ bash scripts/deploy.sh readonly-up
 - TOS 开启版本和生命周期。
 - Kafka 按业务 RPO 配置保留。
 - ClickHouse 定期快照。
-- KMS 密钥恢复流程独立演练。
+- KMS 密钥恢复流程独立演练；币安本地主密钥与数据库执行配对恢复演练。
 - 每季度进行恢复演练并记录 RPO/RTO。
 
 ## 7. 事件响应
@@ -135,18 +143,19 @@ bash scripts/deploy.sh readonly-up
 必须单独维护：
 
 - 券商断连。
-- 币安 User Data Stream 断线与 Listen Key 失效。
+- 币安 Nautilus Spot/USD-M 客户端断线与恢复。
 - 币安 API Key 吊销、权限变化和紧急轮换。
-- 币安杠杆追加保证金、预强平和强平。
 - 币安 U 本位永续 ADL、资金费率异常和强平保护。
-- 币安订单超时、状态未知和 REST 补偿对账。
+- 币安订单超时、`pending_reconciliation` 和执行对账。
+- 币安活动帐号切换失败。
+- 币安本地主密钥丢失或权限异常。
 - 行情数据延迟。
 - 模型供应商故障。
 - 未知订单。
 - 重复订单疑似事件。
 - 对账差异。
 - 租户越权疑似事件。
-- KMS 或密钥轮换故障。
+- KMS 或本地主密钥轮换故障。
 - Kafka 积压。
 - 数据库切换。
 - 全局急停与恢复。
@@ -156,7 +165,6 @@ bash scripts/deploy.sh readonly-up
 - 以租户、策略、标的、触发频率估算模型调用量。
 - 回测计算与在线交易节点分池。
 - 模型费用、行情费用和券商通道费用独立计量。
-- 币安按现货、全仓杠杆、逐仓杠杆和 U 本位永续分别统计请求权重、
-  订单速率、流连接和对账成本。
+- 币安按现货和 U 本位分别统计请求、订单速率、流连接和对账成本。
 - 设置租户硬配额和平台软告警。
 - 每月评审单位策略、单位回测和单位订单成本。

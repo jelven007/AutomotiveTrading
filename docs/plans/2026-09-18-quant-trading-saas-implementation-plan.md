@@ -1,5 +1,10 @@
 # Quant Trading SaaS Implementation Plan
 
+**币安范围变更（2026-09-20）：** 本文中的币安 Connector、四类 Scope、KMS
+和独立 Risk Service 任务已被
+[`QT-PLAN-BIN-NT-001`](2026-09-20-binance-nautilustrader-integration-implementation-plan.md)
+取代；其他领域任务仍可作为历史计划参考。
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to
 > implement this plan task-by-task.
 
@@ -74,7 +79,7 @@ Kubernetes/VKE、pytest、Playwright。
 | M3 策略与决策 | 标的池逐股产生结构化决策 |
 | M4 模拟交易 | 决策通过风控后进入模拟撮合 |
 | M5 回测 | 策略在隔离 Runner 中回测 |
-| M6 外部适配 | 证券 Connector 与币安四类帐号 Scope 通过契约测试 |
+| M6 外部适配 | 证券 Connector 与币安 Nautilus Spot/USD-M 通过契约测试 |
 | M7 生产准备 | VKE 部署、安全、性能和灾备通过 |
 
 ### Task 1: 初始化 Monorepo 与工具链
@@ -1032,8 +1037,8 @@ git commit -m "feat: add broker adapter contract and stubs"
 必须已有官方协议、测试账号、正式文档和授权结论。任何一项缺失时，
 该 Connector 保持 Stub，任务状态标记 Blocked，不自行逆向。
 
-币安还必须准备固定出口 IP、KMS、生产只读 Key、现货/杠杆/U 本位资格和
-书面合规结论；检测到提现权限时立即阻断。
+币安还必须准备固定出口 IP、本地主密钥、生产 Key、现货/U 本位资格和
+书面合规结论；IP 白名单和禁止提现由管理员确认并审计。
 
 #### Task 21 Step 2: 为每个真实接口运行契约测试
 
@@ -1198,8 +1203,8 @@ Expected:
 2. 同花顺模拟盘商务和技术确认。
 3. 财信证券正式量化通道确认。
 4. 长桥 OpenAPI 申请与测试环境。
-5. 币安生产现货、全仓/逐仓杠杆和 U 本位永续帐号资格。
-6. 币安固定出口 IP、Ed25519 Key、KMS 和只读联调。
+5. 币安生产现货和 U 本位永续帐号资格。
+6. 币安固定出口 IP、HMAC/Ed25519 Key、本地主密钥和只读联调。
 7. 行情与资讯数据授权采购。
 8. 法务、合规、税务和隐私评审。
 

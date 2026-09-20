@@ -6,6 +6,10 @@
 >
 > 日期：2026-09-19
 
+**Superseded（2026-09-20）：** 本文中的币安设计已由
+[`QT-DES-BIN-NT-001`](2026-09-20-binance-nautilustrader-integration-design.md)
+取代。本文仅保留历史背景，不再作为币安实现基线。
+
 ## 1. 目标与范围
 
 交易一级菜单下固定提供三个二级页面：

@@ -2,15 +2,18 @@
 
 > 文档编号：QT-RTM-001
 >
-> 版本：1.2-draft
+> 版本：1.3-draft
 
 ## 1. 追踪规则
 
-- 需求来源：`software-requirements-specification.md`
-- 设计来源：`../architecture/technical-solution.md`
+- 需求来源：`software-requirements-specification.md`；币安专项使用
+  `binance-nautilustrader-requirements.md`
+- 设计来源：`../architecture/technical-solution.md`；币安专项使用
+  `../plans/2026-09-20-binance-nautilustrader-integration-design.md`
 - 接口来源：`../architecture/api-event-specification.md`
 - 数据来源：`../architecture/data-model.md`
-- 测试来源：`../testing/test-cases.md`
+- 测试来源：`../testing/test-cases.md`；币安专项使用
+  `../testing/binance-nautilustrader-test-plan.md`
 - 状态：Planned、Partial、Implemented、Verified、Blocked
 
 ## 2. 功能追踪
@@ -30,11 +33,11 @@
 | FR-BT-* | Backtest Scheduler、Runner | TC-BT-* | Planned |
 | FR-TRD-001~012 | Trading、Broker Connectors | TC-TRD-000~007 | Planned |
 | FR-TRD-013~014 | Trading Web、Account Binding | TC-TRD-008~009 | Verified |
-| FR-TRD-015~017 | Binance Connector、KMS、Trading | TC-TRD-009 | Verified |
-| FR-TRD-018~019 | Binance Orders、Account Operations | TC-TRD-010~013 | Partial |
-| FR-TRD-020 | MFA、Risk Guard、Outbox | TC-TRD-009~013 | Partial |
+| FR-TRD-015~017 | Nautilus、Local Vault | TC-TRD-009~011 | Planned |
+| FR-TRD-018~019 | Spot/USD-M、投影 | TC-TRD-010、013~014 | Planned |
+| FR-TRD-020~022 | 帐号、Runtime、本地风控 | TC-TRD-009、012~014 | Planned |
 | FR-RSK-001~004 | Risk Service | TC-RSK-001~003 | Partial |
-| FR-RSK-005~007 | Binance Risk Guard | TC-RSK-004 | Partial |
+| FR-RSK-005~007 | 本地风控、USD-M | TC-TRD-011、TC-RSK-004 | Planned |
 | FR-REC-* | Reconciliation Service | TC-REC-* | Planned |
 | FR-SAA-* | Subscription & Billing | TC-SAA-* | Planned |
 
@@ -42,7 +45,7 @@
 
 | 需求 | 验证方式 | 测试编号 | 状态 |
 | --- | --- | --- | --- |
-| NFR-SEC-001 | KMS 集成与密钥不可回显 | TC-SEC-001 | Partial |
+| NFR-SEC-001 | KMS 及币安本地主密钥加密与不可回显 | TC-SEC-001、TC-BIN-NT-001~003 | Planned |
 | NFR-SEC-002 | 日志扫描 | TC-SEC-002 | Partial |
 | NFR-SEC-003 | 审计完整性验证 | TC-SEC-003 | Partial |
 | NFR-SEC-004 | 提示词注入测试 | TC-SEC-004 | Planned |
@@ -71,9 +74,9 @@
 | 财信证券正式量化通道 | 待指定 | 券商确认、账号、联调报告 | Blocked |
 | 长桥 OpenAPI 权限与测试账号 | 待指定 | 协议、账号、联调报告 | Blocked |
 | 币安生产现货帐号与 API 权限 | 待指定 | 权限截图、只读联调、审计记录 | Blocked |
-| 币安全仓/逐仓杠杆资格 | 待指定 | 产品开通、借还款与风险测试报告 | Blocked |
 | 币安 U 本位永续资格 | 待指定 | 产品开通、小额灰度与对账报告 | Blocked |
 | 币安固定出口 IP 白名单 | 待指定 | 网络变更单、Key 权限检查 | Blocked |
+| NautilusTrader 1.231.0 | 待指定 | wheel、Testnet 契约、SBOM | Blocked |
 | 三地行情与资讯授权 | 待指定 | 采购合同、授权范围 | Blocked |
 | 法律与合规评审 | 待指定 | 书面评审结论 | Blocked |
 
@@ -85,6 +88,12 @@
 不代表已验证；既有沪深实采证据见
 [Sidecar 验收记录](../testing/results/mootdx-sidecar-acceptance.md)，
 实现差异见 [范围对齐状态](../../services/mootdx-collector/README.md#范围对齐状态)。
+
+2026-09-20 用户确认币安改用 NautilusTrader 单服务方案，仅支持现货和 U 本位，
+U 本位包含杠杆倍数及全仓/逐仓保证金模式。现货杠杆、KMS、独立 Risk Service、
+独立 Binance Connector 和币安官方 SDK 不再属于当前币安基线。新需求、设计和
+测试分别见 `QT-REQ-BIN-NT-001`、`QT-DES-BIN-NT-001` 和
+`QT-TP-BIN-NT-001`；旧实现证据不能自动继承为新方案的 Verified 状态。
 
 新增或修改需求时必须：
 

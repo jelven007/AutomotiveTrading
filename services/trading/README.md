@@ -2,7 +2,14 @@
 
 交易帐号、币安资金查询和订单执行服务。
 
-当前支持：
+> **迁移状态：** 当前代码仍是旧的自研 Binance Connector + KMS/Risk 实现。
+> 新的实现基线是
+> [`QT-DES-BIN-NT-001`](../../docs/plans/2026-09-20-binance-nautilustrader-integration-design.md)，
+> 实施步骤见
+> [`QT-PLAN-BIN-NT-001`](../../docs/plans/2026-09-20-binance-nautilustrader-integration-implementation-plan.md)。
+> 在迁移完成前不得把以下旧能力作为 Nautilus 方案验收证据。
+
+当前旧实现：
 
 - 币安生产现货、全仓杠杆、逐仓杠杆和 U 本位永续帐号权限检查。
 - HMAC、RSA 和 Ed25519 REST 签名。
@@ -41,6 +48,14 @@ KMS Broker 的解析和删除请求始终同时传递 `tenant_id`；Risk 校验�
 单机 UAT Compose Profile 使用 Docker 私有网络和
 `ALLOW_INSECURE_INTERNAL_HTTP=true`。该开关只接受 `kms-adapter`、`risk` 或
 本机回环地址，且生产环境会拒绝启动。正式生产必须使用内部 HTTPS。
+
+迁移后的目标：
+
+- 使用 NautilusTrader 1.231.0 的 Spot 与 USD-M 客户端。
+- 支持登录后添加多个帐号，但只运行一个活动帐号。
+- 使用 ECS 本地主密钥和 AES-256-GCM 加密凭据。
+- 不使用 KMS Adapter、独立 Risk Service、币安官方 SDK 或自研签名客户端。
+- 仅支持现货和 U 本位；U 本位支持杠杆及全仓/逐仓保证金模式。
 
 Create and apply a migration:
 

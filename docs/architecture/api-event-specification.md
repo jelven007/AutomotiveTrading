@@ -2,7 +2,7 @@
 
 > 文档编号：QT-API-001
 >
-> 版本：1.1-draft
+> 版本：1.2-draft
 
 ## 1. 通用规范
 
@@ -19,8 +19,11 @@
 
 ```json
 {
-  "code": "MODEL_CONFIG_NOT_ACTIVE",
-  "message": "模型配置不可用于当前环境",
+  "type": "https://errors.quant-trading.local/model.config_not_active",
+  "title": "Model configuration is unavailable",
+  "status": 409,
+  "detail": "模型配置不可用于当前环境",
+  "code": "model.config_not_active",
   "trace_id": "uuid",
   "details": {}
 }
@@ -132,81 +135,71 @@ POST /model-decisions/{id}/reject
 ## 5. 交易 API
 
 ```text
-GET    /trading/accounts
-POST   /trading/accounts/bind
-POST   /trading/accounts/{id}/test
-POST   /trading/accounts/{id}/enable-trading
-POST   /trading/accounts/{id}/connect
-POST   /trading/accounts/{id}/disconnect
-GET    /trading/accounts/{id}/balances
-GET    /trading/accounts/{id}/margin-risk
-GET    /trading/accounts/{id}/futures-positions
-POST   /trading/accounts/{id}/transfers
-POST   /trading/accounts/{id}/margin-loans
-POST   /trading/accounts/{id}/margin-repayments
-PUT    /trading/accounts/{id}/futures-settings
-GET    /trading/positions
-GET    /trading/orders
-POST   /trading/orders
-GET    /trading/orders/{id}
-POST   /trading/orders/{id}/cancel
-GET    /trading/executions
-POST   /trading/kill-switch
-DELETE /trading/kill-switch/{id}
+GET    /trading/binance/accounts
+POST   /trading/binance/accounts
+PUT    /trading/binance/accounts/{id}
+DELETE /trading/binance/accounts/{id}
+POST   /trading/binance/accounts/{id}/test
+POST   /trading/binance/accounts/{id}/activate
+POST   /trading/binance/accounts/active/deactivate
+GET    /trading/binance/status
+GET    /trading/binance/balances
+GET    /trading/binance/positions
+GET    /trading/binance/orders
+POST   /trading/binance/orders
+POST   /trading/binance/orders/{id}/cancel
+PUT    /trading/binance/futures/{symbol}/leverage
+PUT    /trading/binance/futures/{symbol}/margin-mode
+GET    /trading/binance/risk
+PUT    /trading/binance/risk
+POST   /trading/binance/emergency-stop
+DELETE /trading/binance/emergency-stop
 ```
 
 币安帐号绑定请求：
 
 ```json
 {
-  "market_group": "binance",
-  "provider": "binance",
-  "environment": "production",
-  "credential_type": "ed25519|hmac|rsa",
+  "alias": "main-binance",
+  "credential_type": "ed25519|hmac",
   "api_key": "write-only",
-  "private_key_or_secret": "write-only",
-  "enabled_scopes": [
-    "spot",
-    "cross_margin",
-    "isolated_margin",
-    "usdm_futures"
-  ],
-  "ip_whitelist_confirmed": true
+  "secret": "write-only",
+  "ip_whitelist_confirmed": true,
+  "withdrawal_disabled_confirmed": true
 }
 ```
 
-响应不得返回 `api_key`、私钥或 Secret，只返回脱敏指纹、KMS 引用状态、
-权限检查结果和帐号 Scope。具有提现权限、未配置固定出口 IP 白名单或未完成
-近期 MFA 时，绑定或启用生产交易必须失败。
+响应不得返回 `api_key`、私钥、Secret、密文或 nonce，只返回帐号 ID、别名、
+脱敏指纹、Spot/USD-M 可用状态、连接状态和是否为当前帐号。管理员必须完成人工
+IP 白名单和禁止提现确认；未完成近期 MFA 时，帐号写操作必须失败。
 
 下单请求：
 
 ```json
 {
-  "account_id": "uuid",
-  "instrument_id": "uuid",
-  "account_scope": "spot|cross_margin|isolated_margin|usdm_futures",
+  "product": "spot|usdm_futures",
+  "instrument_id": "BTCUSDT.BINANCE",
   "side": "buy|sell",
-  "order_type": "market|limit",
-  "quantity": "100",
-  "limit_price": "12.30",
-  "margin_mode": "cross|isolated|null",
+  "order_type": "market|limit|stop_market|stop_limit",
+  "quantity": "0.001",
+  "limit_price": "60000",
+  "time_in_force": "GTC",
   "position_side": "both|long|short|null",
   "reduce_only": false,
-  "margin_side_effect": "none|borrow|repay|auto_borrow_repay",
-  "decision_id": "uuid|null",
   "source": "manual|strategy"
 }
 ```
 
 币安请求规则：
 
-- `account_scope=isolated_margin` 时必须提供交易对并使用逐仓资产。
-- `account_scope=usdm_futures` 时必须校验持仓模式、保证金模式和杠杆配置。
-- `reduce_only` 仅用于合约风险降低语义，双向持仓模式按币安约束处理。
-- 借款、还款、划转、杠杆调整和生产写权限启用必须使用独立
-  `Idempotency-Key`。
-- 外部超时统一返回 `order_status=unknown`，不得自动重放。
+- 所有读取和执行均通过当前活动帐号的 Nautilus Runtime。
+- 现货 instrument 使用 `BTCUSDT.BINANCE`；U 本位永续使用
+  `BTCUSDT-PERP.BINANCE`。
+- `product=usdm_futures` 时必须校验持仓模式、保证金模式和本地杠杆上限。
+- `reduce_only` 仅用于合约风险降低语义。
+- 下单、撤单、杠杆和保证金模式调整必须使用独立 `Idempotency-Key`。
+- 外部结果不确定时返回 `pending_reconciliation`，不得自动重放。
+- 现货借款、还款、划转及现货杠杆请求不属于当前 API。
 
 ## 6. WebSocket
 
@@ -227,8 +220,8 @@ GET /ws/v1?access_token=<short-lived-token>
 - `backtests:{task_id}`
 - `orders:{account_id}`
 - `balances:{account_id}`
-- `margin-risk:{account_id}`
 - `futures-positions:{account_id}`
+- `binance-runtime`
 - `alerts:{tenant_id}`
 - `strategies:{strategy_id}`
 
@@ -308,21 +301,21 @@ REST 快照。
   "account_id": "uuid",
   "provider": "binance",
   "environment": "production",
-  "credential_type": "ed25519",
-  "enabled_scopes": ["spot", "cross_margin", "isolated_margin", "usdm_futures"],
-  "trading_enabled": false
+  "credential_type": "ed25519|hmac",
+  "products": ["spot", "usdm_futures"],
+  "active": false
 }
 ```
 
-### 8.5 margin.risk_changed.v1
+### 8.5 binance.runtime_changed.v1
 
 ```json
 {
   "account_id": "uuid",
-  "account_scope": "cross_margin|isolated_margin",
-  "symbol": "BTCUSDT|null",
-  "margin_level": "1.42",
-  "status": "normal|margin_call|pre_liquidation|force_liquidation",
+  "spot_status": "ready|disconnected|stale|error",
+  "futures_status": "ready|disconnected|stale|error",
+  "reconciliation_status": "pending|running|completed|failed",
+  "accepting_orders": false,
   "occurred_at": "ISO-8601"
 }
 ```

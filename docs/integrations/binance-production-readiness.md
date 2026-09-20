@@ -2,102 +2,102 @@
 
 > 文档编号：QT-INT-BIN-001
 >
-> 日期：2026-09-19
+> 日期：2026-09-20
 >
-> 状态：代码基础已实现，真实资金验收阻塞
+> 状态：方案已重设，等待 NautilusTrader 迁移
 
-## 1. 已实现
+## 1. 当前决策
 
-- 交易页面固定提供沪深、港美、币安三个入口和通道白名单。
-- Web 已接入登录、注册、会话刷新和 TOTP MFA；添加币安帐号前强制校验近期 MFA。
-- 币安帐号绑定支持 Ed25519、HMAC、RSA，凭据字段提交后立即清理。
-- 只读 API Key 可以绑定；权限以 `/sapi/v1/account/apiRestrictions` 为准，强制
-  开启读取和 IP 限制，并禁止提现、内部划转及通用划转权限。
-- 开启现货或杠杆交易前校验 `tradingAuthorityExpirationTime`，过期权限失败关闭。
-- Scope 交易权限只在启用交易时检查，绑定成功后所有 Scope 默认保持禁用。
-- `trading` 服务按租户保存帐号、Scope、订单、操作、急停和 Outbox。
-- 币安请求使用服务器时间偏移，`recvWindow` 不超过 5000 ms。
-- 帐号绑定分别检查 API Key 权限与现货、杠杆、U 本位产品可用性；不再使用帐号
-  接口的 `canTrade/canWithdraw` 推断 API Key 权限。
-- 支持现货、全仓杠杆、逐仓杠杆、U 本位订单提交、查询和撤单连接器。
-- 下单前检查交易对状态、数量/价格步长和限价单最小名义金额。
-- 支持资金快照、杠杆借还款和 U 本位杠杆设置。
-- 生产写操作要求租户角色、近期 MFA、独立幂等键、风险审批和未触发急停。
-- 写请求超时保存为 `unknown`，相同幂等键只返回原记录，不重放订单。
-- Risk Service 已实现版本化租户策略、Decimal 风险计算和 60 秒单次审批令牌。
-- KMS Adapter 已实现火山 KMS 信封加密、租户上下文绑定和不可恢复删除。
-- Trading 调用 Risk/KMS 时使用独立服务令牌，KMS 解析和删除显式携带租户。
-- FastAPI 校验错误不会返回 API Key、Secret 或私钥输入。
+2026-09-20 起，币安集成以
+[`QT-DES-BIN-NT-001`](../plans/2026-09-20-binance-nautilustrader-integration-design.md)
+为唯一当前设计：
 
-## 2. 自动化证据
+- 使用 NautilusTrader，不使用币安官方 SDK。
+- 支持现货和 U 本位永续。
+- 支持 U 本位杠杆、全仓/逐仓保证金和单向/双向持仓。
+- 不支持现货杠杆、借还款、币本位和期权。
+- 用户登录后从“交易 → 币安”添加帐号。
+- 可保存多个帐号，但同一时间只运行一个活动帐号。
+- 凭据由 ECS 本地主密钥使用 AES-256-GCM 加密入库，不使用 KMS。
+- Trading Service 内置最小风控，不依赖独立 Risk Service。
+
+## 2. 已有可复用能力
+
+- Web 登录、会话刷新和 TOTP MFA。
+- 交易菜单及币安帐号添加入口。
+- 帐号、订单、急停和审计的基础表结构。
+- FastAPI 身份鉴权、RFC 7807 错误和 Trace ID。
+- MySQL 部署、迁移和 Web 反向代理基础。
+- 写请求幂等和未知订单禁止盲目重试原则。
+
+这些能力需要按新 API 和数据模型改造后才能计入新方案验收。
+
+## 3. 待替换能力
+
+以下现有代码属于旧方案，迁移前不得视为 Nautilus 生产能力：
 
 ```text
-services/trading/tests/test_accounts.py
-services/trading/tests/test_binance_signing.py
+services/trading/src/trading/binance/client.py
+services/trading/src/trading/binance/signing.py
+services/trading/src/trading/risk.py
+services/trading/src/trading/secrets.py 中的 KMS 路径
 services/trading/tests/test_binance_client.py
-services/trading/tests/test_orders.py
-services/trading/tests/test_account_operations.py
-services/trading/tests/test_api.py
-services/trading/tests/test_security.py
-services/trading/tests/test_internal_service_clients.py
-services/risk/tests/
-services/kms-adapter/tests/
-apps/web/src/features/trading/AccountBindingDialog.test.tsx
-apps/web/src/features/trading/TradingWorkspace.test.tsx
-apps/web/src/app/AppShell.test.tsx
+services/trading/tests/test_binance_signing.py
+infra/compose/docker-compose.deploy.yml 中的 binance-readonly Profile
 ```
 
-浏览器已在 1280x720 和 390x664 视口验证：
+现有代码实现了自研签名、直接 REST、Margin Scope、KMS 和远程 Risk 调用，与新
+方案冲突。删除前必须先完成 Nautilus Testnet 等价验证。
 
-- Appbar 单行显示，主导航在窄屏横向滚动。
-- 三个交易路由和四个币安产品标签正常。
-- 帐号绑定弹窗无横向溢出，移动端内部滚动正常。
-- 币安产品标签切换会更新对应工作区。
+## 4. 当前阻塞
 
-## 3. 未完成项
+- ECS 到 Binance Spot/USD-M 的 DNS 与 TLS 路径尚未恢复。
+- NautilusTrader 依赖尚未加入并锁版。
+- Nautilus Spot/USD-M 最小 POC 尚未完成。
+- 本地主密钥文件、AES-GCM 数据模型和轮换流程尚未实现。
+- 多帐号单活动状态机尚未实现。
+- Web 仍展示全仓/逐仓现货杠杆和 RSA。
+- Testnet 与生产真实帐号尚未验证。
+- 公网入口仍需完成可信证书签发。
 
-以下能力未完成前，不得宣称币安生产交易已验收：
-
-- Spot、Margin 和 USD-M User Data Stream 的续期、断线恢复和事件去重。
-- 开放委托、成交、手续费、利息、资金费率和 ADL 的完整同步。
-- 全仓/逐仓资金划转和最大可借库存预检查。
-- U 本位持仓模式、保证金模式变更和交易所杠杆分层上限同步。
-- 订单、成交、资产、负债、持仓和费用的 Reconciliation Service。
-- Outbox 到 Redpanda 的发布器、重试、死信和监控。
-- Risk Service 的频率、集中度、亏损、借款上限、利息、保证金/持仓模式和资金费率
-  等完整规则，以及借款、调杠杆、撤单和还款动作的独立审批契约。
-- 火山引擎 KMS 适配器的真实联调和密钥轮换演练。
-- 固定出口 EIP、币安 Key IP 白名单和生产网络域名白名单。
-- 生产帐号、产品资格、司法辖区、服务条款和法务合规书面确认。
-- Web 的余额、负债和持仓详情组件；当前页面只显示帐号、Scope 和连接状态。
-
-## 4. 生产闸门
-
-服务在生产环境启动时要求：
+## 5. 生产配置目标
 
 ```text
 ENVIRONMENT=production
 AUTH_JWT_SECRET=<managed secret>
-SECRET_BACKEND=kms
-KMS_URL=https://...
-KMS_SERVICE_TOKEN=<独立服务令牌，至少 32 字节>
-RISK_SERVICE_URL=https://...
-RISK_SERVICE_TOKEN=<独立服务令牌，至少 32 字节>
+BINANCE_CREDENTIAL_MASTER_KEY_FILE=/run/secrets/binance_credential_master_key
 FIXED_EGRESS_IP_CONFIGURED=true
-PUBLIC_BASE_URL=https://<已完成 TLS 终止的访问域名>
-LIVE_TRADING_ENABLED=false
+PUBLIC_BASE_URL=https://<trusted-host>
+BINANCE_TESTNET=false
+BINANCE_LIVE_TRADING_ENABLED=false
+BINANCE_MAX_ORDER_NOTIONAL=<decimal>
+BINANCE_MAX_POSITION_NOTIONAL=<decimal>
+BINANCE_MAX_FUTURES_LEVERAGE=<integer>
+BINANCE_MAX_DAILY_LOSS=<decimal>
 ```
 
-`LIVE_TRADING_ENABLED` 默认保持关闭。启用顺序固定为：
+主密钥文件不得存入 `.env`。
 
-1. 使用只读 Key 完成帐号权限与时间同步。
-2. 余额、负债和持仓快照。
-3. User Data Stream 与 REST 补偿。
-4. 最小金额现货人工订单。
-5. 全仓杠杆人工订单。
-6. 逐仓杠杆人工订单。
-7. U 本位永续人工订单。
-8. 完整对账和故障演练。
-9. 白名单自动交易。
+## 6. 准入顺序
 
-每一步均需独立审批和对账证据；任何未知订单未关闭前不得进入下一阶段。
+1. Nautilus 依赖和 Fake Node POC。
+2. 登录后帐号添加、本地加密和单活动帐号。
+3. Spot/USD-M 只读 Testnet。
+4. Testnet 现货交易闭环。
+5. Testnet U 本位低杠杆逐仓闭环。
+6. 断线、超时、重启和帐号切换故障演练。
+7. 生产只读观察。
+8. 最小金额现货灰度。
+9. 低杠杆 U 本位逐仓灰度。
+10. 自动策略另行设计和审批。
+
+任何未决订单、重复订单、账实不符或凭据泄漏问题未关闭前，不得进入下一阶段。
+
+## 7. 验收证据
+
+专项测试以
+[`QT-TP-BIN-NT-001`](../testing/binance-nautilustrader-test-plan.md)
+为准，实施顺序以
+[`QT-PLAN-BIN-NT-001`](../plans/2026-09-20-binance-nautilustrader-integration-implementation-plan.md)
+为准，排障流程见
+[`QT-OPS-BIN-NT-001`](../operations/binance-nautilustrader-runbook.md)。

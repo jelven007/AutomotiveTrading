@@ -2,7 +2,7 @@
 
 > 文档编号：QT-DM-001
 >
-> 版本：1.2-draft
+> 版本：1.3-draft
 
 ## 1. 建模规则
 
@@ -11,7 +11,7 @@
 - 时间使用 UTC，另存市场时区。
 - 金额和数量使用 Decimal。
 - 软删除对象包含 `deleted_at`，交易流水禁止删除。
-- 敏感值只保存 KMS Secret 引用。
+- 敏感值不得明文保存；模型与其他券商使用 KMS，币安使用本地主密钥加密入库。
 - 跨服务只保存外部 ID，不建立跨库外键。
 
 ## 2. 身份与租户
@@ -201,9 +201,10 @@ status, created_at
 
 ```text
 id, tenant_id, market_group, provider, environment, external_account_ref,
-credential_type, api_key_fingerprint, secret_ref, currency, status,
-connection_status, trading_enabled, last_permission_check_at, last_synced_at,
-created_by, created_at, updated_at
+credential_type, api_key_fingerprint, currency, status, connection_status,
+is_active, spot_available, usdm_futures_available,
+ip_whitelist_confirmed_at, withdrawal_disabled_confirmed_at,
+last_tested_at, last_synced_at, created_by, created_at, updated_at
 ```
 
 约束：
@@ -212,33 +213,45 @@ created_by, created_at, updated_at
 - `provider` 一期为
   `tonghuashun|caixin|futu|longbridge|binance`。
 - 币安生产帐号禁止保存明文 API Key、Secret 或私钥。
-- 币安帐号必须记录查询、现货交易、杠杆交易、合约交易和提现权限检查结果；
-  检测到提现权限时不得启用。
+- 币安帐号支持 HMAC 和 Ed25519，不支持 RSA。
+- 可以保存多个币安帐号，但只允许一个 `is_active=true`。
+- 固定出口 IP 和禁止提现由管理员人工确认并记录确认时间。
 
-### trading_account_scope
+### binance_encrypted_credential
 
 ```text
-id, tenant_id, account_id, scope_type, scope_key, symbol, enabled, status,
-position_mode, margin_mode, leverage_limit, last_synced_at
-UNIQUE(tenant_id, account_id, scope_type, scope_key)
+id, tenant_id, account_id, ciphertext, nonce, algorithm_version,
+created_at, updated_at
+UNIQUE(tenant_id, account_id)
 ```
 
-`scope_type` 为
-`spot|cross_margin|isolated_margin|usdm_futures`。逐仓杠杆必须填写
-`symbol`，且 `scope_key` 使用交易对；其他 Scope 的 `symbol` 为空，
-`scope_key` 固定为 `global`，避免 MySQL 对 `NULL` 唯一键的特殊语义。
+密文由 AES-256-GCM 产生，`account_id`、凭据类型和算法版本作为附加认证数据。
+主密钥来自 ECS 只读文件，不进入数据库。
+
+### binance_runtime_state
+
+```text
+account_id, spot_status, futures_status, reconciliation_status,
+accepting_orders, last_event_at, last_reconciled_at, updated_at
+UNIQUE(account_id)
+```
+
+运行状态由 Nautilus 事件更新；状态过期或未完成对账时禁止新订单。
 
 ### order
 
 ```text
 id, tenant_id, account_id, client_order_id, broker_order_id,
-account_scope, instrument_id, side, position_side, order_type, time_in_force,
-quantity, limit_price, stop_price, reduce_only, margin_side_effect,
+product, instrument_id, side, position_side, order_type, time_in_force,
+quantity, limit_price, stop_price, reduce_only,
 filled_quantity, average_price, status, source, decision_id, idempotency_key,
 request_fingerprint, submitted_at, updated_at
 UNIQUE(tenant_id, idempotency_key)
 UNIQUE(tenant_id, account_id, client_order_id)
 ```
+
+`product` 仅允许 `spot|usdm_futures`。不确定写入使用
+`pending_reconciliation`，禁止自动重发。
 
 ### execution
 
@@ -248,6 +261,14 @@ fee, tax, currency, executed_at
 UNIQUE(tenant_id, account_id, broker_execution_id)
 ```
 
+### binance_risk_setting
+
+```text
+account_id, emergency_stop, max_order_notional, max_position_notional,
+max_futures_leverage, max_daily_loss, updated_at
+UNIQUE(account_id)
+```
+
 ### position_snapshot
 
 ```text
@@ -255,44 +276,12 @@ tenant_id, account_id, instrument_id, total_quantity, sellable_quantity,
 average_cost, market_value, unrealized_pnl, snapshot_at
 ```
 
-### margin_asset_snapshot
-
-```text
-id, tenant_id, account_id, account_scope, symbol, asset, free, locked,
-borrowed, interest, net_asset, margin_level, margin_level_status,
-liquidation_price, snapshot_at
-```
-
-全仓杠杆的 `symbol` 为空；逐仓杠杆按交易对保存。风险快照只能追加，
-最新状态通过派生视图查询。
-
-### margin_loan
-
-```text
-id, tenant_id, account_id, account_scope, symbol, asset, operation,
-amount, external_transaction_id, status, idempotency_key, requested_by,
-requested_at, completed_at
-UNIQUE(tenant_id, idempotency_key)
-UNIQUE(tenant_id, account_id, external_transaction_id)
-```
-
-`operation` 为 `borrow|repay`。待处理借还款不得并发重试。
-
 ### futures_position_snapshot
 
 ```text
 id, tenant_id, account_id, instrument_id, position_side, margin_mode,
 leverage, quantity, entry_price, mark_price, liquidation_price,
 initial_margin, maintenance_margin, unrealized_pnl, snapshot_at
-```
-
-### account_transfer
-
-```text
-id, tenant_id, account_id, from_scope, to_scope, asset, amount,
-external_transaction_id, status, idempotency_key, requested_by,
-requested_at, completed_at
-UNIQUE(tenant_id, idempotency_key)
 ```
 
 ### funding_payment

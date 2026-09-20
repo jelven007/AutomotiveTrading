@@ -4,9 +4,15 @@
 >
 > 文档编号：QT-SPEC-001
 >
-> 版本：0.4
+> 版本：0.5
 >
 > 日期：2026-09-20
+
+币安专项以
+[`QT-REQ-BIN-NT-001`](../requirements/binance-nautilustrader-requirements.md)
+和
+[`QT-DES-BIN-NT-001`](2026-09-20-binance-nautilustrader-integration-design.md)
+为准。
 
 ## 1. 文档目的
 
@@ -35,8 +41,8 @@
 | 交易类型 | 模拟交易 + 实盘交易 |
 | 实盘执行 | 人工下单和策略自动下单均支持，由用户按策略配置 |
 | 一期交易集成 | 同花顺、财信证券、富途、长桥、币安 |
-| 币安一期范围 | 生产现货、全仓杠杆、逐仓杠杆、U 本位永续 |
-| 接口现状 | 证券通道尚无正式权限；币安按官方生产 API 设计和接入 |
+| 币安一期范围 | 生产现货、U 本位永续及其杠杆/保证金模式 |
+| 接口现状 | 证券通道尚无正式权限；币安改用 NautilusTrader 接入 |
 | 产品模式 | 多租户 SaaS，包含套餐、计费与资源配额 |
 | 系统架构 | 全微服务 |
 | 生产环境 | 火山引擎中国区 |
@@ -53,7 +59,7 @@
 - 历史回测与绩效分析。
 - 平台模拟交易与同花顺模拟盘。
 - 富途、财信证券实盘交易。
-- 币安生产现货、全仓杠杆、逐仓杠杆和 U 本位永续交易。
+- 币安生产现货和 U 本位永续交易。
 - 多租户管理、套餐计费、风险控制和审计。
 
 平台的核心原则是：大模型负责生成候选决策，确定性规则负责控制执行。
@@ -520,7 +526,7 @@ Python Runner 运行在独立 Kubernetes Job 中：
 | 富途 | 实盘 | 获得权限后完成 OpenD 接入与灰度 |
 | 财信证券 | 实盘 | 确认 QMT/PTrade 等正式方案后接入 |
 | 长桥 | 实盘 | 获得 OpenAPI 权限后完成港美账户接入与灰度 |
-| 币安 | 实盘 | 接入生产现货、全仓/逐仓杠杆和 U 本位永续 |
+| 币安 | 实盘 | 通过 NautilusTrader 接入生产现货和 U 本位永续 |
 
 页面与通道映射：
 
@@ -649,38 +655,27 @@ API 权限、行情权限、交易品种、频率限制、IP 白名单和服务�
 一期支持以下产品：
 
 - 生产现货。
-- 全仓杠杆。
-- 逐仓杠杆。
 - U 本位永续合约。
+- U 本位杠杆倍数和全仓/逐仓保证金模式。
 
-一期不支持币本位合约和期权。币安 Connector 必须独立部署，只允许访问
-币安官方域名，并将现货、全仓杠杆、逐仓杠杆和 U 本位永续作为不同
-`account_scope` 处理。
+一期不支持现货杠杆、借还款、币本位合约和期权。币安接入使用 Trading Service
+内部唯一 Nautilus `LiveNode`，分别注册 Spot 与 USD-M 客户端。
 
 账户绑定和凭据规则：
 
 - 仅租户管理员可添加帐号，提交前要求近期 MFA。
-- 优先使用 Ed25519 API Key，兼容 HMAC 和 RSA。
-- API Key、私钥或 Secret 立即写入 KMS，数据库只保存 Secret 引用。
+- 支持 HMAC 和 Ed25519，不支持 RSA。
+- API Key、私钥或 Secret 使用 ECS 本地主密钥和 AES-256-GCM 加密入库。
+- 可以保存多个帐号，但同一时间只有一个活动帐号。
 - 必须启用固定出口 IP 白名单。
-- 禁止绑定具有提现权限的 Key。
-- 查询权限和交易权限分开检查，默认先以只读状态连接。
-- 启用生产写权限必须再次 MFA 并确认风险声明。
-- Connector 必须同步币安服务器时间，签名请求的 `recvWindow` 默认不超过
-  5 秒。
+- 管理员必须确认禁止提现并留存审计记录。
+- 帐号切换、凭据更新和解除急停必须再次 MFA。
 
 现货能力：
 
 - 账户余额、开放委托、历史委托和成交查询。
 - 市价单、限价单、撤单和订单状态补偿查询。
-- 每笔请求使用平台幂等键生成稳定 `clientOrderId`。
-
-杠杆能力：
-
-- 全仓和逐仓账户、资产、负债、利息和风险率查询。
-- 划转、借款、还款、下单、撤单和成交查询。
-- 逐仓操作必须携带交易对，禁止跨交易对共享风险状态。
-- 自动借还款必须显式配置，不得由界面默认开启。
+- 每笔请求使用平台幂等键映射稳定 Client Order ID。
 
 U 本位永续能力：
 
@@ -689,19 +684,13 @@ U 本位永续能力：
 - 市价/限价开平仓、撤单、`reduceOnly` 和成交查询。
 - 风险降低操作与开仓请求分离，保护模式只允许撤单和减仓。
 
-状态同步以 User Data Stream 为主、REST 补偿查询为辅。Listen Key 必须
-续期并监控失效；断线后按事件时间和币安订单号补偿，禁止盲目重放订单。
+行情、执行、私有流和恢复由 NautilusTrader 负责。服务启动、断线恢复或帐号切换
+后必须先完成执行状态对账；结果不确定时禁止盲目重放订单。
 
 官方资料：
 
-- <https://developers.binance.com/docs/binance-spot-api-docs/rest-api/request-security>
-- <https://developers.binance.com/docs/binance-spot-api-docs/rest-api/account-endpoints>
-- <https://developers.binance.com/docs/margin_trading/account/Query-Cross-Margin-Account-Details>
-- <https://developers.binance.com/docs/margin_trading/account/Query-Isolated-Margin-Account-Info>
-- <https://developers.binance.com/docs/margin_trading/borrow-and-repay/Margin-Account-Borrow-Repay>
-- <https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-Order>
-- <https://developers.binance.com/docs/derivatives/usds-margined-futures/account/rest-api/Account-Information-V3>
-- <https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Order>
+- <https://nautilustrader.io/docs/latest/integrations/binance/>
+- <https://nautilustrader.io/docs/latest/concepts/execution/reconciliation/>
 
 ## 16. 订单与成交
 
@@ -759,7 +748,6 @@ unknown
 - 单笔最大金额和数量。
 - 单股、行业和市场集中度。
 - 总仓位、净敞口和币种敞口。
-- 币安全仓/逐仓负债、利息、风险率和可借额度。
 - U 本位合约杠杆、保证金模式、名义价值、维持保证金和强平距离。
 - 合约开仓/减仓语义以及 `reduceOnly` 一致性。
 - 资金费率、标记价格和指数价格新鲜度。
@@ -851,7 +839,8 @@ quota
 | Backtest Runner | 隔离运行 Python 策略 |
 | Risk | 确定性交易风控 |
 | Trading | 账户、订单、成交、持仓和账本 |
-| Broker Connectors | 富途、长桥、同花顺模拟盘、财信证券、币安 |
+| Broker Connectors | 富途、长桥、同花顺模拟盘、财信证券 |
+| Binance Runtime | Trading 内部 Nautilus Spot/USD-M 节点 |
 | Reconciliation | 平台与券商对账 |
 | Notification | 站内、邮件、短信和 Webhook |
 | Audit | 不可变操作与业务审计 |
@@ -1010,8 +999,7 @@ payload
 | 模型超时或输出非法 | 观望，记录并按策略告警 |
 | 下单后券商超时 | 标记 `unknown`，先查询后处理 |
 | 券商断连 | 阻止新订单，保留安全恢复操作 |
-| 币安用户数据流断开 | 暂停新增风险，REST 补偿并完成对账后恢复 |
-| 杠杆预强平或强平 | 进入保护模式，只允许还款、追加保证金和减仓 |
+| 币安 Nautilus 客户端断开 | 暂停对应产品写入，完成对账后恢复 |
 | 合约 ADL 或强平风险过高 | 拒绝开仓和提高杠杆，只允许撤单与减仓 |
 | Kafka 重复消息 | 幂等消费，不重复产生业务结果 |
 | 风控服务不可用 | Fail closed，拒绝交易 |
@@ -1070,7 +1058,7 @@ payload
 
 开发、测试和生产使用不同项目、网络、数据库、Topic、Bucket 和密钥。
 实盘 Connector 放置在独立命名空间和节点池，只开放明确的券商出口地址。
-Binance Connector 使用固定出口 EIP，生产 Key 绑定 IP 白名单并禁用提现权限。
+币安 Nautilus Runtime 使用固定出口 EIP，生产 Key 绑定 IP 白名单并禁用提现权限。
 
 ## 29. 测试策略
 
@@ -1078,8 +1066,8 @@ Binance Connector 使用固定出口 EIP，生产 Key 绑定 IP 白名单并禁�
 
 - 领域规则单元测试。
 - 订单、资金和持仓不变量属性测试。
-- 币安现货、全仓/逐仓杠杆和 U 本位永续产品隔离测试。
-- 杠杆负债、借还款、风险率和合约强平保护测试。
+- 币安现货与 U 本位产品隔离测试。
+- U 本位杠杆、保证金模式和强平保护测试。
 - API Schema 与向后兼容测试。
 - 数据、模型和券商 Adapter 契约测试。
 - 事件 Schema、幂等和重放测试。
@@ -1114,9 +1102,9 @@ Binance Connector 使用固定出口 EIP，生产 Key 绑定 IP 白名单并禁�
 - 联系同花顺确认模拟盘开放方式。
 - 联系财信证券确定 QMT、PTrade 或其他正式通道。
 - 申请长桥 OpenAPI 并确认港美交易授权。
-- 完成币安生产帐号、现货/杠杆/U 本位永续资格和 API 权限准备。
+- 完成币安生产帐号、现货/U 本位永续资格和 API 权限准备。
 - 完成币安账户主体司法辖区、服务条款、税务和合规评审。
-- 准备 Binance Connector 固定出口 IP 和 KMS 密钥。
+- 准备固定出口 IP 和币安本地主密钥文件。
 - 确认三地行情和资讯的 SaaS 再分发权利。
 - 获取全部测试账号和非生产凭据。
 
@@ -1156,7 +1144,7 @@ Binance Connector 使用固定出口 EIP，生产 Key 绑定 IP 白名单并禁�
 - 富途 OpenD Connector。
 - 财信证券正式通道 Connector。
 - 长桥 OpenAPI Connector。
-- Binance Connector：生产现货、全仓/逐仓杠杆和 U 本位永续。
+- Nautilus Binance Runtime：生产现货和 U 本位永续。
 - 人工实盘下单。
 - 策略信号确认。
 - 自动实盘执行。
@@ -1187,9 +1175,9 @@ Binance Connector 使用固定出口 EIP，生产 Key 绑定 IP 白名单并禁�
 11. 同花顺模拟盘在权限到位后通过真实环境验收；未到位时 Adapter
     必须通过已批准 Stub 的契约测试。
 12. 富途、长桥与财信 Connector 在权限到位后通过测试环境、对账和故障测试。
-13. 币安生产帐号通过权限最小化、固定出口 IP、现货、全仓/逐仓杠杆和
-    U 本位永续的小额交易及对账验收。
-14. 杠杆和合约进入预强平、强平或 ADL 风险状态时只能执行风险降低操作。
+13. 币安生产帐号通过权限最小化、固定出口 IP、现货和 U 本位永续的小额
+    交易及对账验收。
+14. U 本位进入预强平、强平或 ADL 风险状态时只能执行风险降低操作。
 15. 人工与自动执行均可用，自动实盘未满足全部门槛时保持关闭。
 16. 租户隔离、幂等、审计、备份、监控和回滚通过验收。
 

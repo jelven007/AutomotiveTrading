@@ -2,7 +2,7 @@
 
 > 文档编号：QT-TDS-001
 >
-> 版本：1.3-draft
+> 版本：1.4-draft
 
 ## 1. 架构目标
 
@@ -18,6 +18,7 @@
 | 编辑器 | Monaco Editor |
 | API Gateway | Kong 或 APISIX |
 | 业务服务 | Python 3.12、FastAPI、Pydantic |
+| 币安运行时 | NautilusTrader 1.231.0 |
 | 内部 RPC | gRPC、Protobuf |
 | 事务数据 | MySQL 8 |
 | 分析数据 | ClickHouse |
@@ -46,7 +47,7 @@
 | backtest-runner | 无长期业务数据 | 沙箱执行 |
 | risk | 风控策略和校验记录 | 确定性交易风控 |
 | trading | 账户镜像、订单、成交、账本 | 交易核心状态机 |
-| broker-connectors | 连接、签名与外部状态 | 富途、长桥、同花顺、财信、币安 |
+| broker-connectors | 连接、签名与外部状态 | 富途、长桥、同花顺、财信 |
 | reconciliation | 对账任务和差异 | 账户一致性 |
 | notification | 通知模板与投递 | 站内、邮件、短信、Webhook |
 | audit | 不可变审计记录 | 安全和业务审计 |
@@ -101,6 +102,10 @@ mootdx 0.11.7 固定依赖 `httpx < 0.26`，因此不得与平台统一使用
 7. Trading 更新账本、持仓和资金镜像。
 8. Reconciliation 定时校验券商/交易所实际状态。
 
+币安是当前单机部署的例外：Trading Service 内部直接托管 Nautilus Runtime，
+由 Nautilus 完成交易所执行和恢复对账；不经过独立 Connector、Risk Service
+或 Kafka/Outbox。平台仍在调用 Nautilus 前执行本地同步风控和幂等落库。
+
 ### 4.3 回测链路
 
 1. Strategy 发布不可变版本。
@@ -150,45 +155,46 @@ mootdx 0.11.7 固定依赖 `httpx < 0.26`，因此不得与平台统一使用
 | Ollama | 是 | 是 | 否 | 否 |
 | vLLM | 是 | 是 | 否 | 否 |
 
-## 8. 币安 Connector 架构
+## 8. 币安 NautilusTrader 架构
 
-币安生产接入使用独立 Connector，不允许 Web、策略或 Trading Service
-直接访问币安 API。Connector 内部分为：
+币安接入运行在 Trading Service 内部，由一个 NautilusTrader `LiveNode`
+提供统一市场数据和执行能力。当前个人单用户 ECS 可以保存多个币安帐号，
+但同一时间只能运行一个活动帐号。
 
-1. Credential Provider：按租户和帐号从 KMS 临时解密 Ed25519 私钥、
-   HMAC Secret 或 RSA 私钥，不写入磁盘。
-2. Time Sync：持续校准币安服务器时间，签名请求默认
-   `recvWindow <= 5000 ms`。
-3. Spot Client：账户、余额、订单、成交和现货交易。
-4. Margin Client：全仓/逐仓账户、划转、借还款、负债、利息和杠杆订单。
-5. USD-M Futures Client：账户、持仓、保证金模式、杠杆、订单、成交和
-   资金费率。
-6. Stream Supervisor：维护用户数据流，检测序列中断并触发 REST 补偿。
-7. Rate Limit Governor：按 IP、UID、订单窗口和接口权重限流。
+运行时包含：
 
-统一帐号下按 `spot`、`cross_margin`、`isolated_margin` 和
-`usdm_futures` 建立四类 `account_scope`。所有写请求先进入 Trading
-状态机和 Risk Service，再由 Connector 生成币安 `clientOrderId`；
-网络超时返回 `unknown`，只能查询确认，不得直接重发。
+1. Local Credential Vault：使用 ECS 只读主密钥和 AES-256-GCM 加密帐号凭据。
+2. Runtime Manager：创建、切换和停止唯一 LiveNode。
+3. `BINANCE_SPOT`：现货数据与执行客户端。
+4. `BINANCE_FUTURES`：U 本位数据与执行客户端。
+5. Portfolio Projection：将余额、订单、成交和持仓投影到 Web。
+6. Local Risk Guard：同步执行急停、金额、仓位、杠杆和每日亏损限制。
 
-杠杆和合约额外规则：
+不再维护自研 Binance REST 签名、WebSocket、User Data Stream、独立 Connector、
+KMS Adapter、远程 Risk Service 或 Binance 专用 Kafka/Outbox。业务代码只能使用
+NautilusTrader 公共 API，不得依赖其内部低层客户端。
 
-- 借款、还款和划转使用独立幂等流水，串行处理币安返回的待处理状态。
-- 全仓与逐仓风险快照分开存储，逐仓快照必须包含交易对。
-- 合约下单前同步单向/双向持仓模式、全仓/逐仓保证金模式和杠杆倍数。
-- 保护模式只允许撤单、还款、追加保证金和 `reduceOnly` 减仓。
-- 币本位合约、期权和未声明产品由能力矩阵直接拒绝。
+帐号切换时先停止接受新订单，再停止旧节点、清除内存凭据、启动新节点并完成
+Spot/USD-M 对账。对账成功前禁止交易，切换失败时不自动回切。
+
+产品范围只有 `spot` 和 `usdm_futures`。现货杠杆借还款、币本位、期权和交割合约
+由 API 能力矩阵直接拒绝。U 本位支持杠杆倍数、全仓/逐仓保证金模式、
+单向/双向持仓和 `reduceOnly`。
+
+完整模块、数据流、依赖、权衡和迁移方案见
+[`QT-DES-BIN-NT-001`](../plans/2026-09-20-binance-nautilustrader-integration-design.md)。
 
 ## 9. 网络与安全边界
 
 - 公网入口只开放 WAF 和 Gateway。
 - 服务位于私有子网。
-- Broker Connector 使用独立命名空间、节点池和出口白名单。
+- Broker Connector 使用独立命名空间、节点池和出口白名单；单机币安链路由
+  Trading Service 内部 Nautilus Runtime 承载。
 - 币安生产 Key 必须配置固定出口 IP 白名单，禁止提现权限。
-- 币安查询权限和交易权限分别校验；生产写权限默认关闭。
+- 币安权限由连接测试和人工控制台确认共同准入；生产写权限默认关闭。
 - Backtest Runner 默认无网络策略。
 - 模型调用只能由 Model Gateway 发起。
-- KMS 权限按服务身份授予，业务数据库只保存 Secret ID。
+- 模型与其他券商的 KMS 权限按服务身份授予；币安凭据使用本地主密钥加密入库。
 - 生产访问通过堡垒机、短期身份和审批。
 
 ## 10. 故障与降级
@@ -197,8 +203,8 @@ mootdx 0.11.7 固定依赖 `httpx < 0.26`，因此不得与平台统一使用
 - Model Provider 异常：按策略允许的备用模型降级，否则观望。
 - Risk 异常：Fail closed。
 - Broker 异常：禁止新订单，保留撤单与减仓。
-- 币安用户数据流异常：切换 REST 补偿并暂停新增风险，恢复后先对账。
-- 杠杆/合约进入追加保证金、预强平或强平状态：强制进入保护模式。
+- 币安 Nautilus 客户端异常：暂停对应产品写入，恢复后先对账。
+- U 本位进入追加保证金、预强平或强平状态：强制进入保护模式。
 - Kafka 异常：本地 Outbox 持久化，不确认未落盘事件。
 - ClickHouse 异常：交易主链路继续，分析查询降级。
 - Audit 异常：高风险操作无法可靠缓冲时拒绝。
@@ -222,7 +228,8 @@ mootdx 0.11.7 固定依赖 `httpx < 0.26`，因此不得与平台统一使用
 | ADR-004 | 实盘订单以幂等状态机和对账闭环 |
 | ADR-005 | Python 回测使用隔离 Kubernetes Job |
 | ADR-006 | 一期 Ollama/vLLM 仅配置，不调用 |
-| ADR-007 | 币安按产品域拆分帐号 Scope，共享统一订单状态机 |
-| ADR-008 | 币安生产密钥优先 Ed25519，KMS 托管且禁止提现权限 |
+| ADR-007 | 币安仅支持 Spot 与 USD-M，使用两个 Nautilus 客户端 |
+| ADR-008 | 币安凭据由本地主密钥加密入库，不使用 KMS |
+| ADR-009 | 可以保存多个币安帐号，但同一时间只运行一个 LiveNode |
 
 正式实施前应将每项 ADR 独立成文，记录背景、备选方案和后果。

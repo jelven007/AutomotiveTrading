@@ -2,7 +2,7 @@
 
 > 文档编号：QT-INT-001
 >
-> 版本：1.1-draft
+> 版本：1.2-draft
 
 ## 1. 原则
 
@@ -90,52 +90,46 @@
 
 ## 6. 币安生产交易
 
+详细需求、设计和测试分别见
+[`QT-REQ-BIN-NT-001`](../requirements/binance-nautilustrader-requirements.md)、
+[`QT-DES-BIN-NT-001`](../plans/2026-09-20-binance-nautilustrader-integration-design.md)
+和 [`QT-TP-BIN-NT-001`](../testing/binance-nautilustrader-test-plan.md)。
+
 ### 6.1 一期产品范围
 
 - 生产现货。
-- 全仓杠杆。
-- 逐仓杠杆。
 - U 本位永续合约。
-- 不包含币本位合约和期权。
+- U 本位杠杆倍数和全仓/逐仓保证金模式。
+- 不包含现货杠杆借还款、币本位合约和期权。
 
 ### 6.2 账户与凭据
 
 - 仅租户管理员可绑定，操作要求近期 MFA。
-- 优先使用 Ed25519 API Key，兼容 HMAC/RSA。
-- Key 与私钥/Secret 写入 KMS，业务库只保存引用和脱敏指纹。
-- API Key 必须绑定 Connector 固定出口 IP。
-- 查询权限和交易权限分别检查；检测到提现权限时拒绝绑定。
-- 首次启用生产写权限必须再次 MFA，并保留风险确认审计。
-- Connector 只允许访问币安官方生产域名。
+- 登录后从“交易 → 币安”添加 HMAC 或 Ed25519 帐号。
+- 凭据使用 ECS 本地主密钥和 AES-256-GCM 加密入库，不使用 KMS。
+- 可保存多个帐号，但同一时间只有一个活动帐号和一个 Nautilus LiveNode。
+- API Key 必须绑定固定出口 IP；管理员必须确认禁止提现。
+- 切换帐号、更新凭据和解除急停必须再次 MFA 并保留审计。
+- Nautilus Runtime 只允许访问币安官方生产或显式 Testnet 地址。
 
 ### 6.3 现货验证
 
-- 服务器时间同步和签名校验。
+- Nautilus Spot 客户端连接和 instrument 加载。
 - 账户余额、开放委托、历史委托和成交。
 - 市价单、限价单、撤单和订单查询。
-- `clientOrderId` 幂等映射、限频和超时未知状态处理。
-- User Data Stream 续期、断线恢复和 REST 补偿。
+- Client Order ID 幂等映射和不确定订单对账。
+- 私有流断线恢复和启动对账。
 
-### 6.4 全仓与逐仓杠杆验证
-
-- 全仓账户资产、负债、利息、净资产和风险率。
-- 逐仓交易对资产、负债、风险状态和预估强平价。
-- 现货与杠杆账户划转。
-- 借款、还款、最大可借额度和借款库存不足。
-- 全仓/逐仓订单、自动借还款选项和撤单后负债核验。
-- `MARGIN_CALL`、`PRE_LIQUIDATION`、`FORCE_LIQUIDATION`
-  状态触发保护模式。
-
-### 6.5 U 本位永续验证
+### 6.4 U 本位永续验证
 
 - 账户余额、可用余额、维持保证金和未实现盈亏。
 - 单向/双向持仓模式。
 - 全仓/逐仓保证金模式和杠杆倍数。
 - 市价/限价开仓、`reduceOnly` 减仓、撤单和成交。
 - 标记价格、指数价格、强平价、资金费率和 ADL 风险。
-- 用户数据流续期、订单/账户更新去重和 REST 对账。
+- Nautilus 私有数据流、订单/账户更新和执行状态对账。
 
-### 6.6 正式资金准入
+### 6.5 正式资金准入
 
 - 账户主体所在司法辖区允许使用相关产品。
 - 完成服务条款、法律、合规和税务评审。
@@ -147,14 +141,8 @@
 官方资料：
 
 - <https://developers.binance.com/docs/binance-spot-api-docs/rest-api/request-security>
-- <https://developers.binance.com/docs/binance-spot-api-docs/rest-api/account-endpoints>
-- <https://developers.binance.com/docs/binance-spot-api-docs/faqs/api_key_types>
-- <https://developers.binance.com/docs/margin_trading/account/Query-Cross-Margin-Account-Details>
-- <https://developers.binance.com/docs/margin_trading/account/Query-Isolated-Margin-Account-Info>
-- <https://developers.binance.com/docs/margin_trading/borrow-and-repay/Margin-Account-Borrow-Repay>
-- <https://developers.binance.com/docs/margin_trading/trade/Margin-Account-New-Order>
-- <https://developers.binance.com/docs/derivatives/usds-margined-futures/account/rest-api/Account-Information-V3>
-- <https://developers.binance.com/docs/derivatives/usds-margined-futures/trade/rest-api/New-Order>
+- 异常时只允许撤单或有效减仓。
+- <https://nautilustrader.io/docs/latest/integrations/binance/>
 
 ## 7. 统一能力矩阵模板
 
@@ -166,8 +154,7 @@
 | 港股 | 否 | 否 | 待确认 | 待确认 | 否 |
 | 美股 | 否 | 否 | 待确认 | 待确认 | 否 |
 | 现货 | 不适用 | 不适用 | 不适用 | 不适用 | 是 |
-| 全仓杠杆 | 不适用 | 不适用 | 不适用 | 不适用 | 是 |
-| 逐仓杠杆 | 不适用 | 不适用 | 不适用 | 不适用 | 是 |
+| 现货杠杆 | 不适用 | 不适用 | 不适用 | 不适用 | 否 |
 | U 本位永续 | 不适用 | 不适用 | 不适用 | 不适用 | 是 |
 | 推送回报 | 待确认 | 待确认 | 待确认 | 待确认 | 是 |
 | 客户端幂等号 | 待确认 | 待确认 | 待确认 | 待确认 | 是 |
@@ -179,8 +166,8 @@
 - 通过全订单状态测试。
 - 通过断连、超时和重复回报测试。
 - 通过资金、持仓和成交对账。
-- 币安通过现货、全仓杠杆、逐仓杠杆和 U 本位永续专项测试。
-- 杠杆负债、利息、强平状态和合约资金费率可对账。
+- 币安通过现货和 U 本位专项测试。
+- U 本位杠杆、保证金模式、强平状态和资金费率可对账。
 - 凭据不进入日志。
 - 能独立启停和回滚。
 - 发布能力矩阵和已知限制。
