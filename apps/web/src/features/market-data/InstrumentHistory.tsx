@@ -4,6 +4,7 @@ import {
   createChart,
   HistogramSeries,
   LineSeries,
+  type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
 import { AlertTriangle, LoaderCircle } from "lucide-react";
@@ -146,7 +147,11 @@ export function InstrumentHistory({ quote, tenantId }: Props) {
       <footer className="instrument-history__footer">
         <span>
           {activeResponse?.items.length ?? 0}{" "}
-          {activeTab === "transaction" ? "笔" : "根"}
+          {activeTab === "transaction"
+            ? "笔"
+            : activeTab === "minute"
+              ? "点"
+              : "根"}
         </span>
         <span>数据源 MOOTDX</span>
       </footer>
@@ -183,7 +188,12 @@ function HistoryChart({
         horzLines: { color: "#edf0f2" },
       },
       rightPriceScale: { borderColor: "#d9dee3" },
-      timeScale: { borderColor: "#d9dee3", timeVisible: kind === "minute" },
+      localization: { timeFormatter: formatChartTime },
+      timeScale: {
+        borderColor: "#d9dee3",
+        tickMarkFormatter: formatChartTime,
+        timeVisible: kind === "minute",
+      },
     });
     if (kind === "bar") {
       const series = chart.addSeries(CandlestickSeries, {
@@ -288,6 +298,20 @@ function TransactionTape({
 
 function toTimestamp(value: string) {
   return Math.floor(new Date(value).getTime() / 1000) as UTCTimestamp;
+}
+
+function formatChartTime(value: Time) {
+  if (typeof value !== "number") {
+    return String(value);
+  }
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value * 1000));
 }
 
 function formatTime(value: string) {
