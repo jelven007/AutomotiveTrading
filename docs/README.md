@@ -30,6 +30,7 @@ Risk Service 或自研协议栈，详情见
 | QT-DES-BIN-NT-001 | [币安 NautilusTrader 接入设计](plans/2026-09-20-binance-nautilustrader-integration-design.md) | 当前架构、模块、接口、数据、依赖和风险 |
 | QT-PLAN-BIN-NT-001 | [币安 NautilusTrader 实施计划](plans/2026-09-20-binance-nautilustrader-integration-implementation-plan.md) | TDD 迁移步骤、文件和提交顺序 |
 | QT-TP-BIN-NT-001 | [币安 NautilusTrader 测试计划](testing/binance-nautilustrader-test-plan.md) | 单元、组件、Testnet、故障和生产灰度 |
+| QT-RESULT-BIN-NT-M0-001 | [币安 M0 POC 验收](testing/results/binance-nautilustrader-m0-poc.md) | 依赖、公共 API、配置构造器和 wheel 证据 |
 | QT-OPS-BIN-NT-001 | [币安 NautilusTrader 运维手册](operations/binance-nautilustrader-runbook.md) | 部署、帐号操作、排障、恢复和升级 |
 | QT-INT-BIN-001 | [币安生产准入状态](integrations/binance-production-readiness.md) | 当前实现差距和真实资金闸门 |
 | QT-DES-TRD-001 | [旧交易帐号与币安接入设计](plans/2026-09-19-trading-account-and-binance-integration-design.md) | Superseded，仅保留历史 |

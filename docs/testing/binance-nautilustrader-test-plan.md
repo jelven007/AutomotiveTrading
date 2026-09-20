@@ -89,8 +89,8 @@
 
 ### TC-BIN-NT-020 客户端配置
 
-- Spot 使用 `BinanceProductType.SPOT` 和 `BINANCE_SPOT`。
-- U 本位使用 `BinanceProductType.USD_M` 和 `BINANCE_FUTURES`。
+- Spot 使用 `BinanceAccountType.SPOT` 和 `BINANCE_SPOT`。
+- U 本位使用 `BinanceAccountType.USDT_FUTURES` 和 `BINANCE_FUTURES`。
 - Testnet 与生产环境 URL 不得混用。
 - 两个客户端使用同一活动帐号凭据，但缓存和产品状态独立。
 

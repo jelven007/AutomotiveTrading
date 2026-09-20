@@ -29,6 +29,8 @@
 - FastAPI 身份鉴权、RFC 7807 错误和 Trace ID。
 - MySQL 部署、迁移和 Web 反向代理基础。
 - 写请求幂等和未知订单禁止盲目重试原则。
+- NautilusTrader 1.231.0 已锁定，Spot/USD-M 配置 POC 和目标 Linux x86_64
+  wheel 检查已通过。
 
 这些能力需要按新 API 和数据模型改造后才能计入新方案验收。
 
@@ -52,8 +54,6 @@ infra/compose/docker-compose.deploy.yml 中的 binance-readonly Profile
 ## 4. 当前阻塞
 
 - ECS 到 Binance Spot/USD-M 的 DNS 与 TLS 路径尚未恢复。
-- NautilusTrader 依赖尚未加入并锁版。
-- Nautilus Spot/USD-M 最小 POC 尚未完成。
 - 本地主密钥文件、AES-GCM 数据模型和轮换流程尚未实现。
 - 多帐号单活动状态机尚未实现。
 - Web 仍展示全仓/逐仓现货杠杆和 RSA。
@@ -101,3 +101,5 @@ BINANCE_MAX_DAILY_LOSS=<decimal>
 [`QT-PLAN-BIN-NT-001`](../plans/2026-09-20-binance-nautilustrader-integration-implementation-plan.md)
 为准，排障流程见
 [`QT-OPS-BIN-NT-001`](../operations/binance-nautilustrader-runbook.md)。
+M0 验收证据见
+[`QT-RESULT-BIN-NT-M0-001`](../testing/results/binance-nautilustrader-m0-poc.md)。

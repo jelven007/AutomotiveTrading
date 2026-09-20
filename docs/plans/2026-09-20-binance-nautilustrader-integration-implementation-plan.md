@@ -47,8 +47,8 @@ def test_builds_distinct_spot_and_futures_clients():
 
 同时验证：
 
-- Spot 使用 `BinanceProductType.SPOT`。
-- Futures 使用 `BinanceProductType.USD_M`。
+- Spot 使用 `BinanceAccountType.SPOT`。
+- Futures 使用 `BinanceAccountType.USDT_FUTURES`。
 - 未提供凭据时只能创建数据客户端。
 - 生产环境不会误用 Testnet URL。
 
@@ -72,7 +72,7 @@ Expected: FAIL，`trading.binance_runtime` 尚不存在。
 
 ```bash
 uv lock
-uv sync --package trading
+uv sync --all-packages
 ```
 
 确认当前 Linux/CPU 和 Python 3.12 使用预编译 wheel。
