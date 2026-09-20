@@ -79,6 +79,26 @@ curl http://127.0.0.1:8010/health/live
 - 本阶段无自动清理；定期备份整个 SQLite 数据库（使用 SQLite backup API），
   后续再接 MinIO 归档。不要运行中直接拷贝单个 `.sqlite3` 文件而遗漏 WAL。
 
+### 历史行情线程
+
+历史线程默认启用，使用独立 Provider 连接并在非交易时段渐进处理沪深候选证券，
+不会占用实时快照线程池。每只证券采集最近 800 根未复权日 K、最近交易日 240 个
+分时点，以及最多 8 页、每页 800 条分笔。请求间隔默认 250 ms。
+
+进度保存在同一 SQLite 的 `history_cursor`，最新结果保存在 `latest_history`。
+一个交易日的全部候选证券处理完成后进入 `caught_up`，源交易日变化后从头开始。
+历史响应仍先写 SQLite，再发送至核心：
+
+```text
+/internal/v1/market/bars
+/internal/v1/market/minutes
+/internal/v1/market/transactions
+```
+
+分时接口不返回时间字段，Sidecar 按 09:31 至 11:30、13:01 至 15:00 映射
+240 个索引。分笔达到 8 页上限、分时不足 240 点或出现非法记录时必须保留原始
+数据并标记 `partial`。该状态表示 MOOTDX 查询覆盖有限，不等同于 Level-2 逐笔。
+
 ## 覆盖与质量限制
 
 沪深候选证券由 TDX 列表按 60/68、00/30 筛选，包括 302132 和 689009。
