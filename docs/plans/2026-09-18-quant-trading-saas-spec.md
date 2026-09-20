@@ -4,9 +4,9 @@
 >
 > 文档编号：QT-SPEC-001
 >
-> 版本：0.3
+> 版本：0.4
 >
-> 日期：2026-09-19
+> 日期：2026-09-20
 
 ## 1. 文档目的
 
@@ -25,6 +25,7 @@
 | --- | --- |
 | 一级菜单 | 首页、资讯、策略、交易、数据 |
 | 支持市场 | A 股、港股、美股、币安数字资产 |
+| A 股数据范围 | 仅上交所 SSE、深交所 SZSE；北交所不纳入数据接入及验收 |
 | 首期数据 | Mock 数据，后置标准数据适配层 |
 | 策略开发 | Python 在线编辑器、模板和自定义参数 |
 | AI 分析粒度 | 标的池内每只股票独立调用模型 |
@@ -257,7 +258,7 @@ draft
 {
   "instrument_id": "uuid",
   "market": "CN|HK|US",
-  "exchange": "SSE|SZSE|BSE|HKEX|NASDAQ|NYSE|AMEX",
+  "exchange": "SSE|SZSE|HKEX|NASDAQ|NYSE|AMEX",
   "symbol": "string",
   "name": "string",
   "currency": "CNY|HKD|USD",
@@ -269,6 +270,10 @@ draft
 
 数据供应商和券商的原始证券代码不得直接作为业务主键。系统维护显式映射表，
 映射失败时禁止生成交易订单。
+
+2026-09-20 确认 A 股数据范围仅为 SSE/SZSE。该范围用于证券主数据、行情、
+Tushare 校验、查询展示及覆盖统计；具体需求以
+[A 股行情专项规格](../requirements/a-share-market-data-requirements.md) 为准。
 
 ## 12. 自定义策略参数
 

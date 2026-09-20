@@ -4,13 +4,22 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build a personal-use A-share data service that persists every supported mootdx dataset, validates selected facts with Tushare, and exposes real-time analysis and operations pages.
+**Goal:** 建设仅覆盖上交所（SSE）和深交所（SZSE）A 股的个人数据服务，持久化 mootdx 支持的数据，通过 Tushare 校验并提供实时分析和运维页面。
 
 **Architecture:** Add one FastAPI `instrument-market` service with isolated collectors, an idempotent Kafka pipeline, MySQL control-plane state, ClickHouse analytical tables, MinIO raw archives, and Redis latest projections. Extend the existing React/Vite data area with virtualized market, instrument detail, data catalog, and operations views.
 
 **Tech Stack:** Python 3.12, FastAPI, Pydantic, SQLAlchemy, mootdx 0.11.7, Tushare, Redpanda/Kafka, ClickHouse, Redis, MinIO/S3, React 19, TypeScript, TanStack Query/Virtual, Lightweight Charts, Vitest.
 
 ---
+
+## 2026-09-20 范围基线更新
+
+本文中的 A-share universe 和 full-market 均限定为沪深 A 股。北交所不属于
+采集、历史回填、主数据补齐、查询展示、覆盖统计和验收范围。
+Tushare 名单须先筛选 SSE/SZSE；范围外市场不计入应采数量、不生成缺口或降级。
+已交付 Sidecar 的旧范围分支仍需按
+[范围对齐状态](../../services/mootdx-collector/README.md#范围对齐状态) 完成代码同步；
+本次文档更新不代表该实现调整已通过测试。
 
 ## Preconditions
 
@@ -47,6 +56,8 @@
 
 Add tests that load every new JSON Schema, validate one complete fixture, reject missing
 source timestamps, and assert the AsyncAPI topics exist.
+
+行情契约的交易所范围限定为 SSE/SZSE，并验证范围外证券不会进入业务采集链路。
 
 **Step 2: Run the tests and verify failure**
 
@@ -309,8 +320,8 @@ git commit -m "feat: persist immutable market data payloads"
 
 **Step 1: Write failing synchronization tests**
 
-Cover SSE/SZSE/BSE mappings, delisted securities, renamed securities, duplicate codes,
-and Tushare fallback when mootdx cannot enumerate a market.
+覆盖 SSE/SZSE 映射、退市证券、证券更名、重复代码，以及 mootdx 无法枚举沪深
+某市场时的 Tushare 回退。增加范围外证券过滤验证。
 
 **Step 2: Verify failure**
 
@@ -322,8 +333,8 @@ Expected: FAIL.
 
 **Step 3: Implement synchronization**
 
-Use Tushare as the complete A-share universe and mootdx as the source capability map.
-Never infer unsupported BSE datasets from empty responses.
+Tushare 名单仅保留 SSE/SZSE，作为沪深 A 股全集核验来源；mootdx 用于确认
+数据源能力。范围外市场不调度、不补齐、不计入缺口。
 
 **Step 4: Verify tests**
 
@@ -366,6 +377,9 @@ Expected: FAIL.
 
 Target a two-second sweep, prioritize the watchlist and active strategy pool, record
 coverage for every round, and publish one event per security keyed by exchange/symbol.
+
+分片与覆盖状态只聚合 SSE/SZSE；两个市场均完整时，不得因范围外市场状态
+将轮次标记为 `partial`。源时间、数据质量及权威全集核验仍独立判断。
 
 **Step 4: Verify tests**
 
@@ -578,6 +592,8 @@ Expected: FAIL.
 Use cursor pagination for high-volume history. Do not return raw F10 content in list
 responses. Bound all date ranges and row counts.
 
+行情查询、频道和补采接口仅接受沪深证券，交易所筛选只提供 SSE/SZSE。
+
 **Step 4: Verify tests**
 
 ```bash
@@ -622,6 +638,8 @@ Expected: FAIL.
 
 Add TanStack Query/Virtual. Use the existing cold-white/blue visual system, add
 market-specific red-up/green-down tokens, and render only visible rows.
+
+“全市场”页面仅展示沪深证券及其覆盖率，交易所选项为上交所和深交所。
 
 **Step 4: Verify tests and build**
 
@@ -790,6 +808,9 @@ git commit -m "feat: deploy a-share market data service"
 
 Cover empty-database initialization, one full quote sweep, raw-to-standard traceability,
 Redis rebuild, backfill, WebSocket recovery, and frontend data availability.
+
+按 `TC-CNMD-014` 验证范围外市场不进入采集与覆盖统计；真实覆盖率以当日沪深
+证券全集为分母，未核验的候选数量不能直接作为权威全集验收结论。
 
 **Step 2: Run the acceptance suite before final wiring**
 

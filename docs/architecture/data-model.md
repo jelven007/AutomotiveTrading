@@ -116,6 +116,10 @@ adjustment, provider, source_version, ingested_at
 
 ### A 股行情专项模型
 
+该子域的数据范围为上交所（SSE）和深交所（SZSE）A 股，主数据、映射、
+采集任务、回填及覆盖统计均按沪深证券限定。Provider 全集先按交易所筛选；
+范围外市场不计入应采或缺口，遗留原始报告不因范围修订而改写。
+
 mootdx 原始与标准化数据不得混用同一张表。专项模型包含：
 
 ```text

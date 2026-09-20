@@ -1,5 +1,10 @@
 # 量化交易 SaaS 文档中心
 
+2026-09-20 确认：A 股数据范围仅为上交所（SSE）和深交所（SZSE）。
+行情文档中的“全市场”均指沪深，北交所不属于数据接入、补齐或验收范围。
+范围基线见 [专项需求 0.2](requirements/a-share-market-data-requirements.md)，
+现有代码的对齐事项见 [Sidecar 说明](../services/mootdx-collector/README.md#范围对齐状态)。
+
 ## 文档清单
 
 | 编号 | 文档 | 用途 |
@@ -18,12 +23,14 @@
 | QT-INT-001 | [交易通道接入计划](integrations/broker-integration-plan.md) | 同花顺、财信、富途、长桥、币安接入 |
 | QT-INT-BIN-001 | [币安生产准入状态](integrations/binance-production-readiness.md) | 已实现能力、缺口和真实资金闸门 |
 | QT-DES-TRD-001 | [交易帐号与币安接入设计](plans/2026-09-19-trading-account-and-binance-integration-design.md) | 交易页面、帐号绑定和币安生产交易设计 |
-| QT-SRS-CNMD-001 | [A 股行情与分析系统需求](requirements/a-share-market-data-requirements.md) | mootdx 全量持久化、Tushare 校验与前端需求 |
-| QT-DES-CNMD-001 | [A 股行情与前端分析设计](plans/2026-09-20-a-share-market-data-design.md) | 采集、存储、质量、API 和页面设计 |
-| QT-TP-CNMD-001 | [A 股行情测试计划](testing/a-share-market-data-test-plan.md) | 数据完整性、性能、恢复和前端验收 |
+| QT-SRS-CNMD-001 | [A 股行情与分析系统需求](requirements/a-share-market-data-requirements.md) | 沪深范围、mootdx 全量持久化、Tushare 校验与前端需求 |
+| QT-DES-CNMD-001 | [A 股行情与前端分析设计](plans/2026-09-20-a-share-market-data-design.md) | 沪深采集、存储、质量、API 和页面设计 |
+| QT-TP-CNMD-001 | [A 股行情测试计划](testing/a-share-market-data-test-plan.md) | 沪深数据完整性、范围过滤、性能、恢复和前端验收 |
 | QT-PLAN-001 | [详细实施计划](plans/2026-09-18-quant-trading-saas-implementation-plan.md) | 任务、文件、测试和提交顺序 |
 | QT-PLAN-TRD-001 | [币安交易实施计划](plans/2026-09-19-binance-production-trading-implementation-plan.md) | 帐号、Connector、交易 API 和验证步骤 |
 | QT-PLAN-CNMD-001 | [A 股行情实施计划](plans/2026-09-20-a-share-market-data-implementation-plan.md) | 基础设施、数据流水线、前端与验收步骤 |
+| — | [mootdx Sidecar 实施计划](plans/2026-09-20-mootdx-sidecar.md) | 隔离采集、持久队列、沪深覆盖与范围对齐 |
+| — | [mootdx Sidecar 验收记录](testing/results/mootdx-sidecar-acceptance.md) | 真实沪深采集、重放去重与历史证据 |
 
 ## 文档优先级
 

@@ -236,6 +236,8 @@ GET /ws/v1?access_token=<short-lived-token>
 
 A 股行情 REST、WebSocket 和事件契约的专项设计见
 [`QT-DES-CNMD-001`](../plans/2026-09-20-a-share-market-data-design.md)。
+按 2026-09-20 确认的范围，A 股证券、行情查询、补采请求和 `cn` 行情频道
+仅覆盖 SSE/SZSE，交易所筛选与覆盖统计同样限定沪深。
 全市场频道只发送增量变化，客户端发现序列号缺口后必须停止合并并重新获取
 REST 快照。
 

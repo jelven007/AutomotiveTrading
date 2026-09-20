@@ -2,7 +2,7 @@
 
 > 文档编号：QT-RTM-001
 >
-> 版本：1.1-draft
+> 版本：1.2-draft
 
 ## 1. 追踪规则
 
@@ -21,8 +21,9 @@
 | FR-HOME-* | Web BFF、Home Workspace | TC-HOME-* | Planned |
 | FR-NEWS-* | News Service | TC-NEWS-* | Planned |
 | FR-DATA-* | Instrument、Market Data | TC-DATA-* | Planned |
-| FR-CNMD-001~022 | Instrument Market、mootdx/Tushare、MySQL、ClickHouse、MinIO、Redis | TC-CNMD-001~013、TC-CNMD-REL-* | Planned |
+| FR-CNMD-001~022 | 沪深数据链路与存储 | TC-CNMD-001~014、TC-CNMD-REL-* | Planned |
 | FR-CNMD-023~028 | Web Data Workspace | TC-CNMD-WEB-* | Planned |
+| FR-CNMD-* 沪深范围约束 | SSE/SZSE 过滤与覆盖聚合 | TC-CNMD-014 | Planned |
 | FR-STR-* | Strategy、Trigger | TC-STR-* | Planned |
 | FR-MDL-* | Model Configuration、KMS | TC-MDL-* | Planned |
 | FR-AI-* | Model Gateway、Portfolio Coordinator | TC-AI-* | Planned |
@@ -77,6 +78,13 @@
 | 法律与合规评审 | 待指定 | 书面评审结论 | Blocked |
 
 ## 5. 变更控制
+
+2026-09-20 用户确认 A 股数据仅覆盖上交所（SSE）和深交所（SZSE）。
+需求、设计及测试文档已同步；北交所不再作为采集、补齐或验收待办，
+不计入应采、覆盖率和缺口。上述范围约束行的 Planned 指代码与新增用例尚待对齐，
+不代表已验证；既有沪深实采证据见
+[Sidecar 验收记录](../testing/results/mootdx-sidecar-acceptance.md)，
+实现差异见 [范围对齐状态](../../services/mootdx-collector/README.md#范围对齐状态)。
 
 新增或修改需求时必须：
 

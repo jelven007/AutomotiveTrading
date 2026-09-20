@@ -579,6 +579,8 @@ git commit -m "feat: add model services administration ui"
 #### Task 11 Step 1: 写失败契约测试
 
 对 A 股、港股、美股分别验证证券、日历、K 线和快照 Schema。
+A 股数据按 2026-09-20 的范围基线仅包含上交所（SSE）和深交所（SZSE），
+Mock 证券集与后续生产数据采用相同范围。
 
 #### Task 11 Step 2: 验证失败
 

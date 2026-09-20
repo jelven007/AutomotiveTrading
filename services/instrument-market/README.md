@@ -1,11 +1,12 @@
 # Instrument Market Service
 
-个人内部 A 股证券主数据与行情服务。
+个人内部沪深 A 股证券主数据与行情服务。2026-09-20 确认范围仅包含上交所
+（SSE）和深交所（SZSE）；北交所不属于数据接入、补齐或验收范围。
 
 ## 职责
 
 - 对接 mootdx `Quotes`、`Reader`、`Affair`。
-- 使用 Tushare 补充主数据并执行交叉校验。
+- 使用 Tushare 补充沪深主数据并执行交叉校验，名单按 SSE/SZSE 筛选。
 - 将控制面状态写入 MySQL。
 - 将快照、K 线、分笔和指标写入 ClickHouse。
 - 将原始响应和文件归档到 MinIO。
@@ -19,6 +20,10 @@
 原始快照和证券/覆盖报告。MySQL 保存批次确认凭证，ClickHouse 保存原始行、
 标准行、源时间依据和质量原因；重试内容冲突返回 409，坏行隔离并保留原始内容。
 Kafka 消费者、MinIO 长期归档和 Redis 投影仍待后续实现。
+
+按新需求，行情契约、查询展示和覆盖统计须统一限定 SSE/SZSE。
+当前核心入参及 Sidecar 仍有旧 BSE 分支，本次文档更新未修改运行逻辑，
+实现对齐事项见 [Sidecar 范围对齐状态](../mootdx-collector/README.md#范围对齐状态)。
 
 ## 验证
 
