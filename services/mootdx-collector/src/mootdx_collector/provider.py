@@ -7,6 +7,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass
+from datetime import date
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -153,9 +154,64 @@ class Provider:
         if not rows:
             return None
         row = rows[-1]
-        from datetime import date
 
         return date(int(row["year"]), int(row["month"]), int(row["day"])).isoformat()
+
+    def daily_bars(self, exchange: str, code: str, count: int = 800) -> dict[str, Any]:
+        self._validate_history_request(exchange, code)
+        if not 1 <= count <= 800:
+            raise ValueError("bar count must be within 1..800")
+        rows, source_id = self.call(
+            "get_security_bars",
+            9,
+            MARKETS[exchange],
+            code,
+            0,
+            count,
+        )
+        return {"rows": rows, "source_id": source_id}
+
+    def minute_history(self, exchange: str, code: str, trade_date: str) -> dict[str, Any]:
+        self._validate_history_request(exchange, code)
+        encoded_date = int(date.fromisoformat(trade_date).strftime("%Y%m%d"))
+        rows, source_id = self.call(
+            "get_history_minute_time_data",
+            MARKETS[exchange],
+            code,
+            encoded_date,
+        )
+        return {"rows": rows, "source_id": source_id}
+
+    def transaction_page(
+        self,
+        exchange: str,
+        code: str,
+        trade_date: str,
+        start: int,
+        count: int = 800,
+    ) -> dict[str, Any]:
+        self._validate_history_request(exchange, code)
+        if not 0 <= start <= 65535:
+            raise ValueError("transaction start must be within 0..65535")
+        if not 1 <= count <= 800:
+            raise ValueError("transaction count must be within 1..800")
+        encoded_date = int(date.fromisoformat(trade_date).strftime("%Y%m%d"))
+        rows, source_id = self.call(
+            "get_history_transaction_data",
+            MARKETS[exchange],
+            code,
+            start,
+            count,
+            encoded_date,
+        )
+        return {"rows": rows, "source_id": source_id}
+
+    @staticmethod
+    def _validate_history_request(exchange: str, code: str) -> None:
+        if exchange not in MARKETS:
+            raise ValueError("unsupported exchange")
+        if len(code) != 6 or not code.isascii() or not code.isdigit():
+            raise ValueError("invalid symbol")
 
     def close(self) -> None:
         for connection in self.connections:

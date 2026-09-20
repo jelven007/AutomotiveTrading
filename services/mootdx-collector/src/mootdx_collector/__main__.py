@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from mootdx_collector.collector import Collector, active_session
 from mootdx_collector.config import Settings
+from mootdx_collector.history import HistoryCollector
 from mootdx_collector.provider import Provider, discover
 from mootdx_collector.spool import Spool
 from mootdx_collector.transport import Sender
@@ -19,7 +20,12 @@ from mootdx_collector.transport import Sender
 
 def status(spool: Spool) -> dict:
     latest = spool.get("latest_round")
-    return {"queue": spool.stats(), "runtime": spool.get("runtime"), "latest_round": latest}
+    return {
+        "queue": spool.stats(),
+        "runtime": spool.get("runtime"),
+        "latest_round": latest,
+        "latest_history": spool.get("latest_history"),
+    }
 
 
 def serve_health(settings: Settings, spool: Spool) -> ThreadingHTTPServer:
@@ -80,6 +86,8 @@ def main() -> int:
     sending = threading.Thread(target=deliver, daemon=True)
     sending.start()
     collector = None
+    history = None
+    history_thread = None
     try:
         previous = spool.get("active_round")
         if previous:
@@ -100,9 +108,35 @@ def main() -> int:
             {
                 "state": "running",
                 "nodes": [{"alias": node.alias, "latency_ms": node.latency_ms} for node in nodes],
+                "history_enabled": settings.history_enabled,
             },
         )
         collector = Collector(settings, spool, Provider(settings, nodes))
+        if settings.history_enabled:
+            history = HistoryCollector(settings, spool, Provider(settings, nodes))
+
+            def collect_history() -> None:
+                while not stop.is_set():
+                    if active_session(datetime.now(UTC)):
+                        spool.set(
+                            "latest_history",
+                            {
+                                "status": "waiting_market_close",
+                                "observed_at": datetime.now(UTC).isoformat(),
+                            },
+                        )
+                        stop.wait(30)
+                        continue
+                    result = history.collect_one()
+                    delay = (
+                        settings.closed_seconds
+                        if result["status"] in {"caught_up", "waiting_universe"}
+                        else 0.1
+                    )
+                    stop.wait(delay)
+
+            history_thread = threading.Thread(target=collect_history, daemon=True)
+            history_thread.start()
         while not stop.is_set():
             started = time.monotonic()
             report = collector.once()
@@ -139,6 +173,10 @@ def main() -> int:
         stop.set()
         if collector:
             collector.close()
+        if history_thread:
+            history_thread.join(timeout=20)
+        if history:
+            history.close()
         sending.join(timeout=20)
         sender.close()
         if server:

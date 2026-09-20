@@ -48,3 +48,31 @@ def test_sender_requires_matching_ack_and_retains_failures(tmp_path, mode):
         assert spool.due()["body"] == batch
     sender.close()
     spool.close()
+
+
+@pytest.mark.parametrize("dataset", ["bars", "minutes", "transactions"])
+def test_sender_validates_history_row_acknowledgement(tmp_path, dataset):
+    spool = Spool(tmp_path / "spool.db")
+    batch = {"batch_id": "history-1", "rows": [{"value": 1}, {"value": 2}]}
+    spool.put(f"/internal/v1/market/{dataset}", batch)
+
+    def receive(_request):
+        return httpx.Response(
+            202,
+            json={
+                "batch_id": "history-1",
+                "received": 2,
+                "accepted": 2,
+                "rejected": 0,
+            },
+        )
+
+    sender = Sender(
+        Settings(service_token="secret-test"),
+        spool,
+        transport=httpx.MockTransport(receive),
+    )
+    assert sender.send_one() is True
+    assert spool.stats()["pending"] == 0
+    sender.close()
+    spool.close()

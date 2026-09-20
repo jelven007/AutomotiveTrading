@@ -6,6 +6,7 @@ import shutil
 import sqlite3
 import threading
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -43,6 +44,7 @@ class Spool:
         body: dict[str, Any],
         *,
         checkpoint: tuple[str, Any] | None = None,
+        checkpoints: Mapping[str, Any] | None = None,
     ) -> str:
         batch_id = body.get("batch_id") or str(uuid4())
         encoded = gzip.compress(json.dumps(body, ensure_ascii=False, allow_nan=False).encode())
@@ -53,6 +55,8 @@ class Spool:
             )
             if checkpoint:
                 self._set(*checkpoint)
+            for key, value in (checkpoints or {}).items():
+                self._set(key, value)
         return batch_id
 
     def due(self) -> dict[str, Any] | None:
@@ -108,11 +112,17 @@ class Spool:
                 "SELECT coalesce(sum(json_extract(response,'$.accepted')),0) FROM batches "
                 "WHERE acked=1 AND route='/internal/v1/market/quotes'"
             ).fetchone()[0]
+            delivered_rows = self.db.execute(
+                "SELECT coalesce(sum(json_extract(response,'$.accepted')),0) FROM batches "
+                "WHERE acked=1 AND route LIKE '/internal/v1/market/%' "
+                "AND route!='/internal/v1/market/reports'"
+            ).fetchone()[0]
             size = sum(p.stat().st_size for p in self.path.parent.glob(self.path.name + "*"))
             return {
                 **dict(row),
                 "file_bytes": size,
                 "delivered_quotes": accepted,
+                "delivered_rows": delivered_rows,
                 "free_bytes": shutil.disk_usage(self.path.parent).free,
                 "last_delivery_error": error[0] if error else None,
             }
