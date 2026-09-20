@@ -60,6 +60,9 @@ uv run pytest services/trading/tests/test_nautilus_config.py -v
 uv run pytest services/trading/tests -q
 101 passed, 2 warnings
 
+uv run pytest -q
+263 passed, 2 warnings
+
 uv run ruff format --check ...
 3 files already formatted
 
@@ -72,7 +75,36 @@ Success: no issues found in 2 source files
 
 两个 warning 来自 FastAPI/Starlette 测试客户端依赖弃用，与本次 POC 无关。
 
-## 5. 未覆盖
+## 5. ECS 部署验证
+
+部署使用独立 release worktree，不修改当前线上 checkout：
+
+```text
+release: /opt/quant-trading/releases/c20563e
+image: qt/trading:nautilus-m0-c20563e
+image id: sha256:60508a35e4a1826ebdd002fdcf874c6d1cbbea5ad78b76e0e1981ff0352929fd
+image size: 643045673 bytes
+```
+
+容器内 POC 输出：
+
+```text
+nautilus=1.231.0
+spot=SPOT/TESTNET
+futures=USDT_FUTURES/TESTNET
+exec=True/True
+```
+
+其中 `exec=True/True` 表示无凭据 POC 下两类 execution config 均为 `None`。
+临时 Trading 容器 `/health/live` 返回 `{"status":"ok"}`，验证后已删除。
+
+ECS 直连 PyPI 下载大型 wheel 速度过慢；部署验证使用本机下载并校验的 Linux
+wheelhouse 构建临时镜像。该 wheelhouse 未提交仓库，release worktree 已清理。
+正式构建缓存和依赖镜像优化属于部署阶段任务。
+
+验证期间原线上 9 个容器保持运行，公网 `/health` 返回正常；未替换任何线上镜像。
+
+## 6. 未覆盖
 
 - 未创建或启动 Nautilus `LiveNode`。
 - 未连接 Binance Testnet 或生产环境。
