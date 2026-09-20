@@ -1,5 +1,7 @@
 # 沪深真实行情可视化实施计划
 
+<!-- markdownlint-disable MD013 -->
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** 启动可访问的 Web 服务，在 `/data` 页面展示 ClickHouse 中真实采集的沪深 A 股最新行情、覆盖状态和质量信息。
@@ -9,6 +11,12 @@
 **Tech Stack:** FastAPI、ClickHouse HTTP、React 19、TypeScript、TanStack Virtual、Vitest、Playwright、Vite/Nginx。
 
 ---
+
+## 本地访问调整
+
+2026-09-20 更新：Web 固定端口改为 `7173`，本地应用不再展示登录、注册或退出入口。
+应用直接使用固定 `local-workspace` 租户上下文；身份服务代码保留，
+但不作为本地行情页面门禁。
 
 ## 设计基线
 
@@ -93,7 +101,7 @@
 - Update: `docs/testing/results/mootdx-sidecar-acceptance.md`
 
 1. 重建并重启 `instrument-market`，确认真实接口返回 5,226 只沪深候选证券。
-2. 启动 Vite Web 服务，访问 `http://127.0.0.1:6173/data`。
-3. 使用 Playwright 在桌面和移动视口验证登录、筛选、滚动、刷新、无重叠和控制台错误。
+2. 启动 Vite Web 服务，访问 `http://127.0.0.1:7173/data`。
+3. 使用 Playwright 在桌面和移动视口验证直达、筛选、滚动、刷新、无重叠和控制台错误。
 4. 保存截图到 `/tmp`，不提交运行截图。
 5. 更新验收记录，运行格式、测试、构建与 `git diff --check`，提交并合并主分支。

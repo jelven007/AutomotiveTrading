@@ -29,6 +29,12 @@ describe("AppShell", () => {
     expect(
       screen.getByRole("combobox", { name: "当前市场" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "当前租户" })).toHaveValue(
+      "本地工作区",
+    );
+    expect(
+      screen.queryByRole("button", { name: "账户菜单" }),
+    ).not.toBeInTheDocument();
   });
 
   it("redirects trading to the cn workspace and exposes market navigation", async () => {

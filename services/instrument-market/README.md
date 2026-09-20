@@ -32,7 +32,8 @@ curl -H "X-Tenant-ID: <tenant-id>" \
   "http://127.0.0.1:8007/api/v1/market/quotes/latest?limit=10000"
 ```
 
-Web 页面通过同源接口访问，开发环境入口为 `http://127.0.0.1:6173/data`。
+Web 页面通过同源接口访问，开发环境入口为 `http://127.0.0.1:7173/data`。
+本地页面使用固定 `local-workspace` 租户上下文，无需登录。
 
 ## 验证
 

@@ -3,15 +3,12 @@ import {
   CandlestickChart,
   Database,
   Home,
-  LogOut,
   Newspaper,
   Search,
   Settings,
-  UserRound,
   Waypoints,
   Workflow,
 } from "lucide-react";
-import { useState } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 
 import { DataPage } from "../pages/DataPage";
@@ -31,15 +28,7 @@ const navigation = [
   { label: "数据", to: "/data", icon: Database },
 ];
 
-type Props = {
-  tenantId?: string;
-  onLogout?: () => void;
-};
-
-export function AppShell({ tenantId, onLogout }: Props = {}) {
-  const [showAccountMenu, setShowAccountMenu] = useState(false);
-  const tenantLabel = tenantId ? tenantId.slice(0, 12) : "星河资本";
-
+export function AppShell() {
   return (
     <div className="app-shell">
       <header className="appbar">
@@ -80,8 +69,8 @@ export function AppShell({ tenantId, onLogout }: Props = {}) {
           <div className="context-controls">
             <label className="select-control">
               <span>租户</span>
-              <select aria-label="当前租户" defaultValue={tenantLabel}>
-                <option>{tenantLabel}</option>
+              <select aria-label="当前租户" defaultValue="本地工作区">
+                <option>本地工作区</option>
               </select>
             </label>
             <label className="select-control">
@@ -118,27 +107,6 @@ export function AppShell({ tenantId, onLogout }: Props = {}) {
             >
               <Settings size={18} />
             </NavLink>
-            <div className="account-menu">
-              <button
-                aria-expanded={showAccountMenu}
-                aria-haspopup="menu"
-                aria-label="账户菜单"
-                className="user-button"
-                onClick={() => setShowAccountMenu((current) => !current)}
-                title="账户菜单"
-                type="button"
-              >
-                <UserRound size={16} />
-              </button>
-              {showAccountMenu && onLogout && (
-                <div className="account-menu__popover" role="menu">
-                  <button onClick={onLogout} role="menuitem" type="button">
-                    <LogOut size={15} />
-                    退出登录
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </header>
