@@ -88,7 +88,7 @@
 - Modify: `services/instrument-market/src/instrument_market/api/ingestion.py`
 - Modify: existing provider/universe/API tests
 
-1. 移除 BSE 调度和 Tushare 范围外名单，保留 SSE/SZSE 显式市场编号。
+1. 移除 BSE 调度，保留 SSE/SZSE 显式市场编号。
 2. 核心接收契约仅允许 SSE/SZSE。
 3. 更新旧边界测试，新增范围外证券不会进入覆盖聚合的验证。
 4. 运行 Sidecar 与核心相关测试，确认状态可返回 `collected`。

@@ -44,7 +44,7 @@ class QueryStub:
                     {
                         "observed_at": "2026-09-20T01:31:04+00:00",
                         "duration_ms": 2310,
-                        "universe_verification": "unverified",
+                        "universe_source": "mootdx",
                         "markets": {
                             "SSE": {
                                 "expected": 1,
@@ -108,7 +108,7 @@ def test_market_view_returns_real_quote_fields_and_sse_szse_coverage() -> None:
         "missing": 0,
         "duration_ms": 2310,
         "observed_at": "2026-09-20T01:31:04+00:00",
-        "verification": "unverified",
+        "source": "mootdx",
         "markets": {
             "SSE": {
                 "expected": 1,

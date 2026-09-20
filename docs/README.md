@@ -33,7 +33,7 @@ Risk Service 或自研协议栈，详情见
 | QT-OPS-BIN-NT-001 | [币安 NautilusTrader 运维手册](operations/binance-nautilustrader-runbook.md) | 部署、帐号操作、排障、恢复和升级 |
 | QT-INT-BIN-001 | [币安生产准入状态](integrations/binance-production-readiness.md) | 当前实现差距和真实资金闸门 |
 | QT-DES-TRD-001 | [旧交易帐号与币安接入设计](plans/2026-09-19-trading-account-and-binance-integration-design.md) | Superseded，仅保留历史 |
-| QT-SRS-CNMD-001 | [A 股行情与分析系统需求](requirements/a-share-market-data-requirements.md) | 沪深范围、mootdx 全量持久化、Tushare 校验与前端需求 |
+| QT-SRS-CNMD-001 | [A 股行情与分析系统需求](requirements/a-share-market-data-requirements.md) | 沪深范围、MOOTDX 数据持久化与前端需求 |
 | QT-DES-CNMD-001 | [A 股行情与前端分析设计](plans/2026-09-20-a-share-market-data-design.md) | 沪深采集、存储、质量、API 和页面设计 |
 | QT-TP-CNMD-001 | [A 股行情测试计划](testing/a-share-market-data-test-plan.md) | 沪深数据完整性、范围过滤、性能、恢复和前端验收 |
 | QT-PLAN-001 | [详细实施计划](plans/2026-09-18-quant-trading-saas-implementation-plan.md) | 任务、文件、测试和提交顺序 |

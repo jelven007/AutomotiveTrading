@@ -79,6 +79,7 @@ def test_failed_refresh_preserves_cached_universe_and_gap(tmp_path):
     assert result["markets"]["SZSE"]["complete"] is False
     assert result["markets"]["SZSE"]["instruments"][0]["code"] == "000001"
     assert set(result["markets"]) == {"SSE", "SZSE"}
-    assert result["verification"] == "unverified"
+    assert result["source"] == "mootdx"
+    assert result["scope"] == "sse_szse_candidate"
     assert spool.get("universe") == result
     spool.close()

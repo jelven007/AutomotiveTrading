@@ -159,7 +159,7 @@ class MarketViewService:
             "missing": missing,
             "duration_ms": int(report.get("duration_ms", 0)),
             "observed_at": report.get("observed_at"),
-            "verification": report.get("universe_verification", "unverified"),
+            "source": report.get("universe_source", "mootdx"),
             "markets": selected,
         }
 

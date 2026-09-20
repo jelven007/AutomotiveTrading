@@ -70,7 +70,7 @@
     },
     "provider": {
       "type": "string",
-      "enum": ["mootdx", "tushare"]
+      "const": "mootdx"
     },
     "source_id": {
       "type": "string",

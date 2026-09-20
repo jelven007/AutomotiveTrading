@@ -37,7 +37,10 @@ def test_data_catalog_requires_tenant_and_discloses_partial_transactions() -> No
 
     assert missing_tenant.status_code == 400
     assert response.status_code == 200
-    transaction = next(item for item in response.json()["datasets"] if item["key"] == "transaction")
+    body = response.json()
+    assert set(body) == {"provider", "datasets"}
+    assert body["provider"] == "mootdx"
+    transaction = next(item for item in body["datasets"] if item["key"] == "transaction")
     assert transaction["completeness"] == "partial_possible"
 
 

@@ -8,7 +8,6 @@ from enum import StrEnum
 
 class ProviderName(StrEnum):
     MOOTDX = "mootdx"
-    TUSHARE = "tushare"
 
 
 class Dataset(StrEnum):

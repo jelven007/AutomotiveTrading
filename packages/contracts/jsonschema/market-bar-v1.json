@@ -61,7 +61,7 @@
     },
     "provider": {
       "type": "string",
-      "enum": ["mootdx", "tushare"]
+      "const": "mootdx"
     },
     "payload_hash": {
       "type": "string",

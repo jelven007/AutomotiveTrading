@@ -6,7 +6,7 @@
 ## 职责
 
 - 对接 mootdx `Quotes`、`Reader`、`Affair`。
-- 使用 Tushare 补充沪深主数据并执行交叉校验，名单按 SSE/SZSE 筛选。
+- 使用 MOOTDX/TDX 沪深证券列表维护候选主数据。
 - 将控制面状态写入 MySQL。
 - 将快照、K 线、分笔和指标写入 ClickHouse。
 - 将原始响应和文件归档到 MinIO。

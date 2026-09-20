@@ -52,7 +52,6 @@ upgrade_market_env() {
   append_env_if_missing QT_CLICKHOUSE_NATIVE_PORT 9002
   append_env_if_missing MARKET_INGEST_SERVICE_TOKEN "$(openssl rand -hex 48)"
   append_env_if_missing INSTRUMENT_MARKET_PORT 8007
-  append_env_if_missing TUSHARE_TOKEN ""
   append_env_if_missing MOOTDX_SOURCE_ID tdx-auto
   append_env_if_missing TDX_DATA_PATH ""
   append_env_if_missing QUOTE_SHARD_COUNT 8
@@ -124,7 +123,6 @@ RISK_PORT=8005
 KMS_ADAPTER_PORT=8006
 INSTRUMENT_MARKET_PORT=8007
 
-TUSHARE_TOKEN=
 MOOTDX_SOURCE_ID=tdx-auto
 TDX_DATA_PATH=
 QUOTE_SHARD_COUNT=8

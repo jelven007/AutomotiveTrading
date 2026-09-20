@@ -46,7 +46,8 @@ def test_collector_persists_partial_response_and_round_checkpoint(tmp_path):
         "universe",
         {
             "observed_at": datetime.now(UTC).isoformat(),
-            "verification": "unverified",
+            "source": "mootdx",
+            "scope": "sse_szse_candidate",
             "markets": {
                 "SSE": {"instruments": instruments, "complete": True, "reason": None},
             },
@@ -90,6 +91,8 @@ def test_collector_persists_partial_response_and_round_checkpoint(tmp_path):
 def test_scoped_universe_drops_legacy_out_of_scope_market():
     result = scoped_universe(
         {
+            "verification": "unverified",
+            "authority_error": "legacy",
             "markets": {
                 "SSE": {"instruments": [{"exchange": "SSE", "code": "600000"}]},
                 "BSE": {"instruments": [{"exchange": "BSE", "code": "920002"}]},
@@ -104,3 +107,6 @@ def test_scoped_universe_drops_legacy_out_of_scope_market():
     assert result is not None
     assert set(result["markets"]) == {"SSE"}
     assert result["instruments"] == [{"exchange": "SSE", "code": "600000"}]
+    assert result["source"] == "mootdx"
+    assert "verification" not in result
+    assert "authority_error" not in result

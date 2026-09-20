@@ -10,7 +10,6 @@ from urllib.parse import urlsplit
 class Settings:
     core_url: str = "http://instrument-market:8000"
     service_token: str = field(default="", repr=False)
-    tushare_token: str = field(default="", repr=False)
     spool_path: Path = Path("/data/collector.sqlite3")
     workers: int = 8
     batch_size: int = 80
@@ -59,5 +58,4 @@ class Settings:
             "MARKET_INGEST_SERVICE_TOKEN",
             values.get("service_token", ""),
         )
-        values["tushare_token"] = os.getenv("TUSHARE_TOKEN", values.get("tushare_token", ""))
         return cls(**values)

@@ -64,12 +64,10 @@ components:
   schemas:
     DataCatalog:
       type: object
-      required: [provider, verification_provider, datasets]
+      required: [provider, datasets]
       properties:
         provider:
           const: mootdx
-        verification_provider:
-          const: tushare
         datasets:
           type: array
           items:

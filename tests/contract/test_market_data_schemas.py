@@ -75,7 +75,7 @@ def test_market_quote_contract_accepts_complete_quote() -> None:
                 "close": "10.10",
                 "volume": "1000",
                 "amount": "10100",
-                "provider": "tushare",
+                "provider": "mootdx",
                 "payload_hash": f"sha256:{'c' * 64}",
                 "schema_version": 1,
             },
