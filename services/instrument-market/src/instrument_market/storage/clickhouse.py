@@ -15,7 +15,9 @@ from instrument_market.providers.models import PriceLevel, ProviderName, QuoteRe
 REQUIRED_TABLES = frozenset(
     {
         "market_quote_raw",
+        "market_history_raw",
         "market_quote",
+        "market_minute",
         "market_transaction",
         "market_bar",
         "corporate_action",
@@ -63,6 +65,44 @@ CREATE TABLE IF NOT EXISTS market_quote (
 ) ENGINE = ReplacingMergeTree(ingested_at)
 PARTITION BY toYYYYMM(source_time)
 ORDER BY (exchange, symbol, source_time);
+
+CREATE TABLE IF NOT EXISTS market_history_raw (
+    event_id UUID,
+    batch_id String,
+    dataset LowCardinality(String),
+    exchange LowCardinality(String),
+    symbol String,
+    source_time DateTime64(3, 'UTC'),
+    collected_at DateTime64(3, 'UTC'),
+    provider LowCardinality(String),
+    source_id String,
+    row_index UInt32,
+    payload_hash FixedString(71),
+    request_json String,
+    metadata_json String,
+    payload String
+) ENGINE = MergeTree
+PARTITION BY toDate(collected_at)
+ORDER BY (dataset, exchange, symbol, source_time, batch_id, row_index);
+
+CREATE TABLE IF NOT EXISTS market_minute (
+    exchange LowCardinality(String),
+    symbol String,
+    trade_date Date,
+    event_time DateTime64(3, 'UTC'),
+    price Decimal(20, 6),
+    volume Decimal(28, 4),
+    source_offset UInt16,
+    provider LowCardinality(String),
+    source_id String,
+    payload_hash String,
+    batch_id String,
+    quality_status LowCardinality(String),
+    metadata_json String,
+    ingested_at DateTime64(3, 'UTC') DEFAULT now64(3)
+) ENGINE = ReplacingMergeTree(ingested_at)
+PARTITION BY toYYYYMM(event_time)
+ORDER BY (exchange, symbol, trade_date, event_time);
 
 CREATE TABLE IF NOT EXISTS market_transaction (
     exchange LowCardinality(String),
@@ -167,6 +207,16 @@ ALTER TABLE market_quote_raw ADD COLUMN IF NOT EXISTS metadata_json String DEFAU
 ALTER TABLE market_quote ADD COLUMN IF NOT EXISTS batch_id String DEFAULT '';
 ALTER TABLE market_quote ADD COLUMN IF NOT EXISTS quality_reasons String DEFAULT '[]';
 ALTER TABLE market_quote ADD COLUMN IF NOT EXISTS metadata_json String DEFAULT '{}';
+ALTER TABLE market_bar ADD COLUMN IF NOT EXISTS source_id String DEFAULT '';
+ALTER TABLE market_bar ADD COLUMN IF NOT EXISTS batch_id String DEFAULT '';
+ALTER TABLE market_bar
+    ADD COLUMN IF NOT EXISTS quality_status LowCardinality(String) DEFAULT 'healthy';
+ALTER TABLE market_bar ADD COLUMN IF NOT EXISTS metadata_json String DEFAULT '{}';
+ALTER TABLE market_transaction ADD COLUMN IF NOT EXISTS trade_date Date DEFAULT toDate(event_time);
+ALTER TABLE market_transaction ADD COLUMN IF NOT EXISTS batch_id String DEFAULT '';
+ALTER TABLE market_transaction
+    ADD COLUMN IF NOT EXISTS quality_status LowCardinality(String) DEFAULT 'partial';
+ALTER TABLE market_transaction ADD COLUMN IF NOT EXISTS metadata_json String DEFAULT '{}';
 """.strip()
 
 
@@ -214,6 +264,33 @@ def raw_quote_row(envelope: RawEnvelope) -> dict[str, Any]:
         "payload_hash": envelope.payload_hash,
         "payload": json.dumps(
             asdict(envelope)["payload"],
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=_json_default,
+        ),
+    }
+
+
+def raw_history_row(
+    envelope: RawEnvelope,
+    *,
+    batch_id: str,
+    row_index: int,
+    metadata: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        **raw_quote_row(envelope),
+        "batch_id": batch_id,
+        "dataset": envelope.dataset.value,
+        "row_index": row_index,
+        "request_json": json.dumps(
+            envelope.request,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=_json_default,
+        ),
+        "metadata_json": json.dumps(
+            dict(metadata),
             ensure_ascii=False,
             separators=(",", ":"),
             default=_json_default,

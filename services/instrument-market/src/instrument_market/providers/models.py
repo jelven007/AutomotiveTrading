@@ -13,6 +13,7 @@ class ProviderName(StrEnum):
 class Dataset(StrEnum):
     QUOTE = "quote"
     BAR = "bar"
+    MINUTE = "minute"
     TRANSACTION = "transaction"
     INSTRUMENT = "instrument"
     BLOCK = "block"

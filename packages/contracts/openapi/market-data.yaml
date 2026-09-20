@@ -30,6 +30,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DataCatalog"
+  /api/v1/market/bars/{exchange}/{symbol}:
+    get:
+      operationId: listMarketBars
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Exchange"
+        - $ref: "#/components/parameters/Symbol"
+        - name: interval
+          in: query
+          schema:
+            type: string
+            enum: [1d]
+            default: 1d
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 800
+            default: 240
+      responses:
+        "200":
+          description: Chronological daily bars already persisted from MOOTDX.
+  /api/v1/market/minutes/{exchange}/{symbol}:
+    get:
+      operationId: listMarketMinutes
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Exchange"
+        - $ref: "#/components/parameters/Symbol"
+        - $ref: "#/components/parameters/TradeDate"
+      responses:
+        "200":
+          description: Latest or selected trading-day minute timeline.
+  /api/v1/market/transactions/{exchange}/{symbol}:
+    get:
+      operationId: listMarketTransactions
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Exchange"
+        - $ref: "#/components/parameters/Symbol"
+        - $ref: "#/components/parameters/TradeDate"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 200
+      responses:
+        "200":
+          description: Latest or selected trading-day transaction page.
   /internal/v1/market/quotes:
     post:
       operationId: ingestMootdxQuotes
@@ -46,6 +98,36 @@ paths:
           description: Batch persisted to raw and canonical ClickHouse tables.
         "401":
           description: Internal service token is invalid.
+  /internal/v1/market/bars:
+    post:
+      operationId: ingestMootdxBars
+      parameters:
+        - $ref: "#/components/parameters/InternalToken"
+      requestBody:
+        $ref: "#/components/requestBodies/HistoryBatch"
+      responses:
+        "202":
+          description: Bar batch persisted to raw and canonical tables.
+  /internal/v1/market/minutes:
+    post:
+      operationId: ingestMootdxMinutes
+      parameters:
+        - $ref: "#/components/parameters/InternalToken"
+      requestBody:
+        $ref: "#/components/requestBodies/HistoryBatch"
+      responses:
+        "202":
+          description: Minute batch persisted to raw and canonical tables.
+  /internal/v1/market/transactions:
+    post:
+      operationId: ingestMootdxTransactions
+      parameters:
+        - $ref: "#/components/parameters/InternalToken"
+      requestBody:
+        $ref: "#/components/requestBodies/HistoryBatch"
+      responses:
+        "202":
+          description: Transaction batch persisted to raw and canonical tables.
 components:
   parameters:
     TenantId:
@@ -61,6 +143,34 @@ components:
       schema:
         type: string
         minLength: 32
+    Exchange:
+      name: exchange
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [SSE, SZSE]
+    Symbol:
+      name: symbol
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[0-9]{6}$"
+    TradeDate:
+      name: trade_date
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date
+  requestBodies:
+    HistoryBatch:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/HistoryBatch"
   schemas:
     DataCatalog:
       type: object
@@ -112,3 +222,37 @@ components:
           items:
             type: object
             additionalProperties: true
+    HistoryBatch:
+      type: object
+      additionalProperties: false
+      required:
+        [batch_id, exchange, symbol, trade_date, source_id, collected_at, rows]
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        exchange:
+          type: string
+          enum: [SSE, SZSE]
+        symbol:
+          type: string
+          pattern: "^[0-9]{6}$"
+        trade_date:
+          type: string
+          format: date
+        source_id:
+          type: string
+          minLength: 1
+        collected_at:
+          type: string
+          format: date-time
+        rows:
+          type: array
+          minItems: 1
+          maxItems: 6400
+          items:
+            type: object
+            additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true

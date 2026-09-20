@@ -16,7 +16,9 @@ from instrument_market.storage.clickhouse import (
 def test_clickhouse_ddl_contains_required_market_tables() -> None:
     for table in (
         "market_quote_raw",
+        "market_history_raw",
         "market_quote",
+        "market_minute",
         "market_transaction",
         "market_bar",
         "corporate_action",
@@ -27,6 +29,8 @@ def test_clickhouse_ddl_contains_required_market_tables() -> None:
         assert f"CREATE TABLE IF NOT EXISTS {table}" in CLICKHOUSE_DDL
 
     assert "ReplacingMergeTree(ingested_at)" in CLICKHOUSE_DDL
+    assert "ALTER TABLE market_bar ADD COLUMN IF NOT EXISTS batch_id" in CLICKHOUSE_DDL
+    assert CLICKHOUSE_DDL.count("ADD COLUMN IF NOT EXISTS quality_status") >= 2
     assert "PARTITION BY" in CLICKHOUSE_DDL
     assert "ORDER BY" in CLICKHOUSE_DDL
 

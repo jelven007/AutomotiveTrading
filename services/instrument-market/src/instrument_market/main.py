@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from instrument_market.api.catalog import router as catalog_router
 from instrument_market.api.health import get_clickhouse_client
 from instrument_market.api.health import router as health_router
+from instrument_market.api.history import router as history_router
 from instrument_market.api.ingestion import router as ingestion_router
 from instrument_market.api.quotes import router as quotes_router
 from instrument_market.config import get_settings
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(ingestion_router)
     app.include_router(quotes_router)
+    app.include_router(history_router)
 
     @app.exception_handler(ServiceError)
     async def service_error_handler(_: Request, error: ServiceError) -> JSONResponse:
