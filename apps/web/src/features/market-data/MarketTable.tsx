@@ -22,9 +22,11 @@ const compactFormatter = new Intl.NumberFormat("zh-CN", {
 
 type Props = {
   quotes: MarketQuote[];
+  selected?: MarketQuote | null;
+  onSelect?: (quote: MarketQuote) => void;
 };
 
-export function MarketTable({ quotes }: Props) {
+export function MarketTable({ quotes, selected, onSelect }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: quotes.length,
@@ -61,10 +63,15 @@ export function MarketTable({ quotes }: Props) {
             const quote = quotes[virtualRow.index];
             const change = Number(quote.change_percent);
             const direction = change > 0 ? "up" : change < 0 ? "down" : "flat";
+            const isSelected =
+              quote.exchange === selected?.exchange &&
+              quote.symbol === selected.symbol;
             return (
               <div
                 aria-rowindex={virtualRow.index + 2}
-                className="market-table__row market-table__grid"
+                className={`market-table__row market-table__grid${
+                  isSelected ? " is-selected" : ""
+                }`}
                 data-index={virtualRow.index}
                 key={`${quote.exchange}:${quote.symbol}`}
                 ref={virtualizer.measureElement}
@@ -72,10 +79,17 @@ export function MarketTable({ quotes }: Props) {
                 style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
                 <span className="market-security" role="cell">
-                  <strong>{quote.name || quote.symbol}</strong>
-                  <small>
-                    {quote.symbol} · {exchangeLabel(quote.exchange)}
-                  </small>
+                  <button
+                    aria-label={`${quote.name || quote.symbol} ${quote.symbol} 查看历史行情`}
+                    aria-pressed={isSelected}
+                    onClick={() => onSelect?.(quote)}
+                    type="button"
+                  >
+                    <strong>{quote.name || quote.symbol}</strong>
+                    <small>
+                      {quote.symbol} · {exchangeLabel(quote.exchange)}
+                    </small>
+                  </button>
                 </span>
                 <span className="market-number" role="cell">
                   {formatDecimal(quote.last_price)}

@@ -2521,6 +2521,11 @@ td small {
   background: #f7fafc;
 }
 
+.market-table__row.is-selected {
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: #f2f7fd;
+}
+
 .market-table__row > span:not(:first-child) {
   overflow: hidden;
   padding-left: 10px;
@@ -2531,6 +2536,23 @@ td small {
 
 .market-security {
   min-width: 0;
+}
+
+.market-security button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.market-security button:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #7daee9;
+  outline-offset: 2px;
 }
 
 .market-security strong,
@@ -2605,6 +2627,160 @@ td small {
   color: var(--negative);
 }
 
+.instrument-history {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.instrument-history__header {
+  display: grid;
+  min-height: 58px;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  grid-template-columns: minmax(180px, 1fr) auto minmax(120px, 1fr);
+}
+
+.instrument-history__header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 680;
+}
+
+.instrument-history__header > div:first-child > span {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.history-tabs {
+  display: inline-flex;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-subtle);
+}
+
+.history-tabs button {
+  min-width: 58px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.history-tabs button[aria-selected="true"] {
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(18 30 43 / 10%);
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.history-coverage {
+  justify-self: end;
+  color: var(--positive);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.history-coverage--partial,
+.history-coverage--pending {
+  color: var(--warning);
+}
+
+.instrument-history__body {
+  min-height: 320px;
+}
+
+.history-chart {
+  width: 100%;
+  height: 320px;
+}
+
+.history-state {
+  display: flex;
+  min-height: 320px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.history-state--error {
+  color: var(--negative);
+}
+
+.instrument-history__footer {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+}
+
+.transaction-tape {
+  height: 320px;
+  overflow: hidden;
+}
+
+.transaction-tape__header,
+.transaction-tape__row {
+  display: grid;
+  min-width: 420px;
+  align-items: center;
+  padding: 0 12px;
+  grid-template-columns: 1fr 1fr 1fr 0.7fr;
+}
+
+.transaction-tape__header {
+  height: 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.transaction-tape__body {
+  height: 288px;
+  overflow: auto;
+}
+
+.transaction-tape__row {
+  height: 32px;
+  border-bottom: 1px solid #edf0f2;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+}
+
+.transaction-tape__header span:not(:first-child),
+.transaction-tape__row > :not(:first-child) {
+  text-align: right;
+}
+
+.transaction-side--buy {
+  color: var(--negative);
+}
+
+.transaction-side--sell {
+  color: var(--positive);
+}
+
+.transaction-side--neutral {
+  color: var(--text-muted);
+}
+
 .is-spinning {
   animation: market-spin 850ms linear infinite;
 }
@@ -2674,5 +2850,41 @@ td small {
   .market-table__viewport {
     height: calc(100vh - 390px);
     min-height: 360px;
+  }
+
+  .instrument-history__header {
+    align-items: start;
+    grid-template-columns: 1fr auto;
+  }
+
+  .history-tabs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .history-tabs button {
+    min-width: 70px;
+  }
+
+  .history-coverage {
+    padding-top: 3px;
+  }
+
+  .instrument-history__body,
+  .history-state {
+    min-height: 280px;
+  }
+
+  .history-chart,
+  .transaction-tape {
+    height: 280px;
+  }
+
+  .transaction-tape {
+    overflow-x: auto;
+  }
+
+  .transaction-tape__body {
+    height: 248px;
   }
 }
