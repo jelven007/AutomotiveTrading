@@ -66,13 +66,13 @@ export function HomePage() {
   }, []);
 
   useEffect(() => {
-    // 首次进入展示加载态，之后每 5 秒静默刷新一次行情与资讯
+    // 首次进入展示加载态，之后每 1 秒静默刷新一次行情与资讯
     void loadMarket();
     void loadNews();
     const timer = setInterval(() => {
       void loadMarket(true);
       void loadNews(true);
-    }, 5000);
+    }, 1000);
     return () => clearInterval(timer);
   }, [loadMarket, loadNews]);
 

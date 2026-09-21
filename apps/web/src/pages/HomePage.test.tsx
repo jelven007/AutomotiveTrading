@@ -89,7 +89,7 @@ describe("HomePage", () => {
     });
   });
 
-  it("silently re-fetches every 5 seconds", async () => {
+  it("silently re-fetches every 1 second", async () => {
     vi.useFakeTimers();
     try {
       render(<HomePage />);
@@ -100,8 +100,8 @@ describe("HomePage", () => {
       );
       fetchMock.mockClear();
 
-      // 推进 5 秒，应触发一轮静默刷新（行情 + 资讯）
-      await vi.advanceTimersByTimeAsync(5000);
+      // 推进 1 秒，应触发一轮静默刷新（行情 + 资讯）
+      await vi.advanceTimersByTimeAsync(1000);
       expect(fetchMock).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
