@@ -1,22 +1,34 @@
-# Quant Trading SaaS
+# Quant Desk
 
-本仓库用于量化交易 SaaS 平台的规格、设计与实现。
+面向单用户的币安账户与人工交易系统。
 
-当前已完成工程底座，以及身份与租户、不可变审计、模型配置和 Web 管理页面。
-本地 Web 默认使用无登录工作区，身份服务保留但不作为本地页面门禁。文档入口：
+## 组成
 
-- [文档中心](docs/README.md)
-- [需求规格说明书](docs/requirements/software-requirements-specification.md)
-- [技术方案](docs/architecture/technical-solution.md)
-- [测试规格说明书](docs/testing/test-specification.md)
-- [核心测试用例](docs/testing/test-cases.md)
-- [Ubuntu 单机部署指南](docs/operations/ubuntu-single-node-deployment.md)
+- `apps/web`：登录、用户信息、币安账号和资产概览。
+- `services/identity-tenant`：邮箱密码认证、JWT、刷新令牌和 TOTP MFA。
+- `services/trading`：单币安账号、AES-256-GCM 凭据存储及 NautilusTrader。
+- `infra/compose`：MySQL 与上述三个应用服务的单机部署。
 
-## 本地开发
+阶段一只提供权限、现货余额、U 本位余额和持仓查询。人工下单、撤单、杠杆和
+保证金模式按阶段二计划实施，生产写入默认关闭。
 
-- Web 管理页面本地固定运行在 `http://127.0.0.1:7173`（Vite `strictPort`，
-  端口占用时直接报错而非静默切换）。
-- 启动 Web：`pnpm --filter web dev`。
-- 页面无需注册或登录，打开后直接进入本地工作区。
+## 本地验证
 
-在需求、外部交易通道和合规边界确认前，不进入真实资金交易。
+```bash
+uv sync --all-packages
+pnpm install
+make lint
+make test
+make build
+```
+
+## 部署
+
+```bash
+bash scripts/deploy.sh init
+bash scripts/deploy.sh up
+bash scripts/deploy.sh status
+```
+
+部署前必须准备 32 字节主密钥、固定出口 IP 和可信 HTTPS 入口。具体要求见
+[Binance 运维手册](docs/operations/binance-nautilustrader-runbook.md)。

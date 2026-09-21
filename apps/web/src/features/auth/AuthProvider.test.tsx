@@ -18,6 +18,7 @@ function accessToken(mfaTime: number | null = null, expiresIn = 900): string {
   const payload = btoa(
     JSON.stringify({
       sub: "user-a",
+      email: "admin@example.com",
       tenant_id: "tenant-a",
       roles: ["tenant_admin"],
       iat: now,
@@ -44,7 +45,6 @@ function AuthProbe() {
           void auth.login({
             email: "admin@example.com",
             password: "strong-password",
-            tenantId: "tenant-a",
           })
         }
       >

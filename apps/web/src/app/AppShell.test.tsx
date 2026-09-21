@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithAuth } from "../test/authTestUtils";
 import { AppShell } from "./AppShell";
@@ -14,65 +14,78 @@ function renderShell(initialPath = "/") {
   );
 }
 
+function missingAccountResponse(): Response {
+  return {
+    ok: false,
+    status: 404,
+    json: async () => ({
+      code: "binance.account_missing",
+      detail: "未绑定币安账号",
+    }),
+  } as Response;
+}
+
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(missingAccountResponse()));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("AppShell", () => {
-  it("shows five primary workspaces and context selectors", () => {
-    renderShell();
-
-    const navigation = screen.getByRole("navigation", { name: "主导航" });
-    for (const label of ["首页", "资讯", "策略", "交易", "数据"]) {
-      expect(navigation).toHaveTextContent(label);
-    }
-
-    expect(
-      screen.getByRole("combobox", { name: "当前租户" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: "当前市场" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "当前租户" })).toHaveValue(
-      "本地工作区",
-    );
-    expect(
-      screen.queryByRole("button", { name: "账户菜单" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("redirects trading to the cn workspace and exposes market navigation", async () => {
+  it("only exposes Binance and the current user", async () => {
     const user = userEvent.setup();
     renderShell();
 
-    await user.click(screen.getByRole("link", { name: /交易/ }));
+    const navigation = screen.getByRole("navigation", { name: "主导航" });
+    expect(navigation).toHaveTextContent("币安");
+    expect(navigation).not.toHaveTextContent("策略");
+    expect(navigation).not.toHaveTextContent("数据");
 
-    expect(
-      await screen.findByRole("heading", { name: "沪深交易", level: 1 }),
-    ).toBeInTheDocument();
-    const marketNavigation = screen.getByRole("navigation", {
-      name: "交易市场",
+    const userLink = screen.getByRole("link", {
+      name: "用户详情 admin@example.com",
     });
-    for (const label of ["沪深", "港美", "币安"]) {
-      expect(marketNavigation).toHaveTextContent(label);
-    }
+    expect(userLink).toHaveTextContent("admin@example.com");
     expect(
-      screen.getByRole("button", { name: "添加帐号" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("combobox", { name: "当前市场" }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "尚未添加帐号", level: 2 }),
+      screen.queryByRole("button", { name: "账户菜单" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(userLink);
+    expect(
+      screen.getByRole("heading", { name: "用户详情", level: 1 }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("贵州茅台")).not.toBeInTheDocument();
+    expect(screen.getAllByText("admin@example.com")).toHaveLength(2);
   });
 
-  it("shows all supported product scopes in the binance workspace", () => {
+  it("redirects the root path to the Binance account", async () => {
+    renderShell();
+
+    expect(
+      await screen.findByRole("heading", { name: "币安账户", level: 1 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "添加账号" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "尚未绑定币安账号", level: 2 }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not expose trading controls in the read-only binance workspace", async () => {
     renderShell("/trading/binance");
 
     expect(
-      screen.getByRole("heading", { name: "币安交易", level: 1 }),
+      await screen.findByRole("heading", { name: "币安账户", level: 1 }),
     ).toBeInTheDocument();
-    const productNavigation = screen.getByRole("tablist", {
-      name: "币安产品",
-    });
-    for (const label of ["现货", "全仓杠杆", "逐仓杠杆", "U 本位永续"]) {
-      expect(productNavigation).toHaveTextContent(label);
-    }
-    expect(screen.getByText("生产交易未启用")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "急停" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "下单" }),
+    ).not.toBeInTheDocument();
   });
 });

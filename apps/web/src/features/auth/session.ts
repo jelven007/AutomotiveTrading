@@ -1,10 +1,10 @@
 export const ACCESS_TOKEN_KEY = "qt.access_token";
 export const REFRESH_TOKEN_KEY = "qt.refresh_token";
 export const LAST_EMAIL_KEY = "qt.last_email";
-export const LAST_TENANT_KEY = "qt.last_tenant_id";
 
 export type AuthClaims = {
   sub: string;
+  email: string | null;
   tenant_id: string;
   roles: string[];
   exp: number;
@@ -45,7 +45,9 @@ export function decodeAccessToken(accessToken: string): AuthClaims | null {
       return null;
     }
     const normalized = payload.replaceAll("-", "+").replaceAll("_", "/");
-    const decoded = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")));
+    const decoded = JSON.parse(
+      atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")),
+    );
     if (
       typeof decoded.sub !== "string" ||
       typeof decoded.tenant_id !== "string" ||
@@ -57,6 +59,7 @@ export function decodeAccessToken(accessToken: string): AuthClaims | null {
     }
     return {
       sub: decoded.sub,
+      email: typeof decoded.email === "string" ? decoded.email : null,
       tenant_id: decoded.tenant_id,
       roles: decoded.roles.map(String),
       exp: decoded.exp,

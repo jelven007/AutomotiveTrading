@@ -1,17 +1,21 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AppRouter } from "./router";
 
 describe("AppRouter", () => {
-  it("opens the workspace directly without a login gate", () => {
+  afterEach(() => {
+    sessionStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it("opens the login page when no authenticated session exists", async () => {
     window.history.pushState({}, "", "/");
     render(<AppRouter />);
 
-    expect(screen.getByRole("navigation", { name: "主导航" })).toBeVisible();
-    expect(screen.queryByText("登录 Quant Desk")).not.toBeInTheDocument();
+    expect(await screen.findByText("登录 Quant Desk")).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: "登录" }),
+      screen.queryByRole("navigation", { name: "主导航" }),
     ).not.toBeInTheDocument();
   });
 });

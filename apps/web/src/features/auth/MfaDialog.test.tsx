@@ -2,10 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  createAuthValue,
-  renderWithAuth,
-} from "../../test/authTestUtils";
+import { createAuthValue, renderWithAuth } from "../../test/authTestUtils";
 import { MfaDialog } from "./MfaDialog";
 
 const { toCanvas } = vi.hoisted(() => ({
@@ -21,10 +18,9 @@ describe("MfaDialog", () => {
     const user = userEvent.setup();
     const verifyMfa = vi.fn().mockResolvedValue(undefined);
     const onVerified = vi.fn();
-    renderWithAuth(
-      <MfaDialog onCancel={vi.fn()} onVerified={onVerified} />,
-      { verifyMfa },
-    );
+    renderWithAuth(<MfaDialog onCancel={vi.fn()} onVerified={onVerified} />, {
+      verifyMfa,
+    });
 
     await user.type(screen.getByLabelText("动态验证码"), "123456");
     await user.click(screen.getByRole("button", { name: "验证并继续" }));
@@ -39,17 +35,14 @@ describe("MfaDialog", () => {
       secret: "BASE32SECRET",
       provisioningUri: "otpauth://totp/Quant%20Desk:user",
     });
-    renderWithAuth(
-      <MfaDialog onCancel={vi.fn()} onVerified={vi.fn()} />,
-      {
-        claims: {
-          ...createAuthValue().claims!,
-          mfa_enabled: false,
-          mfa_time: null,
-        },
-        enrollMfa,
+    renderWithAuth(<MfaDialog onCancel={vi.fn()} onVerified={vi.fn()} />, {
+      claims: {
+        ...createAuthValue().claims!,
+        mfa_enabled: false,
+        mfa_time: null,
       },
-    );
+      enrollMfa,
+    });
 
     await user.click(screen.getByRole("button", { name: "配置验证器" }));
 

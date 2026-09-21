@@ -1,10 +1,7 @@
 import { createElement, ReactElement } from "react";
 import { render } from "@testing-library/react";
 
-import {
-  AuthContext,
-  AuthContextValue,
-} from "../features/auth/AuthContext";
+import { AuthContext, AuthContextValue } from "../features/auth/AuthContext";
 
 export function createAuthValue(
   overrides: Partial<AuthContextValue> = {},
@@ -14,6 +11,7 @@ export function createAuthValue(
     accessToken: "access-token",
     claims: {
       sub: "user-a",
+      email: "admin@example.com",
       tenant_id: "tenant-a",
       roles: ["tenant_admin"],
       exp: Math.floor(Date.now() / 1000) + 900,

@@ -15,7 +15,6 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from identity_tenant.models import AuthSession, Role, Tenant, TenantMember, User, new_id
-from identity_tenant.rbac import AuthorizationError, Permission, require_permission
 
 
 class AuthSettings(BaseModel):
@@ -90,9 +89,7 @@ class AuthService:
         self,
         *,
         email: str,
-        display_name: str,
         password: str,
-        tenant_name: str,
     ) -> Registration:
         normalized_email = email.strip().lower()
         if len(password) < 12:
@@ -102,10 +99,10 @@ class AuthService:
 
         user = User(
             email=normalized_email,
-            display_name=display_name.strip(),
+            display_name=normalized_email,
             password_hash=self.password_hasher.hash(password),
         )
-        tenant = Tenant(name=tenant_name.strip())
+        tenant = Tenant(name=normalized_email)
         self.session.add_all([user, tenant])
         self.session.flush()
         self.session.add(
@@ -118,32 +115,13 @@ class AuthService:
         self.session.commit()
         return Registration(user_id=user.id, tenant_id=tenant.id)
 
-    def create_tenant(self, name: str) -> Tenant:
-        tenant = Tenant(name=name.strip())
-        self.session.add(tenant)
-        self.session.commit()
-        return tenant
-
-    def add_member(
+    def login(
         self,
         *,
-        actor_user_id: str,
-        actor_tenant_id: str,
-        tenant_id: str,
-        user_id: str,
-        role: Role,
-    ) -> TenantMember:
-        actor_roles = self._roles_for_user(actor_user_id, actor_tenant_id)
-        require_permission(actor_roles, Permission.MEMBER_MANAGE)
-        if actor_tenant_id != tenant_id:
-            raise AuthorizationError("cannot manage members of another tenant")
-
-        member = TenantMember(tenant_id=tenant_id, user_id=user_id, role=role)
-        self.session.add(member)
-        self.session.commit()
-        return member
-
-    def login(self, *, email: str, password: str, tenant_id: str) -> TokenPair:
+        email: str,
+        password: str,
+        tenant_id: str | None = None,
+    ) -> TokenPair:
         user = self.session.scalar(select(User).where(User.email == email.strip().lower()))
         if user is None or user.status != "active":
             raise AuthenticationError("invalid credentials")
@@ -152,10 +130,24 @@ class AuthService:
         except (InvalidHashError, VerificationError) as error:
             raise AuthenticationError("invalid credentials") from error
 
-        roles = self._roles_for_user(user.id, tenant_id)
+        resolved_tenant_id = tenant_id or self._default_tenant_id(user.id)
+        roles = self._roles_for_user(user.id, resolved_tenant_id)
         if not roles:
             raise AuthenticationError("tenant membership is not active")
-        return self._create_session(user.id, tenant_id, roles)
+        return self._create_session(user.id, resolved_tenant_id, roles)
+
+    def _default_tenant_id(self, user_id: str) -> str:
+        tenant_id = self.session.scalar(
+            select(TenantMember.tenant_id)
+            .where(
+                TenantMember.user_id == user_id,
+                TenantMember.status == "active",
+            )
+            .order_by(TenantMember.joined_at, TenantMember.tenant_id)
+        )
+        if tenant_id is None:
+            raise AuthenticationError("tenant membership is not active")
+        return tenant_id
 
     def refresh(self, refresh_token: str) -> TokenPair:
         token_hash = self._hash_refresh_token(refresh_token)
@@ -326,17 +318,9 @@ class AuthService:
             "iss": self.settings.issuer,
             "aud": self.settings.audience,
             "sub": auth_session.user_id,
+            "email": user.email if user else None,
             "tenant_id": auth_session.tenant_id,
             "roles": [role.value for role in roles],
-            "scope": " ".join(
-                sorted(
-                    {
-                        permission.value
-                        for role in roles
-                        for permission in self._permissions_for_role(role)
-                    }
-                )
-            ),
             "sid": auth_session.id,
             "jti": new_id(),
             "typ": "access",
@@ -367,12 +351,6 @@ class AuthService:
                 )
             )
         )
-
-    @staticmethod
-    def _permissions_for_role(role: Role) -> frozenset[Permission]:
-        from identity_tenant.rbac import ROLE_PERMISSIONS
-
-        return ROLE_PERMISSIONS[role]
 
     def _revoke_session_family(self, family_id: str) -> None:
         self.session.execute(

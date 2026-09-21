@@ -1,13 +1,15 @@
+import base64
 import hmac
 import json
+import os
+import stat
 from typing import Protocol
 from uuid import uuid4
 
-import httpx
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy.orm import Session
 
-from trading.internal_urls import validate_internal_service_url
 from trading.models import LocalEncryptedSecret
 
 
@@ -17,6 +19,101 @@ class SecretBackend(Protocol):
     def get(self, tenant_id: str, secret_ref: str) -> dict[str, str]: ...
 
     def delete(self, tenant_id: str, secret_ref: str) -> None: ...
+
+
+class LocalCredentialVault:
+    """使用本地主密钥和 AES-GCM 保护币安凭据。"""
+
+    VERSION = 1
+
+    def __init__(self, master_key: bytes) -> None:
+        if len(master_key) != 32:
+            raise ValueError("credential master key must be exactly 32 bytes")
+        self._key = master_key
+
+    @classmethod
+    def from_file(cls, path: str) -> "LocalCredentialVault":
+        file_stat = os.stat(path)
+        if not stat.S_ISREG(file_stat.st_mode):
+            raise ValueError("credential master key must be a regular file")
+        if file_stat.st_mode & 0o077:
+            raise PermissionError("credential master key file must be readable only by owner")
+        with open(path, "rb") as key_file:
+            return cls(key_file.read())
+
+    def encrypt(self, account_id: str, value: dict[str, str]) -> tuple[str, str, int]:
+        nonce = os.urandom(12)
+        aad = self._aad(account_id)
+        ciphertext = AESGCM(self._key).encrypt(
+            nonce, json.dumps(value, separators=(",", ":")).encode(), aad
+        )
+        return (
+            base64.urlsafe_b64encode(ciphertext).decode(),
+            base64.urlsafe_b64encode(nonce).decode(),
+            self.VERSION,
+        )
+
+    def decrypt(
+        self,
+        account_id: str,
+        ciphertext: str,
+        nonce: str,
+        version: int,
+    ) -> dict[str, str]:
+        if version != self.VERSION:
+            raise ValueError("unsupported credential version")
+        plaintext = AESGCM(self._key).decrypt(
+            base64.urlsafe_b64decode(nonce),
+            base64.urlsafe_b64decode(ciphertext),
+            self._aad(account_id),
+        )
+        payload = json.loads(plaintext)
+        return {str(key): str(item) for key, item in payload.items()}
+
+    @staticmethod
+    def _aad(account_id: str) -> bytes:
+        return f"quant-trading:binance:{account_id}:v1".encode()
+
+
+class LocalAesGcmSecretBackend:
+    """Persist AES-GCM ciphertext locally; plaintext never reaches the database."""
+
+    SCHEME = "local-aes-gcm://"
+
+    def __init__(self, session: Session, vault: LocalCredentialVault) -> None:
+        self._session = session
+        self._vault = vault
+
+    def put(self, tenant_id: str, value: dict[str, str]) -> str:
+        record = LocalEncryptedSecret(tenant_id=tenant_id, ciphertext="")
+        self._session.add(record)
+        self._session.flush()
+        ciphertext, nonce, version = self._vault.encrypt(record.id, value)
+        record.ciphertext = ciphertext
+        record.nonce = nonce
+        record.version = version
+        return f"{self.SCHEME}{record.id}"
+
+    def get(self, tenant_id: str, secret_ref: str) -> dict[str, str]:
+        record = self._get_record(tenant_id, secret_ref)
+        return self._vault.decrypt(record.id, record.ciphertext, record.nonce, record.version)
+
+    def delete(self, tenant_id: str, secret_ref: str) -> None:
+        record = self._get_record(tenant_id, secret_ref, missing_ok=True)
+        if record is not None:
+            self._session.delete(record)
+
+    def _get_record(
+        self, tenant_id: str, secret_ref: str, *, missing_ok: bool = False
+    ) -> LocalEncryptedSecret:
+        if not secret_ref.startswith(self.SCHEME):
+            raise KeyError("secret reference does not exist")
+        record = self._session.get(LocalEncryptedSecret, secret_ref.removeprefix(self.SCHEME))
+        if record is None or not hmac.compare_digest(record.tenant_id, tenant_id):
+            if missing_ok:
+                return None  # type: ignore[return-value]
+            raise KeyError("secret reference does not exist")
+        return record
 
 
 class InMemoryEncryptedSecretBackend:
@@ -56,104 +153,3 @@ class InMemoryEncryptedSecretBackend:
             expected_prefix,
         ):
             raise KeyError("secret reference does not exist")
-
-
-class LocalEncryptedSecretBackend:
-    """Encrypted local backend that must not be used in production."""
-
-    SCHEME = "local-kms://"
-
-    def __init__(self, session: Session, encryption_key: str) -> None:
-        self._session = session
-        self._cipher = Fernet(encryption_key.encode())
-
-    def put(self, tenant_id: str, value: dict[str, str]) -> str:
-        serialized = json.dumps(value, separators=(",", ":")).encode()
-        record = LocalEncryptedSecret(
-            tenant_id=tenant_id,
-            ciphertext=self._cipher.encrypt(serialized).decode(),
-        )
-        self._session.add(record)
-        self._session.flush()
-        return f"{self.SCHEME}{record.id}"
-
-    def get(self, tenant_id: str, secret_ref: str) -> dict[str, str]:
-        record = self._session.get(LocalEncryptedSecret, self._id(secret_ref))
-        if record is not None and not hmac.compare_digest(record.tenant_id, tenant_id):
-            record = None
-        if record is None:
-            raise KeyError("secret reference does not exist")
-        payload = json.loads(self._cipher.decrypt(record.ciphertext.encode()))
-        return {str(key): str(value) for key, value in payload.items()}
-
-    def delete(self, tenant_id: str, secret_ref: str) -> None:
-        record = self._session.get(LocalEncryptedSecret, self._id(secret_ref))
-        if record is None:
-            return
-        if not hmac.compare_digest(record.tenant_id, tenant_id):
-            raise KeyError("secret reference does not exist")
-        self._session.delete(record)
-
-    @classmethod
-    def _id(cls, secret_ref: str) -> str:
-        if not secret_ref.startswith(cls.SCHEME):
-            raise ValueError("unsupported secret reference")
-        return secret_ref.removeprefix(cls.SCHEME)
-
-
-class HttpKmsSecretBackend:
-    """Adapter for the platform's internal KMS broker."""
-
-    def __init__(
-        self,
-        http: httpx.Client,
-        base_url: str,
-        service_token: str,
-        *,
-        allow_insecure_internal_http: bool = False,
-    ) -> None:
-        validate_internal_service_url(
-            base_url,
-            service_host="kms-adapter",
-            allow_insecure_internal_http=allow_insecure_internal_http,
-        )
-        if not service_token:
-            raise ValueError("KMS service token is required")
-        self._http = http
-        self._base_url = base_url.rstrip("/")
-        self._headers = {"Authorization": f"Bearer {service_token}"}
-
-    def put(self, tenant_id: str, value: dict[str, str]) -> str:
-        response = self._http.post(
-            f"{self._base_url}/v1/secrets",
-            headers=self._headers,
-            json={"tenant_id": tenant_id, "value": value},
-            timeout=5,
-        )
-        response.raise_for_status()
-        secret_ref = response.json().get("secret_ref")
-        if not isinstance(secret_ref, str) or not secret_ref:
-            raise RuntimeError("KMS response is missing secret_ref")
-        return secret_ref
-
-    def get(self, tenant_id: str, secret_ref: str) -> dict[str, str]:
-        response = self._http.post(
-            f"{self._base_url}/v1/secrets/resolve",
-            headers=self._headers,
-            json={"tenant_id": tenant_id, "secret_ref": secret_ref},
-            timeout=5,
-        )
-        response.raise_for_status()
-        value = response.json().get("value")
-        if not isinstance(value, dict):
-            raise RuntimeError("KMS response is missing secret value")
-        return {str(key): str(item) for key, item in value.items()}
-
-    def delete(self, tenant_id: str, secret_ref: str) -> None:
-        response = self._http.post(
-            f"{self._base_url}/v1/secrets/delete",
-            headers=self._headers,
-            json={"tenant_id": tenant_id, "secret_ref": secret_ref},
-            timeout=5,
-        )
-        response.raise_for_status()

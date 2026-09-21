@@ -15,11 +15,7 @@ def utc_now() -> datetime:
 
 
 class Role(StrEnum):
-    PLATFORM_ADMIN = "platform_admin"
     TENANT_ADMIN = "tenant_admin"
-    RESEARCHER = "researcher"
-    TRADER = "trader"
-    AUDITOR = "auditor"
 
 
 class Base(DeclarativeBase):

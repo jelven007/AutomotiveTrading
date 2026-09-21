@@ -3,6 +3,7 @@ import os
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 
 from fastapi.testclient import TestClient
+from trading.api.dependencies import get_binance_runtime_manager
 from trading.main import app
 
 
@@ -40,3 +41,30 @@ def test_request_context_preserves_trace_id() -> None:
 
     assert response.status_code == 200
     assert response.headers["X-Trace-ID"] == "trace-1"
+
+
+class PartialRuntime:
+    async def read_spot(self) -> object:
+        return object()
+
+    async def read_usdm(self) -> object:
+        raise RuntimeError("USD-M unavailable")
+
+
+class RuntimeManager:
+    current = PartialRuntime()
+
+
+def test_binance_health_reports_products_independently() -> None:
+    app.dependency_overrides[get_binance_runtime_manager] = RuntimeManager
+    try:
+        response = client.get("/health/binance")
+    finally:
+        app.dependency_overrides.pop(get_binance_runtime_manager, None)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "api": "ready",
+        "spot": "ready",
+        "usdm": "unavailable",
+    }

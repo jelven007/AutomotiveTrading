@@ -21,9 +21,7 @@ def test_registration_and_login_issue_oidc_compatible_token(
 ) -> None:
     registration = auth_service.register(
         email="owner@example.com",
-        display_name="Owner",
         password="Correct-Horse-Battery-99",
-        tenant_name="Alpha Capital",
     )
 
     user = session.scalar(select(User).where(User.email == "owner@example.com"))
@@ -54,14 +52,30 @@ def test_registration_and_login_issue_oidc_compatible_token(
     assert claims["mfa_enabled"] is False
 
 
+def test_login_uses_email_without_requiring_tenant_id(
+    auth_service: AuthService,
+) -> None:
+    registration = auth_service.register(
+        email="email-only@example.com",
+        password="Correct-Horse-Battery-99",
+    )
+
+    token_pair = auth_service.login(
+        email="EMAIL-ONLY@example.com",
+        password="Correct-Horse-Battery-99",
+    )
+    principal = auth_service.authenticate_access_token(token_pair.access_token)
+
+    assert principal.user_id == registration.user_id
+    assert principal.tenant_id == registration.tenant_id
+
+
 def test_refresh_token_rotates_and_replay_revokes_session_family(
     auth_service: AuthService,
 ) -> None:
     registration = auth_service.register(
         email="trader@example.com",
-        display_name="Trader",
         password="Correct-Horse-Battery-99",
-        tenant_name="Alpha Capital",
     )
     first = auth_service.login(
         email="trader@example.com",
@@ -81,13 +95,11 @@ def test_refresh_token_rotates_and_replay_revokes_session_family(
 
 def test_logout_revokes_access_and_refresh_tokens(auth_service: AuthService) -> None:
     registration = auth_service.register(
-        email="auditor@example.com",
-        display_name="Auditor",
+        email="user@example.com",
         password="Correct-Horse-Battery-99",
-        tenant_name="Alpha Capital",
     )
     tokens = auth_service.login(
-        email="auditor@example.com",
+        email="user@example.com",
         password="Correct-Horse-Battery-99",
         tenant_id=registration.tenant_id,
     )
@@ -106,9 +118,7 @@ def test_totp_secret_is_encrypted_and_mfa_timestamp_is_recorded(
 ) -> None:
     registration = auth_service.register(
         email="admin@example.com",
-        display_name="Admin",
         password="Correct-Horse-Battery-99",
-        tenant_name="Alpha Capital",
     )
     enrollment = auth_service.begin_totp_enrollment(registration.user_id)
 
@@ -135,9 +145,7 @@ def test_totp_verification_marks_session_for_high_risk_operations(
 ) -> None:
     registration = auth_service.register(
         email="trader@example.com",
-        display_name="Trader",
         password="Correct-Horse-Battery-99",
-        tenant_name="Alpha Capital",
     )
     tokens = auth_service.login(
         email="trader@example.com",
@@ -172,9 +180,7 @@ def test_totp_verification_marks_session_for_high_risk_operations(
 def test_wrong_password_is_rejected(auth_service: AuthService) -> None:
     registration = auth_service.register(
         email="owner@example.com",
-        display_name="Owner",
         password="Correct-Horse-Battery-99",
-        tenant_name="Alpha Capital",
     )
 
     with pytest.raises(AuthenticationError):
@@ -191,9 +197,7 @@ def test_refresh_tokens_are_never_stored_in_plaintext(
 ) -> None:
     registration = auth_service.register(
         email="owner@example.com",
-        display_name="Owner",
         password="Correct-Horse-Battery-99",
-        tenant_name="Alpha Capital",
     )
     tokens = auth_service.login(
         email="owner@example.com",

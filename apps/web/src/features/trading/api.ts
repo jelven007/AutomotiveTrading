@@ -1,29 +1,72 @@
-import type {
-  BinanceScope,
-  CredentialType,
-  MarketGroup,
-  TradingAccount,
-  TradingAccountDraft,
-  TradingProvider,
-} from "./types";
 import { readAccessToken } from "../auth/session";
+import type {
+  BinanceAccountDraft,
+  BinanceAccountSummary,
+  BinanceOverview,
+} from "./types";
 
-type AccountResponse = {
-  id: string;
+type BinanceAccountResponse = {
   alias: string;
-  market_group: MarketGroup;
-  provider: TradingProvider;
-  environment: "production";
-  credential_type: CredentialType | null;
-  api_key_fingerprint: string | null;
-  status: TradingAccount["status"];
-  connection_status: TradingAccount["connectionStatus"];
-  trading_enabled: boolean;
-  scopes: Array<{ scope_type: BinanceScope }>;
-  last_synced_at: string | null;
+  api_key_fingerprint: string;
+  connection_status: BinanceAccountSummary["connectionStatus"];
+  last_verified_at: string;
 };
 
-const API_ROOT = "/api/v1/trading";
+type BinanceOverviewResponse = {
+  account: BinanceAccountResponse;
+  permissions: {
+    status: "ok" | "error";
+    data: {
+      can_read: boolean;
+      can_spot_trade: boolean;
+      can_futures_trade: boolean;
+      ip_restricted: boolean;
+      can_withdraw: boolean;
+      can_internal_transfer: boolean;
+      can_universal_transfer: boolean;
+    } | null;
+    error: { code: string; message: string } | null;
+  };
+  spot: {
+    status: "ok" | "error";
+    data: {
+      balances: Array<{
+        asset: string;
+        free: string;
+        locked: string;
+        total: string;
+      }>;
+      as_of: string;
+    } | null;
+    error: { code: string; message: string } | null;
+  };
+  usdm: {
+    status: "ok" | "error";
+    data: {
+      balances: Array<{
+        asset: string;
+        wallet_balance: string;
+        available_balance: string;
+        unrealized_pnl: string;
+      }>;
+      positions: Array<{
+        symbol: string;
+        side: "long" | "short" | "flat";
+        quantity: string;
+        entry_price: string;
+        mark_price: string | null;
+        unrealized_pnl: string | null;
+        leverage: number | null;
+        margin_mode: "cross" | "isolated" | null;
+      }>;
+      as_of: string;
+    } | null;
+    error: { code: string; message: string } | null;
+  };
+  as_of: string;
+};
+
+const API_ROOT = "/api/v1/trading/binance";
 
 export class TradingApiError extends Error {
   constructor(
@@ -38,43 +81,56 @@ export function getTradingAccessToken(): string | null {
   return readAccessToken();
 }
 
-export async function fetchTradingAccounts(
+export async function replaceBinanceAccount(
   accessToken: string,
-  marketGroup: MarketGroup,
-): Promise<TradingAccount[]> {
-  const response = await fetch(`${API_ROOT}/accounts`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const payload = await parseResponse<AccountResponse[]>(response);
-  return payload
-    .filter((account) => account.market_group === marketGroup)
-    .map(normalizeAccount);
-}
-
-export async function bindTradingAccount(
-  accessToken: string,
-  account: TradingAccountDraft,
-): Promise<TradingAccount> {
-  const response = await fetch(`${API_ROOT}/accounts/bind`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
+  account: BinanceAccountDraft,
+): Promise<BinanceAccountSummary> {
+  const response = await fetch(`${API_ROOT}/account`, {
+    method: "PUT",
+    headers: authenticatedHeaders(accessToken, true),
     body: JSON.stringify({
       alias: account.alias,
-      market_group: account.marketGroup,
-      provider: account.provider,
-      environment: account.environment,
-      credential_type: account.credentialType,
       api_key: account.apiKey,
-      private_key_or_secret: account.privateKeyOrSecret,
-      enabled_scopes: account.enabledScopes,
-      isolated_symbols: account.isolatedSymbols,
+      api_secret: account.apiSecret,
       ip_whitelist_confirmed: account.ipWhitelistConfirmed,
     }),
   });
-  return normalizeAccount(await parseResponse<AccountResponse>(response));
+  return normalizeAccount(
+    await parseResponse<BinanceAccountResponse>(response),
+  );
+}
+
+export async function deleteBinanceAccount(accessToken: string): Promise<void> {
+  const response = await fetch(`${API_ROOT}/account`, {
+    method: "DELETE",
+    headers: authenticatedHeaders(accessToken),
+  });
+  if (!response.ok) {
+    await parseResponse<never>(response);
+  }
+}
+
+export async function fetchBinanceOverview(
+  accessToken: string,
+  refresh = false,
+): Promise<BinanceOverview> {
+  const suffix = refresh ? "?refresh=true" : "";
+  const response = await fetch(`${API_ROOT}/overview${suffix}`, {
+    headers: authenticatedHeaders(accessToken),
+  });
+  return normalizeOverview(
+    await parseResponse<BinanceOverviewResponse>(response),
+  );
+}
+
+function authenticatedHeaders(
+  accessToken: string,
+  withContentType = false,
+): Record<string, string> {
+  return {
+    Authorization: `Bearer ${accessToken}`,
+    ...(withContentType ? { "Content-Type": "application/json" } : {}),
+  };
 }
 
 async function parseResponse<T>(response: Response): Promise<T> {
@@ -91,17 +147,72 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
-function normalizeAccount(account: AccountResponse): TradingAccount {
+function normalizeAccount(
+  account: BinanceAccountResponse,
+): BinanceAccountSummary {
   return {
-    id: account.id,
     alias: account.alias,
-    provider: account.provider,
-    environment: account.environment,
-    fingerprint: account.api_key_fingerprint ?? undefined,
-    scopes: account.scopes.map((scope) => scope.scope_type),
-    status: account.status,
+    apiKeyFingerprint: account.api_key_fingerprint,
     connectionStatus: account.connection_status,
-    tradingEnabled: account.trading_enabled,
-    lastSyncedAt: account.last_synced_at,
+    lastVerifiedAt: account.last_verified_at,
+  };
+}
+
+function normalizeOverview(overview: BinanceOverviewResponse): BinanceOverview {
+  return {
+    account: normalizeAccount(overview.account),
+    permissions: {
+      status: overview.permissions.status,
+      data: overview.permissions.data
+        ? {
+            canRead: overview.permissions.data.can_read,
+            canSpotTrade: overview.permissions.data.can_spot_trade,
+            canFuturesTrade: overview.permissions.data.can_futures_trade,
+            ipRestricted: overview.permissions.data.ip_restricted,
+            canWithdraw: overview.permissions.data.can_withdraw,
+            canInternalTransfer:
+              overview.permissions.data.can_internal_transfer,
+            canUniversalTransfer:
+              overview.permissions.data.can_universal_transfer,
+          }
+        : null,
+      error: overview.permissions.error,
+    },
+    spot: {
+      status: overview.spot.status,
+      data: overview.spot.data
+        ? {
+            balances: overview.spot.data.balances,
+            asOf: overview.spot.data.as_of,
+          }
+        : null,
+      error: overview.spot.error,
+    },
+    usdm: {
+      status: overview.usdm.status,
+      data: overview.usdm.data
+        ? {
+            balances: overview.usdm.data.balances.map((balance) => ({
+              asset: balance.asset,
+              walletBalance: balance.wallet_balance,
+              availableBalance: balance.available_balance,
+              unrealizedPnl: balance.unrealized_pnl,
+            })),
+            positions: overview.usdm.data.positions.map((position) => ({
+              symbol: position.symbol,
+              side: position.side,
+              quantity: position.quantity,
+              entryPrice: position.entry_price,
+              markPrice: position.mark_price,
+              unrealizedPnl: position.unrealized_pnl,
+              leverage: position.leverage,
+              marginMode: position.margin_mode,
+            })),
+            asOf: overview.usdm.data.as_of,
+          }
+        : null,
+      error: overview.usdm.error,
+    },
+    asOf: overview.as_of,
   };
 }

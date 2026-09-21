@@ -54,17 +54,10 @@ fi
 
 required_directories=(
   apps/web
-  services
-  packages/py-common
-  packages/contracts
-  packages/ts-api-client
+  services/identity-tenant
+  services/trading
   infra/compose
-  infra/helm
-  infra/terraform
-  infra/observability
-  tests/contract
-  tests/integration
-  tests/e2e
+  tests/integration/binance
 )
 
 for directory in "${required_directories[@]}"; do

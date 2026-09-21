@@ -8,11 +8,7 @@ import {
   registerAccount,
   verifyTotp,
 } from "./api";
-import type {
-  LoginRequest,
-  RegistrationRequest,
-  TokenResponse,
-} from "./api";
+import type { LoginRequest, RegistrationRequest, TokenResponse } from "./api";
 import { AuthContext, AuthStatus } from "./AuthContext";
 import {
   AuthSession,
@@ -98,12 +94,10 @@ export function AuthProvider({ children }: Props) {
       const normalized = {
         ...input,
         email: input.email.trim().toLowerCase(),
-        tenantId: input.tenantId.trim(),
       };
       const response = await loginAccount(normalized);
       applyTokenResponse(response);
       localStorage.setItem("qt.last_email", normalized.email);
-      localStorage.setItem("qt.last_tenant_id", normalized.tenantId);
     },
     [applyTokenResponse],
   );
@@ -113,16 +107,10 @@ export function AuthProvider({ children }: Props) {
       const normalized = {
         ...input,
         email: input.email.trim().toLowerCase(),
-        displayName: input.displayName.trim(),
-        tenantName: input.tenantName.trim(),
       };
       const response = await registerAccount(normalized);
       applyTokenResponse(response);
-      const claims = decodeAccessToken(response.access_token);
       localStorage.setItem("qt.last_email", normalized.email);
-      if (claims) {
-        localStorage.setItem("qt.last_tenant_id", claims.tenant_id);
-      }
     },
     [applyTokenResponse],
   );
@@ -171,8 +159,7 @@ export function AuthProvider({ children }: Props) {
       logout,
       enrollMfa,
       verifyMfa,
-      hasRecentMfa: () =>
-        session !== null && hasRecentMfa(session.accessToken),
+      hasRecentMfa: () => session !== null && hasRecentMfa(session.accessToken),
     }),
     [enrollMfa, login, logout, register, session, status, verifyMfa],
   );

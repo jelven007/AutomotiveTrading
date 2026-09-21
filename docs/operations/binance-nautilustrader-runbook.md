@@ -6,13 +6,12 @@
 >
 > 日期：2026-09-21
 >
-> 状态：待实施验证
+> 状态：阶段一已部署，生产网络与真实账号验收阻塞
 
 ## 1. 适用范围
 
-本手册适用于个人单用户 ECS 上的币安现货与 U 本位服务。运行组件为 Web、
-Identity、Trading、MySQL 和 NautilusTrader，不依赖币安官方 SDK、云 KMS、
-独立 Risk Service 或 Kafka。
+本手册适用于个人单用户 ECS 上的币安现货与 U 本位服务。运行组件仅为 Web、
+Identity、Trading、MySQL 和 NautilusTrader。
 
 ## 2. 部署前检查
 
@@ -43,31 +42,99 @@ Identity、Trading、MySQL 和 NautilusTrader，不依赖币安官方 SDK、云 
 要求：
 
 - 内容为 32 个原始随机字节，不进行 Base64 文本编码。
-- 所有者为 `root:root`。
+- 所有者 UID 与 Trading 容器用户一致；当前固定镜像为 `100:101`。
 - 权限为 `600`。
 - 只读挂载到 Trading 容器。
 - 备份与数据库备份分开保存。
 
 禁止将主密钥写入 Git、镜像、Compose YAML、普通 `.env` 或日志。
 
+首次创建：
+
+```bash
+sudo install -d -m 700 /opt/quant-trading/secrets
+sudo sh -c \
+  'umask 077; openssl rand 32 > /opt/quant-trading/secrets/credential-master-key'
+sudo chown 100:101 /opt/quant-trading/secrets/credential-master-key
+sudo chmod 600 /opt/quant-trading/secrets/credential-master-key
+sudo test "$(wc -c < /opt/quant-trading/secrets/credential-master-key)" -eq 32
+```
+
+在 `infra/compose/.env.deploy` 中确认：
+
+```text
+BINANCE_CREDENTIAL_MASTER_KEY_FILE=/opt/quant-trading/secrets/credential-master-key
+BINANCE_CREDENTIAL_MASTER_KEY_UID=100
+FIXED_EGRESS_IP_CONFIGURED=true
+PUBLIC_BASE_URL=https://<公网入口>
+```
+
+阶段一 Compose 固定注入 `LIVE_TRADING_ENABLED=false`，不要在部署文件中改为
+`true`。
+
 ## 3. 启动检查
 
 建议命令：
 
 ```bash
-bash scripts/deploy.sh binance-up
+bash scripts/deploy.sh up
 bash scripts/deploy.sh status
-curl -fsS http://127.0.0.1:8004/health
-curl -fsS http://127.0.0.1:8004/api/v1/trading/binance/account
-curl -fsS http://127.0.0.1:8004/api/v1/trading/binance/overview
+curl -fsS http://127.0.0.1:8004/health/live
+curl -fsS http://127.0.0.1:8004/health/ready
+curl -fsS http://127.0.0.1:8004/health/binance
+curl -fsS -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  http://127.0.0.1:8004/api/v1/trading/binance/account
+curl -fsS -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  'http://127.0.0.1:8004/api/v1/trading/binance/overview?refresh=true'
 ```
 
 预期：
 
 - 服务健康。
+- `/health/binance` 分别返回 API、Spot 和 USD-M 状态，不返回资产明细。
 - 未绑定帐号时返回 `binance.account_missing`，而非进程失败。
 - 绑定后 Spot 与 USD-M 状态分别展示。
-- 阶段一不注册可用的交易写能力。
+- `LIVE_TRADING_ENABLED=false` 时下单写接口返回 `trading.live_disabled`。
+
+`up` 启动 MySQL、Identity、Trading、Nautilus Runtime 和 Web。
+
+### 3.1 真实只读验收
+
+真实生产用例默认跳过。只有明确准备好只读 Key 和独立验收账号后才执行：
+
+```bash
+export RUN_BINANCE_PRODUCTION_READ_ONLY_TESTS=true
+export BINANCE_UAT_BASE_URL=https://<公网入口>
+export BINANCE_UAT_BEARER_TOKEN=<短期访问令牌>
+export BINANCE_PRODUCTION_API_KEY=<只读且绑定固定出口的Key>
+export BINANCE_PRODUCTION_API_SECRET=<Secret>
+uv run pytest tests/integration/binance/test_read_only_overview.py -v
+unset BINANCE_UAT_BEARER_TOKEN BINANCE_PRODUCTION_API_KEY \
+  BINANCE_PRODUCTION_API_SECRET
+```
+
+该用例会替换当前用户的唯一币安账号，不应对已有生产账号直接执行。测试验证权限、
+Spot、USD-M 和写入关闭门禁；余额与持仓数值仍需在币安控制台人工交叉核对。
+
+### 3.2 2026-09-21 部署记录
+
+已完成：
+
+- ECS 数据库迁移至 `0004_single_binance_account`。
+- Identity、Trading、Web 容器健康，主密钥以只读方式挂载。
+- 主密钥权限为 `600`，所有者为 `100:101`，容器内可读。
+- `LIVE_TRADING_ENABLED=false`，下单探测返回 `trading.live_disabled`。
+- 未绑定账号的查询返回 `binance.account_missing`。
+
+未通过：
+
+- ECS 可解析 Binance DNS，`data-api.binance.vision` 公共行情接口可达，但
+  `api.binance.com`、`api1` 至 `api4` 和 `fapi.binance.com` 均无法完成
+  HTTPS 请求（状态 `000`）；签名账户链路不可用。
+- `https://118.196.108.119` 当前证书链不受客户端信任。
+- 未提供显式生产只读 API 凭据，真实集成测试按设计跳过。
+
+解决出口线路、可信 HTTPS 入口并提供专用只读 Key 前，不进入阶段二。
 
 ## 4. 帐号操作
 
@@ -117,13 +184,13 @@ curl -fsS http://127.0.0.1:8004/api/v1/trading/binance/overview
 检查：
 
 ```bash
-stat -f '%Sp %Su:%Sg %N' /opt/quant-trading/secrets/credential-master-key
-docker inspect qt-trading --format '{{json .Mounts}}'
+stat -c '%A %u:%g %s %n' /opt/quant-trading/secrets/credential-master-key
+docker inspect quant-trading-saas-trading-1 --format '{{json .Mounts}}'
 ```
 
 处理：
 
-- 确认主密钥文件存在、权限为 `600`、只读挂载。
+- 确认主密钥文件存在、权限为 `600`、所有者 UID 为 `100`、只读挂载。
 - 确认恢复数据库时同时恢复了对应主密钥。
 - 不尝试猜测或重置主密钥；无法恢复时重新录入帐号凭据。
 

@@ -3,7 +3,7 @@ from typing import Annotated
 from uuid import uuid4
 
 import structlog.contextvars
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -20,24 +20,19 @@ from identity_tenant.auth import (
 from identity_tenant.config import get_settings
 from identity_tenant.context import bind_trace_id, current_trace_id
 from identity_tenant.db import database_is_ready, get_session
-from identity_tenant.models import Role, Tenant
 from identity_tenant.observability import configure_observability
-from identity_tenant.rbac import AuthorizationError, Permission, require_permission
 
 bearer = HTTPBearer(auto_error=False)
 
 
 class RegistrationRequest(BaseModel):
     email: str
-    display_name: str = Field(min_length=1, max_length=120)
     password: str = Field(min_length=12, max_length=128)
-    tenant_name: str = Field(min_length=1, max_length=160)
 
 
 class LoginRequest(BaseModel):
     email: str
     password: str
-    tenant_id: str
 
 
 class RefreshRequest(BaseModel):
@@ -58,11 +53,6 @@ class MfaTokenResponse(BaseModel):
 
 class TotpCodeRequest(BaseModel):
     code: str = Field(pattern=r"^\d{6}$")
-
-
-class MemberRequest(BaseModel):
-    user_id: str
-    role: Role
 
 
 def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
@@ -128,18 +118,6 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
             status_code=status.HTTP_409_CONFLICT,
             content={
                 "code": "registration.invalid",
-                "message": str(error),
-                "trace_id": current_trace_id(),
-                "details": {},
-            },
-        )
-
-    @app.exception_handler(AuthorizationError)
-    async def authorization_error_handler(_: Request, error: AuthorizationError) -> JSONResponse:
-        return JSONResponse(
-            status_code=status.HTTP_403_FORBIDDEN,
-            content={
-                "code": "authorization.denied",
                 "message": str(error),
                 "trace_id": current_trace_id(),
                 "details": {},
@@ -214,66 +192,5 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
             raise AuthenticationError("bearer token is required")
         access_token = service.verify_totp(credentials.credentials, payload.code)
         return MfaTokenResponse(access_token=access_token)
-
-    @app.post("/api/v1/tenants/{tenant_id}/members", status_code=201)
-    def add_tenant_member(
-        tenant_id: str,
-        payload: MemberRequest,
-        principal: Annotated[Principal, Depends(get_principal)],
-        service: Annotated[AuthService, Depends(get_auth_service)],
-    ) -> dict[str, str]:
-        if principal.tenant_id != tenant_id:
-            raise HTTPException(status_code=404, detail="Resource not found")
-        require_permission(principal.roles, Permission.MEMBER_MANAGE)
-        member = service.add_member(
-            actor_user_id=principal.user_id,
-            actor_tenant_id=principal.tenant_id,
-            tenant_id=tenant_id,
-            user_id=payload.user_id,
-            role=payload.role,
-        )
-        return {
-            "id": member.id,
-            "tenant_id": member.tenant_id,
-            "user_id": member.user_id,
-            "role": member.role.value,
-        }
-
-    @app.get("/api/v1/tenants/{tenant_id}")
-    def get_tenant(
-        tenant_id: str,
-        principal: Annotated[Principal, Depends(get_principal)],
-        session: Annotated[Session, Depends(get_session)],
-        x_tenant_id: Annotated[str | None, Header()] = None,
-    ) -> dict[str, str]:
-        del x_tenant_id
-        if principal.tenant_id != tenant_id:
-            raise HTTPException(
-                status_code=404,
-                detail={
-                    "code": "resource.not_found",
-                    "message": "Resource not found",
-                    "trace_id": current_trace_id(),
-                    "details": {},
-                },
-            )
-        tenant = session.get(Tenant, principal.tenant_id)
-        if tenant is None:
-            raise HTTPException(status_code=404, detail="Resource not found")
-        return {"id": tenant.id, "name": tenant.name, "status": tenant.status}
-
-    @app.exception_handler(HTTPException)
-    async def http_error_handler(_: Request, error: HTTPException) -> JSONResponse:
-        if isinstance(error.detail, dict):
-            return JSONResponse(status_code=error.status_code, content=error.detail)
-        return JSONResponse(
-            status_code=error.status_code,
-            content={
-                "code": "http.error",
-                "message": str(error.detail),
-                "trace_id": current_trace_id(),
-                "details": {},
-            },
-        )
 
     return app

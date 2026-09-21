@@ -5,11 +5,11 @@ services:
     image: mysql:8.4
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-qt_platform}
+      MYSQL_DATABASE: qt_platform
       MYSQL_USER: ${MYSQL_USER:-qt_app}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_MYSQL_PORT:-3306}:3306"
+      - "${QT_BIND_HOST:-127.0.0.1}:${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
@@ -24,134 +24,92 @@ services:
       retries: 30
     restart: unless-stopped
 
-  redis:
-    image: redis:7.4-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-    restart: unless-stopped
-
-  clickhouse:
-    image: clickhouse/clickhouse-server:25.8-alpine
+  database-init:
+    image: mysql:8.4
+    entrypoint: ["/bin/sh", "/ensure-databases.sh"]
     environment:
-      CLICKHOUSE_DB: ${CLICKHOUSE_DATABASE:-qt_market}
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-qt_market}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-change-me-clickhouse}
-      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
-    ports:
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_CLICKHOUSE_HTTP_PORT:-8123}:8123"
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_CLICKHOUSE_NATIVE_PORT:-9002}:9000"
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER:-qt_app}
     volumes:
-      - clickhouse-data:/var/lib/clickhouse
-      - clickhouse-logs:/var/log/clickhouse-server
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'clickhouse-client --user "$${CLICKHOUSE_USER}" --password "$${CLICKHOUSE_PASSWORD}" --query "SELECT 1" | grep -q ''^1$''',
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-    restart: unless-stopped
-
-  kafka:
-    image: redpandadata/redpanda:v24.2.18
-    command:
-      - redpanda
-      - start
-      - --smp
-      - "1"
-      - --memory
-      - 1G
-      - --reserve-memory
-      - 0M
-      - --overprovisioned
-      - --check=false
-      - --node-id
-      - "0"
-      - --kafka-addr
-      - internal://0.0.0.0:29092,external://0.0.0.0:9092
-      - --advertise-kafka-addr
-      - internal://kafka:29092,external://127.0.0.1:${QT_KAFKA_PORT:-9092}
-      - --rpc-addr
-      - 0.0.0.0:33145
-      - --advertise-rpc-addr
-      - kafka:33145
-      - --schema-registry-addr
-      - 0.0.0.0:8081
-    ports:
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_KAFKA_PORT:-9092}:9092"
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_SCHEMA_REGISTRY_PORT:-8081}:8081"
-    volumes:
-      - kafka-data:/var/lib/kafka/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "rpk cluster health -X brokers=127.0.0.1:9092 | grep -q 'Healthy:.*true'",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-    restart: unless-stopped
-
-  kafka-init:
-    image: redpandadata/redpanda:v24.2.18
+      - ./mysql/ensure-databases.sh:/ensure-databases.sh:ro
     depends_on:
-      kafka:
+      mysql:
         condition: service_healthy
-    volumes:
-      - ./kafka/create-topics.sh:/create-topics.sh:ro
-    entrypoint: ["/bin/bash", "/create-topics.sh"]
     restart: "no"
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: server /data --console-address ":9001"
+  identity-migrate:
+    build:
+      context: ../../services/identity-tenant
+    image: qt/identity-tenant:latest
+    command: ["alembic", "upgrade", "head"]
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_identity
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY}
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  identity-tenant:
+    image: qt/identity-tenant:latest
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_identity
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
     ports:
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_MINIO_PORT:-9000}:9000"
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_MINIO_CONSOLE_PORT:-9001}:9001"
-    volumes:
-      - minio-data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
+      - "${QT_BIND_HOST:-127.0.0.1}:${IDENTITY_PORT:-8001}:8000"
+    depends_on:
+      identity-migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
-  mailpit:
-    image: axllent/mailpit:v1.27.8
-    environment:
-      MP_DATABASE: /data/mailpit.db
-    ports:
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_MAILPIT_SMTP_PORT:-1025}:1025"
-      - "${QT_BIND_HOST:-0.0.0.0}:${QT_MAILPIT_PORT:-8025}:8025"
+  trading-migrate:
+    build:
+      context: ../../services/trading
+    image: qt/trading:latest
+    command: ["alembic", "upgrade", "head"]
+    environment: &trading-environment
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_trading
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      BINANCE_CREDENTIAL_MASTER_KEY_FILE: /opt/quant-trading/secrets/credential-master-key
+      BINANCE_TESTNET_ENABLED: ${BINANCE_TESTNET_ENABLED:-false}
+      LIVE_TRADING_ENABLED: ${LIVE_TRADING_ENABLED:-false}
+      FIXED_EGRESS_IP_CONFIGURED: ${FIXED_EGRESS_IP_CONFIGURED:-false}
     volumes:
-      - mailpit-data:/data
-    healthcheck:
-      test: ["CMD", "/mailpit", "readyz"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
+      - ${BINANCE_CREDENTIAL_MASTER_KEY_FILE:-/opt/quant-trading/secrets/credential-master-key}:/opt/quant-trading/secrets/credential-master-key:ro
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  trading:
+    image: qt/trading:latest
+    environment: *trading-environment
+    volumes:
+      - ${BINANCE_CREDENTIAL_MASTER_KEY_FILE:-/opt/quant-trading/secrets/credential-master-key}:/opt/quant-trading/secrets/credential-master-key:ro
+    ports:
+      - "${QT_BIND_HOST:-127.0.0.1}:${TRADING_PORT:-8004}:8000"
+    depends_on:
+      trading-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    image: qt/web:latest
+    ports:
+      - "${WEB_BIND_HOST:-0.0.0.0}:${WEB_PORT:-8080}:8080"
+    depends_on:
+      identity-tenant:
+        condition: service_healthy
+      trading:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  clickhouse-data:
-  clickhouse-logs:
-  kafka-data:
-  mailpit-data:
-  minio-data:
   mysql-data:
-  redis-data:

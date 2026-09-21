@@ -8,14 +8,11 @@ export type TokenResponse = {
 export type LoginRequest = {
   email: string;
   password: string;
-  tenantId: string;
 };
 
 export type RegistrationRequest = {
   email: string;
-  displayName: string;
   password: string;
-  tenantName: string;
 };
 
 export type TotpEnrollment = {
@@ -35,13 +32,14 @@ export class AuthApiError extends Error {
 
 const API_ROOT = "/api/v1/auth";
 
-export async function loginAccount(input: LoginRequest): Promise<TokenResponse> {
+export async function loginAccount(
+  input: LoginRequest,
+): Promise<TokenResponse> {
   return request<TokenResponse>(`${API_ROOT}/login`, {
     method: "POST",
     body: JSON.stringify({
       email: input.email,
       password: input.password,
-      tenant_id: input.tenantId,
     }),
   });
 }
@@ -53,9 +51,7 @@ export async function registerAccount(
     method: "POST",
     body: JSON.stringify({
       email: input.email,
-      display_name: input.displayName,
       password: input.password,
-      tenant_name: input.tenantName,
     }),
   });
 }
@@ -76,9 +72,7 @@ export async function logoutAccount(accessToken: string): Promise<void> {
   });
 }
 
-export async function enrollTotp(
-  accessToken: string,
-): Promise<TotpEnrollment> {
+export async function enrollTotp(accessToken: string): Promise<TotpEnrollment> {
   const response = await request<{
     secret: string;
     provisioning_uri: string;

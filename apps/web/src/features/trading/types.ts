@@ -1,42 +1,66 @@
-export type MarketGroup = "cn_equity" | "hk_us_equity" | "binance";
-
-export type TradingProvider =
-  | "tonghuashun"
-  | "caixin"
-  | "futu"
-  | "longbridge"
-  | "binance";
-
-export type BinanceScope =
-  | "spot"
-  | "cross_margin"
-  | "isolated_margin"
-  | "usdm_futures";
-
-export type CredentialType = "ed25519" | "hmac" | "rsa";
-
-export type TradingAccountDraft = {
+export type BinanceAccountDraft = {
   alias: string;
-  marketGroup: MarketGroup;
-  provider: TradingProvider;
-  environment: "production";
-  credentialType?: CredentialType;
-  apiKey?: string;
-  privateKeyOrSecret?: string;
-  enabledScopes: BinanceScope[];
-  isolatedSymbols: string[];
+  apiKey: string;
+  apiSecret: string;
   ipWhitelistConfirmed: boolean;
 };
 
-export type TradingAccount = {
-  id: string;
+export type BinanceAccountSummary = {
   alias: string;
-  provider: TradingProvider;
-  environment: "production";
-  fingerprint?: string;
-  scopes: BinanceScope[];
-  status: "pending_authorization" | "read_only" | "active" | "disabled";
-  connectionStatus: "disconnected" | "checking" | "connected";
-  tradingEnabled: boolean;
-  lastSyncedAt: string | null;
+  apiKeyFingerprint: string;
+  connectionStatus: "connected" | "disconnected" | "error";
+  lastVerifiedAt: string;
+};
+
+export type BinancePermissionOverview = {
+  canRead: boolean;
+  canSpotTrade: boolean;
+  canFuturesTrade: boolean;
+  ipRestricted: boolean;
+  canWithdraw: boolean;
+  canInternalTransfer: boolean;
+  canUniversalTransfer: boolean;
+};
+
+export type SpotBalance = {
+  asset: string;
+  free: string;
+  locked: string;
+  total: string;
+};
+
+export type UsdmBalance = {
+  asset: string;
+  walletBalance: string;
+  availableBalance: string;
+  unrealizedPnl: string;
+};
+
+export type UsdmPosition = {
+  symbol: string;
+  side: "long" | "short" | "flat";
+  quantity: string;
+  entryPrice: string;
+  markPrice: string | null;
+  unrealizedPnl: string | null;
+  leverage: number | null;
+  marginMode: "cross" | "isolated" | null;
+};
+
+export type OverviewSection<T> = {
+  status: "ok" | "error";
+  data: T | null;
+  error: { code: string; message: string } | null;
+};
+
+export type BinanceOverview = {
+  account: BinanceAccountSummary;
+  permissions: OverviewSection<BinancePermissionOverview>;
+  spot: OverviewSection<{ balances: SpotBalance[]; asOf: string }>;
+  usdm: OverviewSection<{
+    balances: UsdmBalance[];
+    positions: UsdmPosition[];
+    asOf: string;
+  }>;
+  asOf: string;
 };

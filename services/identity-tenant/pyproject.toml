@@ -1,7 +1,7 @@
 [project]
 name = "identity-tenant"
 version = "0.1.0"
-description = "FastAPI service template for Quant Trading SaaS"
+description = "Email authentication and MFA service for Quant Desk"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "alembic>=1.16,<2",

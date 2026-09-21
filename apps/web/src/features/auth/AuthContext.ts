@@ -1,10 +1,6 @@
 import { createContext, useContext } from "react";
 
-import type {
-  LoginRequest,
-  RegistrationRequest,
-  TotpEnrollment,
-} from "./api";
+import type { LoginRequest, RegistrationRequest, TotpEnrollment } from "./api";
 import type { AuthClaims } from "./session";
 
 export type AuthStatus = "loading" | "authenticated" | "anonymous";

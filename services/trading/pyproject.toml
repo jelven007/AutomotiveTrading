@@ -1,7 +1,7 @@
 [project]
 name = "trading"
 version = "0.1.0"
-description = "Trading account and execution service for Quant Trading SaaS"
+description = "Binance account and trading service for Quant Desk"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "alembic>=1.16,<2",

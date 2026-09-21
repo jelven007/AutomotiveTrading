@@ -2,10 +2,9 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from trading.api.account_operations import router as account_operations_router
-from trading.api.accounts import router as accounts_router
+from trading.api.binance_account import router as binance_account_router
+from trading.api.binance_overview import router as binance_overview_router
 from trading.api.health import router as health_router
-from trading.api.orders import router as orders_router
 from trading.config import get_settings
 from trading.context import current_trace_id
 from trading.errors import ProblemDetail, ServiceError
@@ -19,9 +18,8 @@ def create_app() -> FastAPI:
     configure_observability(app, settings)
     app.middleware("http")(request_context_middleware)
     app.include_router(health_router)
-    app.include_router(accounts_router)
-    app.include_router(account_operations_router)
-    app.include_router(orders_router)
+    app.include_router(binance_account_router)
+    app.include_router(binance_overview_router)
 
     @app.exception_handler(ServiceError)
     async def service_error_handler(_: Request, error: ServiceError) -> JSONResponse:

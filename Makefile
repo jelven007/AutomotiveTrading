@@ -4,7 +4,6 @@ SHELL := /usr/bin/env bash
 
 bootstrap:
 	uv sync --all-packages
-	uv sync --directory services/mootdx-collector --frozen
 	pnpm install --frozen-lockfile=false
 
 check-workspace:
@@ -22,17 +21,13 @@ format:
 
 test:
 	uv run pytest
-	uv run --directory services/mootdx-collector pytest
 	pnpm test
 
 build:
 	pnpm build
 
 up:
-	docker compose --env-file infra/compose/.env \
-		-f infra/compose/docker-compose.yml up -d
-	bash scripts/wait_for_services.sh
+	bash scripts/deploy.sh up
 
 down:
-	docker compose --env-file infra/compose/.env \
-		-f infra/compose/docker-compose.yml down
+	bash scripts/deploy.sh down

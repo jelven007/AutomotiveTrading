@@ -10,8 +10,6 @@
     "build": "tsc -b && vite build"
   },
   "dependencies": {
-    "@tanstack/react-virtual": "3.13.12",
-    "lightweight-charts": "5.0.9",
     "lucide-react": "0.544.0",
     "qrcode": "^1.5.4",
     "react": "19.1.1",

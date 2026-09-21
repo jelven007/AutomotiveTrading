@@ -3,24 +3,19 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${QT_DEPLOY_ENV_FILE:-${ROOT_DIR}/infra/compose/.env.deploy}"
-COMPOSE_FILES=(
-  -f "${ROOT_DIR}/infra/compose/docker-compose.yml"
-  -f "${ROOT_DIR}/infra/compose/docker-compose.deploy.yml"
-)
+COMPOSE_FILE="${ROOT_DIR}/infra/compose/docker-compose.yml"
 
 usage() {
   cat <<'EOF'
 用法：bash scripts/deploy.sh <命令>
 
 命令：
-  init      生成部署环境文件和强随机密钥
-  up        构建镜像、执行迁移并启动全部服务
-  market-up  仅升级行情核心与采集 Sidecar，保留现有基础组件
-  readonly-up  启动默认服务及币安只读 UAT Profile
+  init      生成部署环境文件
+  up        构建、迁移并启动完整系统
   status    查看容器状态
   logs      查看日志，可追加服务名
-  restart   重启 Web 和默认后端服务
-  down      停止服务但保留数据库数据
+  restart   重启 Identity、Trading 和 Web
+  down      停止服务并保留 MySQL 数据
   help      显示帮助
 EOF
 }
@@ -36,106 +31,62 @@ fernet_key() {
   openssl rand -base64 32 | tr "+/" "-_" | tr -d "\n"
 }
 
-append_env_if_missing() {
-  local name="$1"
-  local value="$2"
-  if ! grep -q "^${name}=" "${ENV_FILE}"; then
-    printf '%s=%s\n' "${name}" "${value}" >>"${ENV_FILE}"
-  fi
-}
-
-upgrade_market_env() {
-  append_env_if_missing CLICKHOUSE_DATABASE qt_market
-  append_env_if_missing CLICKHOUSE_USER qt_market
-  append_env_if_missing CLICKHOUSE_PASSWORD "$(openssl rand -hex 24)"
-  append_env_if_missing QT_CLICKHOUSE_HTTP_PORT 8123
-  append_env_if_missing QT_CLICKHOUSE_NATIVE_PORT 9002
-  append_env_if_missing MARKET_INGEST_SERVICE_TOKEN "$(openssl rand -hex 48)"
-  append_env_if_missing INSTRUMENT_MARKET_PORT 8007
-  append_env_if_missing MOOTDX_SOURCE_ID tdx-auto
-  append_env_if_missing TDX_DATA_PATH ""
-  append_env_if_missing QUOTE_SHARD_COUNT 8
-  append_env_if_missing QUOTE_SWEEP_SECONDS 2
-  append_env_if_missing MOOTDX_COLLECTOR_PORT 8010
-  append_env_if_missing COLLECTOR_CLOSED_SECONDS 300
-  append_env_if_missing COLLECTOR_ENDPOINTS ""
-  append_env_if_missing COLLECTOR_MAX_PENDING 10000
-  append_env_if_missing COLLECTOR_MAX_SPOOL_BYTES 10737418240
-  append_env_if_missing COLLECTOR_HISTORY_ENABLED true
-  append_env_if_missing COLLECTOR_HISTORY_REQUEST_INTERVAL 0.25
-  append_env_if_missing COLLECTOR_HISTORY_BAR_COUNT 800
-  append_env_if_missing COLLECTOR_HISTORY_TRANSACTION_PAGE_SIZE 800
-  append_env_if_missing COLLECTOR_HISTORY_TRANSACTION_MAX_PAGES 8
-  chmod 600 "${ENV_FILE}"
-}
-
 init_env() {
   require_command openssl
   if [[ -e "${ENV_FILE}" ]]; then
-    upgrade_market_env
-    echo "部署配置已存在，已补全缺失字段且未覆盖原值：${ENV_FILE}"
+    chmod 600 "${ENV_FILE}"
+    echo "部署配置已存在，未覆盖：${ENV_FILE}"
     return
   fi
 
   mkdir -p "$(dirname "${ENV_FILE}")"
   umask 077
   cat >"${ENV_FILE}" <<EOF
-# 由 scripts/deploy.sh init 自动生成，请勿提交到 Git。
+# 由 scripts/deploy.sh init 生成，请勿提交到 Git。
 MYSQL_ROOT_PASSWORD=$(openssl rand -hex 24)
-MYSQL_DATABASE=qt_platform
 MYSQL_USER=qt_app
 MYSQL_PASSWORD=$(openssl rand -hex 24)
-MINIO_ROOT_USER=qt_minio
-MINIO_ROOT_PASSWORD=$(openssl rand -hex 24)
-CLICKHOUSE_DATABASE=qt_market
-CLICKHOUSE_USER=qt_market
-CLICKHOUSE_PASSWORD=$(openssl rand -hex 24)
-
-QT_BIND_HOST=127.0.0.1
-QT_MYSQL_PORT=3306
-QT_REDIS_PORT=6379
-QT_CLICKHOUSE_HTTP_PORT=8123
-QT_CLICKHOUSE_NATIVE_PORT=9002
-QT_KAFKA_PORT=9092
-QT_SCHEMA_REGISTRY_PORT=8081
-QT_MINIO_PORT=9000
-QT_MINIO_CONSOLE_PORT=9001
-QT_MAILPIT_SMTP_PORT=1025
-QT_MAILPIT_PORT=8025
 
 AUTH_JWT_SECRET=$(openssl rand -hex 48)
 AUTH_TOTP_ENCRYPTION_KEY=$(fernet_key)
-SECRET_ENCRYPTION_KEY=$(fernet_key)
-KMS_SERVICE_TOKEN=$(openssl rand -hex 48)
-RISK_SERVICE_TOKEN=$(openssl rand -hex 48)
-MARKET_INGEST_SERVICE_TOKEN=$(openssl rand -hex 48)
-
-KMS_KEY_ID=
-KMS_REGION=cn-beijing
-VOLCENGINE_ACCESS_KEY=
-VOLCENGINE_SECRET_KEY=
-VOLCENGINE_SESSION_TOKEN=
-FIXED_EGRESS_IP_CONFIGURED=false
-PUBLIC_BASE_URL=
 
 ENVIRONMENT=production
-WEB_PORT=80
+QT_BIND_HOST=127.0.0.1
+MYSQL_PORT=3306
 IDENTITY_PORT=8001
-AUDIT_PORT=8002
-MODEL_CONFIG_PORT=8003
 TRADING_PORT=8004
-RISK_PORT=8005
-KMS_ADAPTER_PORT=8006
-INSTRUMENT_MARKET_PORT=8007
+WEB_BIND_HOST=0.0.0.0
+WEB_PORT=8080
 
-MOOTDX_SOURCE_ID=tdx-auto
-TDX_DATA_PATH=
-QUOTE_SHARD_COUNT=8
-QUOTE_SWEEP_SECONDS=2
+BINANCE_CREDENTIAL_MASTER_KEY_FILE=/opt/quant-trading/secrets/credential-master-key
+BINANCE_CREDENTIAL_MASTER_KEY_UID=100
+BINANCE_TESTNET_ENABLED=false
+FIXED_EGRESS_IP_CONFIGURED=false
+LIVE_TRADING_ENABLED=false
+PUBLIC_BASE_URL=
 EOF
-  upgrade_market_env
   chmod 600 "${ENV_FILE}"
   echo "已生成部署配置：${ENV_FILE}"
+}
+
+env_value() {
+  sed -n "s/^$1=//p" "${ENV_FILE}" | tail -n 1
+}
+
+file_mode() {
+  if stat -f "%Lp" "$1" >/dev/null 2>&1; then
+    stat -f "%Lp" "$1"
+  else
+    stat -c "%a" "$1"
+  fi
+}
+
+file_owner_uid() {
+  if stat -f "%u" "$1" >/dev/null 2>&1; then
+    stat -f "%u" "$1"
+  else
+    stat -c "%u" "$1"
+  fi
 }
 
 require_deployment() {
@@ -144,84 +95,59 @@ require_deployment() {
     exit 1
   fi
   if grep -q "please-change" "${ENV_FILE}"; then
-    echo "部署配置仍包含 please-change 占位值，请删除后重新执行 init。" >&2
+    echo "部署配置仍包含 please-change 占位值。" >&2
     exit 1
   fi
-  for name in CLICKHOUSE_PASSWORD MARKET_INGEST_SERVICE_TOKEN; do
-    value="$(env_value "${name}")"
-    if [[ -z "${value}" || ${#value} -lt 32 ]]; then
-      echo "部署配置需要 ${name}，且长度至少为 32 个字符。" >&2
-      exit 1
-    fi
-  done
   require_command docker
   docker compose version >/dev/null
 }
 
-env_value() {
-  sed -n "s/^$1=//p" "${ENV_FILE}" | tail -n 1
-}
+require_binance_configuration() {
+  local expected_uid key_path key_size mode owner_uid
+  key_path="$(env_value BINANCE_CREDENTIAL_MASTER_KEY_FILE)"
+  key_path="${key_path:-/opt/quant-trading/secrets/credential-master-key}"
+  expected_uid="$(env_value BINANCE_CREDENTIAL_MASTER_KEY_UID)"
+  expected_uid="${expected_uid:-100}"
 
-require_readonly_configuration() {
-  local name value
-  if [[ ! -f "${ENV_FILE}" ]]; then
-    echo "部署配置不存在，请先执行：bash scripts/deploy.sh init" >&2
+  if [[ ! -f "${key_path}" ]]; then
+    echo "币安凭据主密钥不存在：${key_path}" >&2
     return 1
   fi
-  for name in \
-    KMS_KEY_ID \
-    VOLCENGINE_ACCESS_KEY \
-    VOLCENGINE_SECRET_KEY \
-    KMS_SERVICE_TOKEN \
-    RISK_SERVICE_TOKEN; do
-    value="$(env_value "${name}")"
-    if [[ -z "${value}" || "${value}" == please-change* ]]; then
-      echo "币安只读 UAT 需要配置 ${name}。" >&2
-      return 1
-    fi
-  done
-  for name in KMS_SERVICE_TOKEN RISK_SERVICE_TOKEN; do
-    value="$(env_value "${name}")"
-    if ((${#value} < 32)); then
-      echo "${name} 必须至少包含 32 个字符。" >&2
-      return 1
-    fi
-  done
-  if [[ "$(env_value KMS_SERVICE_TOKEN)" == "$(env_value RISK_SERVICE_TOKEN)" ]]; then
-    echo "KMS_SERVICE_TOKEN 与 RISK_SERVICE_TOKEN 必须不同。" >&2
+  mode="$(file_mode "${key_path}")"
+  key_size="$(wc -c <"${key_path}" | tr -d "[:space:]")"
+  owner_uid="$(file_owner_uid "${key_path}")"
+  if [[ "${mode}" != "600" ]]; then
+    echo "币安凭据主密钥权限必须为 600，当前为 ${mode}。" >&2
+    return 1
+  fi
+  if [[ "${key_size}" != "32" ]]; then
+    echo "币安凭据主密钥必须恰好为 32 个原始字节。" >&2
+    return 1
+  fi
+  if [[ "${owner_uid}" != "${expected_uid}" ]]; then
+    echo "币安凭据主密钥所有者必须为 Trading UID ${expected_uid}。" >&2
     return 1
   fi
   if [[ "$(env_value FIXED_EGRESS_IP_CONFIGURED)" != "true" ]]; then
     echo "完成币安 IP 白名单后，将 FIXED_EGRESS_IP_CONFIGURED 设置为 true。" >&2
     return 1
   fi
+  if [[ "$(env_value LIVE_TRADING_ENABLED)" != "false" ]]; then
+    echo "阶段一要求 LIVE_TRADING_ENABLED=false。" >&2
+    return 1
+  fi
   if [[ "$(env_value PUBLIC_BASE_URL)" != https://* ]]; then
-    echo "币安只读 UAT 需要配置 HTTPS 格式的 PUBLIC_BASE_URL。" >&2
+    echo "PUBLIC_BASE_URL 必须使用可信 HTTPS 地址。" >&2
     return 1
   fi
 }
 
-readonly_profile_enabled() {
-  [[ ",${COMPOSE_PROFILES:-}," == *",binance-readonly,"* ]]
-}
-
 compose_cmd() {
-  docker compose \
-    --env-file "${ENV_FILE}" \
-    "${COMPOSE_FILES[@]}" \
-    "$@"
+  docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
 }
 
 wait_for_jobs() {
-  local jobs=(
-    kafka-init identity-migrate audit-migrate model-config-migrate
-    instrument-market-migrate
-  )
-  if readonly_profile_enabled; then
-    jobs+=(
-      readonly-databases-init kms-adapter-migrate risk-migrate trading-migrate
-    )
-  fi
+  local jobs=(database-init identity-migrate trading-migrate)
   local deadline=$((SECONDS + ${QT_DEPLOY_WAIT_SECONDS:-300}))
   local container_id exit_code job pending state
 
@@ -229,49 +155,30 @@ wait_for_jobs() {
     pending=""
     for job in "${jobs[@]}"; do
       container_id="$(compose_cmd ps -a -q "${job}")"
-      if [[ -z "${container_id}" ]]; then
-        pending="${pending} ${job}(未启动)"
-        continue
-      fi
-
       state="$(docker inspect --format '{{.State.Status}}' "${container_id}")"
       if [[ "${state}" == "exited" ]]; then
         exit_code="$(docker inspect --format '{{.State.ExitCode}}' "${container_id}")"
         if [[ "${exit_code}" == "0" ]]; then
           continue
         fi
-        echo "一次性任务失败：${job}（exit=${exit_code}）" >&2
-        compose_cmd logs --tail=100 "${job}" >&2
-        return 1
-      fi
-      if [[ "${state}" == "dead" ]]; then
-        echo "一次性任务异常终止：${job}" >&2
+        echo "迁移任务失败：${job}（exit=${exit_code}）" >&2
         compose_cmd logs --tail=100 "${job}" >&2
         return 1
       fi
       pending="${pending} ${job}(${state})"
     done
-
     if [[ -z "${pending}" ]]; then
       return
     fi
-    echo "等待初始化任务：${pending# }"
+    echo "等待迁移任务：${pending# }"
     sleep 2
   done
-
-  echo "等待初始化任务超时。" >&2
-  compose_cmd ps -a >&2
+  echo "等待迁移任务超时。" >&2
   return 1
 }
 
 wait_for_services() {
-  local services=(
-    mysql redis clickhouse kafka minio mailpit
-    identity-tenant audit model-config instrument-market mootdx-collector web
-  )
-  if readonly_profile_enabled; then
-    services+=(kms-adapter risk trading)
-  fi
+  local services=(mysql identity-tenant trading web)
   local deadline=$((SECONDS + ${QT_DEPLOY_WAIT_SECONDS:-300}))
   local container_id health pending service state
 
@@ -279,11 +186,6 @@ wait_for_services() {
     pending=""
     for service in "${services[@]}"; do
       container_id="$(compose_cmd ps -a -q "${service}")"
-      if [[ -z "${container_id}" ]]; then
-        pending="${pending} ${service}(未启动)"
-        continue
-      fi
-
       state="$(docker inspect --format '{{.State.Status}}' "${container_id}")"
       health="$(
         docker inspect \
@@ -300,16 +202,13 @@ wait_for_services() {
       fi
       pending="${pending} ${service}(${health})"
     done
-
     if [[ -z "${pending}" ]]; then
       return
     fi
     echo "等待服务健康：${pending# }"
     sleep 3
   done
-
   echo "等待服务健康超时。" >&2
-  compose_cmd ps >&2
   return 1
 }
 
@@ -320,34 +219,13 @@ case "${command}" in
     ;;
   up)
     require_deployment
+    require_binance_configuration
     compose_cmd config --quiet
     compose_cmd up -d --build --remove-orphans
     wait_for_jobs
     wait_for_services
-    web_port="${WEB_PORT:-$(sed -n 's/^WEB_PORT=//p' "${ENV_FILE}" | tail -n 1)}"
-    echo "部署完成：http://<服务器公网 IP>:${web_port:-80}"
+    echo "部署完成：$(env_value PUBLIC_BASE_URL)"
     compose_cmd ps -a
-    ;;
-  readonly-up)
-    require_readonly_configuration
-    require_deployment
-    export COMPOSE_PROFILES=binance-readonly
-    compose_cmd config --quiet
-    compose_cmd up -d --build --remove-orphans
-    wait_for_jobs
-    wait_for_services
-    echo "币安只读 UAT 部署完成：$(env_value PUBLIC_BASE_URL)"
-    compose_cmd ps -a
-    ;;
-  market-up)
-    require_deployment
-    compose_cmd config --quiet
-    compose_cmd build instrument-market-migrate mootdx-collector
-    compose_cmd run --rm --no-deps instrument-market-migrate
-    compose_cmd up -d --no-deps instrument-market
-    compose_cmd up -d --no-deps mootdx-collector
-    echo "行情服务已更新；请用 status 和 /status 核验采集覆盖与发送队列。"
-    compose_cmd ps instrument-market mootdx-collector
     ;;
   status)
     require_deployment
@@ -360,7 +238,7 @@ case "${command}" in
     ;;
   restart)
     require_deployment
-    compose_cmd restart identity-tenant audit model-config instrument-market mootdx-collector web
+    compose_cmd restart identity-tenant trading web
     compose_cmd ps -a
     ;;
   down)

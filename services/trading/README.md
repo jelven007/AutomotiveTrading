@@ -1,65 +1,32 @@
-# trading
+# Trading
 
-交易帐号、币安资金查询和订单执行服务。
+币安单账号服务，提供：
 
-> **迁移状态：** 当前代码仍是旧的自研 Binance Connector + KMS/Risk 实现。
-> 新的实现基线是
-> [`QT-DES-BIN-NT-001`](../../docs/plans/2026-09-20-binance-nautilustrader-integration-design.md)，
-> 实施步骤见
-> [`QT-PLAN-BIN-NT-001`](../../docs/plans/2026-09-20-binance-nautilustrader-integration-implementation-plan.md)。
-> 在迁移完成前不得把以下旧能力作为 Nautilus 方案验收证据。
+- HMAC API Key 安全替换与删除。
+- Binance 最小权限探测。
+- NautilusTrader Spot 与 USD-M 双客户端。
+- 现货余额、U 本位余额和非零持仓聚合查询。
+- AES-256-GCM 本地凭据加密。
 
-当前旧实现：
+阶段一接口：
 
-- 币安生产现货、全仓杠杆、逐仓杠杆和 U 本位永续帐号权限检查。
-- HMAC、RSA 和 Ed25519 REST 签名。
-- 余额/持仓快照、杠杆借还、U 本位杠杆设置。
-- 带幂等键、近期 MFA、风险审批和急停保护的下单与撤单。
-- 超时订单进入 `unknown`，不会自动重放。
+```text
+GET    /api/v1/trading/binance/account
+PUT    /api/v1/trading/binance/account
+DELETE /api/v1/trading/binance/account
+GET    /api/v1/trading/binance/overview
+```
 
-Run locally:
+本地启动：
 
 ```bash
 cp .env.example .env
 uv run uvicorn trading.main:app --reload
 ```
 
-本地凭据后端要求 `LOCAL_SECRET_ENCRYPTION_KEY` 为 Fernet Key。生产环境必须配置：
+生产环境必须挂载 32 字节主密钥，并保持：
 
 ```text
-ENVIRONMENT=production
-SECRET_BACKEND=kms
-KMS_URL=https://...
-KMS_SERVICE_TOKEN=<至少 32 字节的独立服务令牌>
-RISK_SERVICE_URL=https://...
-RISK_SERVICE_TOKEN=<至少 32 字节的独立服务令牌>
-ALLOW_INSECURE_INTERNAL_HTTP=false
 FIXED_EGRESS_IP_CONFIGURED=true
-LIVE_TRADING_ENABLED=true
-```
-
-缺少任一生产前置条件时，服务拒绝启用帐号或执行新增风险的写请求。首次配置时
-`LIVE_TRADING_ENABLED` 应保持 `false`，先完成只读同步和人工灰度。
-
-KMS Broker 的解析和删除请求始终同时传递 `tenant_id`；Risk 校验同时传递
-`X-Service-Token` 与单次使用的 `X-Risk-Approval`。两个服务不可用、返回非
-2xx 或响应格式错误时，Trading 均失败关闭。
-
-单机 UAT Compose Profile 使用 Docker 私有网络和
-`ALLOW_INSECURE_INTERNAL_HTTP=true`。该开关只接受 `kms-adapter`、`risk` 或
-本机回环地址，且生产环境会拒绝启动。正式生产必须使用内部 HTTPS。
-
-迁移后的目标：
-
-- 使用 NautilusTrader 1.231.0 的 Spot 与 USD-M 客户端。
-- 支持登录后添加多个帐号，但只运行一个活动帐号。
-- 使用 ECS 本地主密钥和 AES-256-GCM 加密凭据。
-- 不使用 KMS Adapter、独立 Risk Service、币安官方 SDK 或自研签名客户端。
-- 仅支持现货和 U 本位；U 本位支持杠杆及全仓/逐仓保证金模式。
-
-Create and apply a migration:
-
-```bash
-uv run alembic revision --autogenerate -m "describe change"
-uv run alembic upgrade head
+LIVE_TRADING_ENABLED=false
 ```

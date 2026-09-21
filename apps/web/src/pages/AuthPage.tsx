@@ -19,11 +19,6 @@ export function AuthPage() {
   const [email, setEmail] = useState(
     () => localStorage.getItem("qt.last_email") ?? "",
   );
-  const [tenantId, setTenantId] = useState(
-    () => localStorage.getItem("qt.last_tenant_id") ?? "",
-  );
-  const [displayName, setDisplayName] = useState("");
-  const [tenantName, setTenantName] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -47,9 +42,9 @@ export function AuthPage() {
     setError(null);
     try {
       if (mode === "login") {
-        await auth.login({ email, password, tenantId });
+        await auth.login({ email, password });
       } else {
-        await auth.register({ email, displayName, password, tenantName });
+        await auth.register({ email, password });
       }
     } catch (caught) {
       setError(
@@ -76,11 +71,11 @@ export function AuthPage() {
         </div>
         <div className="auth-context__content">
           <h1>进入交易工作区</h1>
-          <p>账户、策略和生产连接统一受租户权限控制。</p>
+          <p>安全管理唯一币安账号与账户数据。</p>
           <div className="auth-security-list">
             <span>
               <ShieldCheck size={17} />
-              租户隔离
+              权限隔离
             </span>
             <span>
               <LockKeyhole size={17} />
@@ -88,7 +83,7 @@ export function AuthPage() {
             </span>
             <span>
               <KeyRound size={17} />
-              凭据 KMS 托管
+              凭据本地加密
             </span>
           </div>
         </div>
@@ -113,7 +108,7 @@ export function AuthPage() {
               role="tab"
               type="button"
             >
-              创建租户
+              注册
             </button>
           </div>
 
@@ -121,37 +116,12 @@ export function AuthPage() {
             <h2>{mode === "login" ? "登录 Quant Desk" : "创建管理帐号"}</h2>
             <p>
               {mode === "login"
-                ? "使用所属租户的管理员帐号继续。"
-                : "首个帐号将成为新租户管理员。"}
+                ? "使用邮箱和密码继续。"
+                : "注册后即可进入交易工作区。"}
             </p>
           </div>
 
           <form className="auth-form" onSubmit={submit}>
-            {mode === "register" && (
-              <div className="auth-form-row">
-                <label className="field">
-                  <span>姓名</span>
-                  <input
-                    autoComplete="name"
-                    maxLength={120}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                    required
-                    value={displayName}
-                  />
-                </label>
-                <label className="field">
-                  <span>组织名称</span>
-                  <input
-                    autoComplete="organization"
-                    maxLength={160}
-                    onChange={(event) => setTenantName(event.target.value)}
-                    required
-                    value={tenantName}
-                  />
-                </label>
-              </div>
-            )}
-
             <label className="field">
               <span>邮箱</span>
               <input
@@ -162,18 +132,6 @@ export function AuthPage() {
                 value={email}
               />
             </label>
-
-            {mode === "login" && (
-              <label className="field">
-                <span>租户 ID</span>
-                <input
-                  autoComplete="organization"
-                  onChange={(event) => setTenantId(event.target.value)}
-                  required
-                  value={tenantId}
-                />
-              </label>
-            )}
 
             <label className="field">
               <span>密码</span>
@@ -226,11 +184,7 @@ export function AuthPage() {
               disabled={busy}
               type="submit"
             >
-              {busy
-                ? "正在验证..."
-                : mode === "login"
-                  ? "登录"
-                  : "创建并登录"}
+              {busy ? "正在验证..." : mode === "login" ? "登录" : "创建并登录"}
             </button>
           </form>
         </div>
@@ -241,10 +195,10 @@ export function AuthPage() {
 
 function authErrorMessage(error: AuthApiError): string {
   if (error.status === 401) {
-    return "邮箱、密码或租户 ID 不正确";
+    return "邮箱或密码不正确";
   }
   if (error.code === "registration.invalid") {
-    return error.message || "帐号或租户信息已存在";
+    return error.message || "该邮箱已注册";
   }
   return error.message;
 }

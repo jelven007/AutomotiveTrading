@@ -1,134 +1,65 @@
-import {
-  Bell,
-  CandlestickChart,
-  Database,
-  Home,
-  Newspaper,
-  Search,
-  Settings,
-  Waypoints,
-  Workflow,
-} from "lucide-react";
+import { LogOut, Workflow } from "lucide-react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 
-import { DataPage } from "../pages/DataPage";
-import { HomePage } from "../pages/HomePage";
-import { NewsPage } from "../pages/NewsPage";
-import { ModelServicesPage } from "../pages/settings/ModelServicesPage";
-import { StrategiesPage } from "../pages/StrategiesPage";
+import { useAuth } from "../features/auth/AuthContext";
+import { UserProfilePage } from "../pages/UserProfilePage";
 import { BinanceTradingPage } from "../pages/trading/BinanceTradingPage";
-import { CnTradingPage } from "../pages/trading/CnTradingPage";
-import { HkUsTradingPage } from "../pages/trading/HkUsTradingPage";
-
-const navigation = [
-  { label: "首页", to: "/", icon: Home, end: true },
-  { label: "资讯", to: "/news", icon: Newspaper },
-  { label: "策略", to: "/strategies", icon: Waypoints },
-  { label: "交易", to: "/trading", icon: CandlestickChart },
-  { label: "数据", to: "/data", icon: Database },
-];
 
 export function AppShell() {
+  const auth = useAuth();
+  const userEmail = auth.claims?.email ?? "当前用户";
+
   return (
     <div className="app-shell">
       <header className="appbar">
         <div className="appbar-lead">
-          <div className="brand">
+          <NavLink className="brand" to="/trading/binance">
             <span className="brand-mark" aria-hidden="true">
-              <Workflow size={20} strokeWidth={2.2} />
+              <Workflow size={19} strokeWidth={2.2} />
             </span>
-            <span>
-              <strong>Quant Desk</strong>
-              <small>交易决策中枢</small>
-            </span>
-          </div>
-
+            <strong>Quant Desk</strong>
+          </NavLink>
           <nav className="primary-nav" aria-label="主导航">
-            {navigation.map(({ label, to, icon: Icon, end }) => (
-              <NavLink
-                className={({ isActive }) =>
-                  `nav-item${isActive ? " is-active" : ""}`
-                }
-                end={end}
-                key={to}
-                to={to}
-              >
-                <Icon size={18} strokeWidth={1.8} />
-                <span>{label}</span>
-              </NavLink>
-            ))}
+            <NavLink
+              className={({ isActive }) =>
+                `nav-item${isActive ? " is-active" : ""}`
+              }
+              to="/trading/binance"
+            >
+              币安
+            </NavLink>
           </nav>
         </div>
 
         <div className="appbar-trail">
-          <span className="status-pill" title="系统运行正常，数据延迟 128ms">
-            <span className="status-dot status-dot--ok" />
-            系统正常 · 128ms
-          </span>
-
-          <div className="context-controls">
-            <label className="select-control">
-              <span>租户</span>
-              <select aria-label="当前租户" defaultValue="本地工作区">
-                <option>本地工作区</option>
-              </select>
-            </label>
-            <label className="select-control">
-              <span>市场</span>
-              <select aria-label="当前市场" defaultValue="全部市场">
-                <option>全部市场</option>
-                <option>A 股</option>
-                <option>港股</option>
-                <option>美股</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="topbar-actions">
-            <button
-              className="icon-button search-button"
-              aria-label="搜索"
-              title="搜索"
-            >
-              <Search size={18} />
-            </button>
-            <button
-              className="icon-button has-indicator"
-              aria-label="通知"
-              title="通知"
-            >
-              <Bell size={18} />
-            </button>
-            <NavLink
-              className="icon-button"
-              aria-label="租户设置"
-              title="租户设置"
-              to="/settings/model-services"
-            >
-              <Settings size={18} />
-            </NavLink>
-          </div>
+          <NavLink
+            aria-label={`用户详情 ${userEmail}`}
+            className="user-context"
+            title={userEmail}
+            to="/user"
+          >
+            {userEmail}
+          </NavLink>
+          <button
+            aria-label="退出登录"
+            className="icon-button"
+            onClick={() => void auth.logout()}
+            title="退出登录"
+            type="button"
+          >
+            <LogOut size={17} />
+          </button>
         </div>
       </header>
 
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/news" element={<NewsPage />} />
-          <Route path="/strategies" element={<StrategiesPage />} />
-          <Route
-            path="/trading"
-            element={<Navigate replace to="/trading/cn" />}
-          />
-          <Route path="/trading/cn" element={<CnTradingPage />} />
-          <Route path="/trading/hk-us" element={<HkUsTradingPage />} />
           <Route path="/trading/binance" element={<BinanceTradingPage />} />
-          <Route path="/data" element={<DataPage />} />
+          <Route path="/user" element={<UserProfilePage />} />
           <Route
-            path="/settings/model-services"
-            element={<ModelServicesPage />}
+            path="*"
+            element={<Navigate replace to="/trading/binance" />}
           />
-          <Route path="*" element={<HomePage />} />
         </Routes>
       </main>
     </div>

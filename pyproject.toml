@@ -1,34 +1,29 @@
 [project]
 name = "quant-trading-saas"
 version = "0.1.0"
-description = "Multi-tenant quantitative trading SaaS"
+description = "Minimal Binance account and trading system"
 requires-python = ">=3.12,<3.13"
 dependencies = []
 
 [dependency-groups]
 dev = [
   "bandit>=1.8,<2",
-  "grpcio-tools>=1.75.1,<2",
   "httpx>=0.28.1,<0.29",
-  "jsonschema>=4.25.1,<5",
   "mypy>=1.18.2,<2",
   "pre-commit>=4.3.0,<5",
   "pytest>=8.4.2,<9",
   "pytest-asyncio>=1.2.0,<2",
-  "python-dotenv>=1.1,<2",
   "pyyaml>=6.0.2,<7",
   "ruff>=0.13.1,<0.14",
 ]
 
 [tool.uv.workspace]
-members = ["packages/*", "services/*"]
-exclude = ["packages/contracts", "packages/ts-api-client", "services/.gitkeep", "services/mootdx-collector"]
+members = ["services/identity-tenant", "services/trading"]
 
 [tool.pytest.ini_options]
 addopts = "-ra --import-mode=importlib"
 testpaths = ["packages", "services", "scripts/tests", "tests"]
-# Sidecar 使用自己的依赖与测试环境，避免根 pytest 混用两个 httpx 版本。
-norecursedirs = ["mootdx-collector", ".*", "node_modules", "dist", "build"]
+norecursedirs = [".*", "node_modules", "dist", "build"]
 
 [tool.ruff]
 target-version = "py312"

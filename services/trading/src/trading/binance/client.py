@@ -1,576 +1,130 @@
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 from time import time
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import Any
 from urllib.parse import urlencode, urlparse
 
 import httpx
 
-from trading.accounts import AccountPermissionSnapshot
-from trading.binance.errors import BinanceConnectorError, BinanceWriteTimeout
+from trading.binance.errors import BinanceConnectorError
+from trading.binance.permissions import AccountPermissionSnapshot
 from trading.binance.signing import BinanceSigner
-from trading.models import AccountScopeType, CredentialType, OrderStatus
 
-if TYPE_CHECKING:
-    from trading.orders import (
-        MarginSideEffect,
-        OrderExecutionResult,
-        OrderSide,
-        OrderType,
-        PositionSide,
-    )
-
-OFFICIAL_HOSTS = frozenset({"api.binance.com", "fapi.binance.com"})
+PERMISSION_PATH = "/sapi/v1/account/apiRestrictions"
+OFFICIAL_HOSTS = frozenset({"api.binance.com", "testnet.binance.vision"})
 ERROR_CODES = {
     -1021: ("binance.clock_skew", "Binance rejected the request timestamp"),
     -1022: ("binance.signature_invalid", "Binance rejected the request signature"),
     -2015: ("binance.credentials_invalid", "Binance API credentials or permissions are invalid"),
 }
-ORDER_STATUS_MAP = {
-    "NEW": OrderStatus.SUBMITTED,
-    "PARTIALLY_FILLED": OrderStatus.PARTIALLY_FILLED,
-    "FILLED": OrderStatus.FILLED,
-    "CANCELED": OrderStatus.CANCELLED,
-    "REJECTED": OrderStatus.REJECTED,
-    "EXPIRED": OrderStatus.REJECTED,
-    "EXPIRED_IN_MATCH": OrderStatus.REJECTED,
-}
-MARGIN_SIDE_EFFECTS = {
-    "none": "NO_SIDE_EFFECT",
-    "borrow": "MARGIN_BUY",
-    "repay": "AUTO_REPAY",
-    "auto_borrow_repay": "AUTO_BORROW_REPAY",
-}
 
 
-@dataclass(frozen=True, repr=False)
-class BinanceCredentials:
-    api_key: str
-    private_key_or_secret: str
-    credential_type: CredentialType
-
-    def __repr__(self) -> str:
-        return f"BinanceCredentials(credential_type={self.credential_type.value!r})"
-
-
-class BinanceClient:
+class BinancePermissionProbe:
     def __init__(
         self,
         *,
         http: httpx.Client,
-        spot_base_url: str = "https://api.binance.com",
-        futures_base_url: str = "https://fapi.binance.com",
+        base_url: str = "https://api.binance.com",
         recv_window_ms: int = 5_000,
         clock_ms: Callable[[], int] | None = None,
     ) -> None:
-        self._validate_base_url(spot_base_url)
-        self._validate_base_url(futures_base_url)
+        self._validate_base_url(base_url)
         if not 1 <= recv_window_ms <= 5_000:
             raise ValueError("recvWindow must be between 1 and 5000 milliseconds")
-        self.http = http
-        self.spot_base_url = spot_base_url.rstrip("/")
-        self.futures_base_url = futures_base_url.rstrip("/")
-        self.recv_window_ms = recv_window_ms
-        self.clock_ms = clock_ms or (lambda: int(time() * 1000))
-        self._time_offsets: dict[str, int] = {}
+        self._http = http
+        self._base_url = base_url.rstrip("/")
+        self._recv_window_ms = recv_window_ms
+        self._clock_ms = clock_ms or (lambda: int(time() * 1000))
 
     def inspect(
         self,
         *,
-        credential_type: CredentialType,
         api_key: str,
-        private_key_or_secret: str,
-        scopes: tuple[AccountScopeType, ...],
-        isolated_symbols: tuple[str, ...],
+        api_secret: str,
     ) -> AccountPermissionSnapshot:
-        credentials = BinanceCredentials(
-            api_key=api_key,
-            private_key_or_secret=private_key_or_secret,
-            credential_type=credential_type,
-        )
-        key_permissions = self.signed_request(
-            "GET",
-            "/sapi/v1/account/apiRestrictions",
-            credentials,
-        )
-        ip_restricted = self._required_boolean(key_permissions, "ipRestrict")
-        can_read = self._required_boolean(key_permissions, "enableReading")
-        spot_and_margin_trading = self._required_boolean(
-            key_permissions,
-            "enableSpotAndMarginTrading",
-        )
-        margin_enabled = self._required_boolean(key_permissions, "enableMargin")
-        can_futures_trade = self._required_boolean(key_permissions, "enableFutures")
-        can_withdraw = self._required_boolean(key_permissions, "enableWithdrawals")
-        can_internal_transfer = self._required_boolean(
-            key_permissions,
-            "enableInternalTransfer",
-        )
-        can_universal_transfer = self._required_boolean(
-            key_permissions,
-            "permitsUniversalTransfer",
-        )
-        expiration_time_ms = self._required_non_negative_integer(
-            key_permissions,
-            "tradingAuthorityExpirationTime",
-        )
-        trading_authority_expiration_time_ms = expiration_time_ms or None
-        fallback_ref = f"key-{sha256(api_key.encode()).hexdigest()[:16]}"
-        if (
-            not can_read
-            or can_withdraw
-            or can_internal_transfer
-            or can_universal_transfer
-            or not ip_restricted
-        ):
-            return AccountPermissionSnapshot(
-                external_account_ref=fallback_ref,
-                ip_restricted=ip_restricted,
-                can_read=can_read,
-                can_spot_trade=spot_and_margin_trading,
-                can_margin_trade=spot_and_margin_trading and margin_enabled,
-                can_futures_trade=can_futures_trade,
-                can_withdraw=can_withdraw,
-                can_internal_transfer=can_internal_transfer,
-                can_universal_transfer=can_universal_transfer,
-                trading_authority_expiration_time_ms=(trading_authority_expiration_time_ms),
-            )
+        payload = self._fetch_permissions(api_key, api_secret)
+        permissions = self._map_permissions(api_key, payload)
+        self._validate_permissions(permissions)
+        return permissions
 
-        spot = self.signed_request("GET", "/api/v3/account", credentials)
-        requested = set(scopes)
-
-        if AccountScopeType.CROSS_MARGIN in requested:
-            self.signed_request(
-                "GET",
-                "/sapi/v1/margin/account",
-                credentials,
-            )
-        if AccountScopeType.ISOLATED_MARGIN in requested:
-            isolated = self.signed_request(
-                "GET",
-                "/sapi/v1/margin/isolated/account",
-                credentials,
-                params={"symbols": ",".join(isolated_symbols)},
-            )
-            assets = isolated.get("assets", [])
-            enabled_symbols = {
-                str(asset.get("symbol", "")).upper()
-                for asset in assets
-                if isinstance(asset, dict) and asset.get("enabled") is True
-            }
-            if not set(isolated_symbols).issubset(enabled_symbols):
-                raise BinanceConnectorError(
-                    "binance.scope_unavailable",
-                    "Binance isolated margin scope is unavailable",
-                )
-
-        if AccountScopeType.USDM_FUTURES in requested:
-            self.signed_request(
-                "GET",
-                "/fapi/v3/account",
-                credentials,
-            )
-
-        return AccountPermissionSnapshot(
-            external_account_ref=str(spot.get("uid") or fallback_ref),
-            ip_restricted=ip_restricted,
-            can_read=can_read,
-            can_spot_trade=spot_and_margin_trading,
-            can_margin_trade=spot_and_margin_trading and margin_enabled,
-            can_futures_trade=can_futures_trade,
-            can_withdraw=can_withdraw,
-            can_internal_transfer=can_internal_transfer,
-            can_universal_transfer=can_universal_transfer,
-            trading_authority_expiration_time_ms=trading_authority_expiration_time_ms,
-        )
-
-    def submit_order(
+    def _fetch_permissions(
         self,
-        *,
-        scope: AccountScopeType,
-        symbol: str,
-        side: "OrderSide",
-        order_type: "OrderType",
-        quantity: str,
-        limit_price: str | None,
-        time_in_force: str | None,
-        position_side: "PositionSide | None",
-        reduce_only: bool,
-        margin_side_effect: "MarginSideEffect",
-        client_order_id: str,
-        credentials: BinanceCredentials,
-    ) -> "OrderExecutionResult":
-        from trading.orders import OrderExecutionResult
-
-        self._validate_order_filters(
-            scope=scope,
-            symbol=symbol,
-            order_type=order_type.value,
-            quantity=quantity,
-            limit_price=limit_price,
-        )
-        path = self._order_path(scope)
-        params: dict[str, str | int | bool] = {
-            "symbol": symbol,
-            "side": side.value.upper(),
-            "type": order_type.value.upper(),
-            "quantity": quantity,
-            "newClientOrderId": client_order_id,
+        api_key: str,
+        api_secret: str,
+    ) -> Mapping[str, Any]:
+        params = {
+            "recvWindow": str(self._recv_window_ms),
+            "timestamp": str(self._clock_ms()),
         }
-        if limit_price is not None:
-            params["price"] = limit_price
-        if time_in_force is not None:
-            params["timeInForce"] = time_in_force
-        if scope in {
-            AccountScopeType.CROSS_MARGIN,
-            AccountScopeType.ISOLATED_MARGIN,
-        }:
-            params["isIsolated"] = "TRUE" if scope is AccountScopeType.ISOLATED_MARGIN else "FALSE"
-            params["sideEffectType"] = MARGIN_SIDE_EFFECTS[margin_side_effect.value]
-        if scope is AccountScopeType.USDM_FUTURES:
-            if position_side is not None:
-                params["positionSide"] = position_side.value.upper()
-            params["reduceOnly"] = reduce_only
-
-        payload = self.signed_request("POST", path, credentials, params=params)
-        broker_order_id = payload.get("orderId")
-        if broker_order_id is None:
-            raise BinanceConnectorError(
-                "binance.response_invalid",
-                "Binance order response is missing orderId",
-            )
-        return OrderExecutionResult(
-            broker_order_id=str(broker_order_id),
-            status=ORDER_STATUS_MAP.get(
-                str(payload.get("status")),
-                OrderStatus.UNKNOWN,
-            ),
-            filled_quantity=str(payload.get("executedQty", "0")),
-            average_price=(
-                str(payload["avgPrice"]) if payload.get("avgPrice") not in {None, "0"} else None
-            ),
-        )
-
-    def query_order(
-        self,
-        *,
-        scope: AccountScopeType,
-        symbol: str,
-        client_order_id: str,
-        credentials: BinanceCredentials,
-    ) -> "OrderExecutionResult":
-        from trading.orders import OrderExecutionResult
-
-        params: dict[str, str | int | bool] = {
-            "symbol": symbol,
-            "origClientOrderId": client_order_id,
-        }
-        if scope in {
-            AccountScopeType.CROSS_MARGIN,
-            AccountScopeType.ISOLATED_MARGIN,
-        }:
-            params["isIsolated"] = "TRUE" if scope is AccountScopeType.ISOLATED_MARGIN else "FALSE"
-        payload = self.signed_request(
-            "GET",
-            self._order_path(scope),
-            credentials,
-            params=params,
-        )
-        return OrderExecutionResult(
-            broker_order_id=str(payload.get("orderId", "")),
-            status=ORDER_STATUS_MAP.get(
-                str(payload.get("status")),
-                OrderStatus.UNKNOWN,
-            ),
-            filled_quantity=str(payload.get("executedQty", "0")),
-            average_price=(
-                str(payload["avgPrice"]) if payload.get("avgPrice") not in {None, "0"} else None
-            ),
-        )
-
-    def cancel_order(
-        self,
-        *,
-        scope: AccountScopeType,
-        symbol: str,
-        client_order_id: str,
-        credentials: BinanceCredentials,
-    ) -> "OrderExecutionResult":
-        from trading.orders import OrderExecutionResult
-
-        params: dict[str, str | int | bool] = {
-            "symbol": symbol,
-            "origClientOrderId": client_order_id,
-        }
-        if scope in {
-            AccountScopeType.CROSS_MARGIN,
-            AccountScopeType.ISOLATED_MARGIN,
-        }:
-            params["isIsolated"] = "TRUE" if scope is AccountScopeType.ISOLATED_MARGIN else "FALSE"
-        payload = self.signed_request(
-            "DELETE",
-            self._order_path(scope),
-            credentials,
-            params=params,
-        )
-        return OrderExecutionResult(
-            broker_order_id=str(payload.get("orderId", "")),
-            status=ORDER_STATUS_MAP.get(
-                str(payload.get("status")),
-                OrderStatus.CANCELLED,
-            ),
-            filled_quantity=str(payload.get("executedQty", "0")),
-        )
-
-    def margin_borrow_repay(
-        self,
-        *,
-        scope: AccountScopeType,
-        asset: str,
-        amount: str,
-        action: str,
-        credentials: BinanceCredentials,
-        isolated_symbol: str | None = None,
-    ) -> str:
-        if scope not in {
-            AccountScopeType.CROSS_MARGIN,
-            AccountScopeType.ISOLATED_MARGIN,
-        }:
-            raise ValueError("borrow and repay require a margin scope")
-        if action not in {"BORROW", "REPAY"}:
-            raise ValueError("margin action must be BORROW or REPAY")
-        params: dict[str, str | int | bool] = {
-            "asset": asset.upper(),
-            "amount": amount,
-            "type": action,
-            "isIsolated": scope is AccountScopeType.ISOLATED_MARGIN,
-        }
-        if scope is AccountScopeType.ISOLATED_MARGIN:
-            if not isolated_symbol:
-                raise ValueError("isolated margin requires a symbol")
-            params["symbol"] = isolated_symbol.upper()
-        payload = self.signed_request(
-            "POST",
-            "/sapi/v1/margin/borrow-repay",
-            credentials,
-            params=params,
-        )
-        return str(payload["tranId"])
-
-    def account_snapshot(
-        self,
-        *,
-        scope: AccountScopeType,
-        credentials: BinanceCredentials,
-        isolated_symbols: tuple[str, ...] = (),
-    ) -> dict[str, Any]:
-        paths = {
-            AccountScopeType.SPOT: "/api/v3/account",
-            AccountScopeType.CROSS_MARGIN: "/sapi/v1/margin/account",
-            AccountScopeType.ISOLATED_MARGIN: "/sapi/v1/margin/isolated/account",
-            AccountScopeType.USDM_FUTURES: "/fapi/v3/account",
-        }
-        params: dict[str, str] = {}
-        if scope is AccountScopeType.ISOLATED_MARGIN:
-            if not isolated_symbols:
-                raise ValueError("isolated margin snapshot requires symbols")
-            params["symbols"] = ",".join(symbol.upper() for symbol in isolated_symbols)
-        return self.signed_request(
-            "GET",
-            paths[scope],
-            credentials,
-            params=params,
-        )
-
-    def set_futures_leverage(
-        self,
-        *,
-        symbol: str,
-        leverage: int,
-        credentials: BinanceCredentials,
-    ) -> dict[str, Any]:
-        if not 1 <= leverage <= 125:
-            raise ValueError("futures leverage must be between 1 and 125")
-        return self.signed_request(
-            "POST",
-            "/fapi/v1/leverage",
-            credentials,
-            params={"symbol": symbol.upper(), "leverage": leverage},
-        )
-
-    def signed_request(
-        self,
-        method: str,
-        path: str,
-        credentials: BinanceCredentials,
-        *,
-        params: Mapping[str, str | int | bool] | None = None,
-    ) -> dict[str, Any]:
-        base_url = self._base_url(path)
-        if base_url not in self._time_offsets:
-            self._synchronize_time(base_url)
-
-        signed_params = {key: self._parameter_value(value) for key, value in (params or {}).items()}
-        signed_params["recvWindow"] = str(self.recv_window_ms)
-        signed_params["timestamp"] = str(self.clock_ms() + self._time_offsets[base_url])
-        payload = urlencode(list(signed_params.items()))
-        signed_params["signature"] = BinanceSigner.sign(
-            credentials.credential_type,
-            credentials.private_key_or_secret,
-            payload,
-        )
+        query = urlencode(list(params.items()))
+        params["signature"] = BinanceSigner.sign(api_secret, query)
         try:
-            response = self.http.request(
-                method,
-                f"{base_url}{path}",
-                headers={"X-MBX-APIKEY": credentials.api_key},
-                params=signed_params,
+            response = self._http.get(
+                f"{self._base_url}{PERMISSION_PATH}",
+                headers={"X-MBX-APIKEY": api_key},
+                params=params,
                 timeout=5,
             )
         except httpx.TimeoutException as error:
-            if method.upper() in {"POST", "PUT", "DELETE"}:
-                raise BinanceWriteTimeout() from error
             raise BinanceConnectorError(
                 "binance.timeout",
-                "Binance request timed out",
+                "Binance permission request timed out",
             ) from error
         return self._response_json(response)
 
-    def _validate_order_filters(
-        self,
-        *,
-        scope: AccountScopeType,
-        symbol: str,
-        order_type: str,
-        quantity: str,
-        limit_price: str | None,
-    ) -> None:
-        base_url = (
-            self.futures_base_url if scope is AccountScopeType.USDM_FUTURES else self.spot_base_url
-        )
-        path = (
-            "/fapi/v1/exchangeInfo"
-            if scope is AccountScopeType.USDM_FUTURES
-            else "/api/v3/exchangeInfo"
-        )
-        try:
-            response = self.http.get(
-                f"{base_url}{path}",
-                params={"symbol": symbol},
-                timeout=3,
-            )
-        except httpx.TimeoutException as error:
-            raise BinanceConnectorError(
-                "binance.exchange_info_unavailable",
-                "Binance exchange rules are unavailable",
-            ) from error
-        payload = self._response_json(response)
-        symbols = payload.get("symbols")
-        if not isinstance(symbols, list) or len(symbols) != 1:
-            self._filter_error("symbol is unavailable")
-        symbol_info = symbols[0]
-        if not isinstance(symbol_info, dict) or symbol_info.get("status") != "TRADING":
-            self._filter_error("symbol is not trading")
-        filters = {
-            item.get("filterType"): item
-            for item in symbol_info.get("filters", [])
-            if isinstance(item, dict)
-        }
-        try:
-            quantity_value = Decimal(quantity)
-            lot_size = filters.get("LOT_SIZE", {})
-            self._validate_range_and_step(
-                "quantity",
-                quantity_value,
-                Decimal(str(lot_size.get("minQty", "0"))),
-                Decimal(str(lot_size.get("maxQty", "0"))),
-                Decimal(str(lot_size.get("stepSize", "0"))),
-            )
-            if order_type == "limit" and limit_price is not None:
-                price_value = Decimal(limit_price)
-                price_filter = filters.get("PRICE_FILTER", {})
-                self._validate_range_and_step(
-                    "price",
-                    price_value,
-                    Decimal(str(price_filter.get("minPrice", "0"))),
-                    Decimal(str(price_filter.get("maxPrice", "0"))),
-                    Decimal(str(price_filter.get("tickSize", "0"))),
-                )
-                notional_filter = filters.get("NOTIONAL") or filters.get(
-                    "MIN_NOTIONAL",
-                    {},
-                )
-                minimum_notional = Decimal(str(notional_filter.get("minNotional", "0")))
-                if minimum_notional > 0 and quantity_value * price_value < minimum_notional:
-                    self._filter_error("order notional is below the minimum")
-        except InvalidOperation as error:
-            raise BinanceConnectorError(
-                "binance.order_filter_rejected",
-                "Order quantity or price is invalid",
-            ) from error
-
     @classmethod
-    def _validate_range_and_step(
+    def _map_permissions(
         cls,
-        name: str,
-        value: Decimal,
-        minimum: Decimal,
-        maximum: Decimal,
-        step: Decimal,
-    ) -> None:
-        if minimum > 0 and value < minimum:
-            cls._filter_error(f"{name} is below the minimum")
-        if maximum > 0 and value > maximum:
-            cls._filter_error(f"{name} exceeds the maximum")
-        if step > 0 and value % step != 0:
-            cls._filter_error(f"{name} does not match the required step")
-
-    @staticmethod
-    def _filter_error(message: str) -> NoReturn:
-        raise BinanceConnectorError(
-            "binance.order_filter_rejected",
-            message,
+        api_key: str,
+        payload: Mapping[str, Any],
+    ) -> AccountPermissionSnapshot:
+        expiration_time_ms = cls._required_non_negative_integer(
+            payload,
+            "tradingAuthorityExpirationTime",
+        )
+        return AccountPermissionSnapshot(
+            external_account_ref=f"key-{sha256(api_key.encode()).hexdigest()[:16]}",
+            ip_restricted=cls._required_boolean(payload, "ipRestrict"),
+            can_read=cls._required_boolean(payload, "enableReading"),
+            can_spot_trade=cls._required_boolean(
+                payload,
+                "enableSpotAndMarginTrading",
+            ),
+            can_margin_trade=cls._required_boolean(payload, "enableMargin"),
+            can_futures_trade=cls._required_boolean(payload, "enableFutures"),
+            can_withdraw=cls._required_boolean(payload, "enableWithdrawals"),
+            can_internal_transfer=cls._required_boolean(
+                payload,
+                "enableInternalTransfer",
+            ),
+            can_universal_transfer=cls._required_boolean(
+                payload,
+                "permitsUniversalTransfer",
+            ),
+            trading_authority_expiration_time_ms=expiration_time_ms or None,
         )
 
-    def _synchronize_time(self, base_url: str) -> None:
-        path = "/fapi/v1/time" if base_url == self.futures_base_url else "/api/v3/time"
-        try:
-            response = self.http.get(f"{base_url}{path}", timeout=3)
-        except httpx.TimeoutException as error:
+    @staticmethod
+    def _validate_permissions(permissions: AccountPermissionSnapshot) -> None:
+        if not permissions.can_read:
             raise BinanceConnectorError(
-                "binance.time_unavailable",
-                "Binance server time is unavailable",
-            ) from error
-        payload = self._response_json(response)
-        server_time = payload.get("serverTime")
-        if not isinstance(server_time, int):
-            raise BinanceConnectorError(
-                "binance.response_invalid",
-                "Binance server time response is invalid",
+                "binance.read_permission_required",
+                "Binance account read permission is required",
             )
-        self._time_offsets[base_url] = server_time - self.clock_ms()
-
-    def _base_url(self, path: str) -> str:
-        return self.futures_base_url if path.startswith("/fapi/") else self.spot_base_url
-
-    @staticmethod
-    def _order_path(scope: AccountScopeType) -> str:
-        if scope is AccountScopeType.SPOT:
-            return "/api/v3/order"
-        if scope in {
-            AccountScopeType.CROSS_MARGIN,
-            AccountScopeType.ISOLATED_MARGIN,
-        }:
-            return "/sapi/v1/margin/order"
-        return "/fapi/v1/order"
-
-    @staticmethod
-    def _parameter_value(value: str | int | bool) -> str:
-        if isinstance(value, bool):
-            return str(value).lower()
-        return str(value)
+        if not permissions.ip_restricted:
+            raise BinanceConnectorError(
+                "binance.ip_not_allowed",
+                "Binance API key must restrict access to the fixed egress IP",
+            )
+        if (
+            permissions.can_withdraw
+            or permissions.can_internal_transfer
+            or permissions.can_universal_transfer
+        ):
+            raise BinanceConnectorError(
+                "binance.unsafe_permissions",
+                "Binance withdrawal and transfer permissions must be disabled",
+            )
 
     @staticmethod
     def _required_boolean(payload: Mapping[str, Any], field: str) -> bool:
@@ -637,3 +191,6 @@ class BinanceClient:
             or parsed.fragment
         ):
             raise ValueError("only official Binance HTTPS hosts are allowed")
+
+
+__all__ = ["BinancePermissionProbe"]

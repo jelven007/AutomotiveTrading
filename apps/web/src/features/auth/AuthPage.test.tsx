@@ -21,14 +21,12 @@ describe("AuthPage", () => {
     });
 
     await user.type(screen.getByLabelText("邮箱"), "admin@example.com");
-    await user.type(screen.getByLabelText("租户 ID"), "tenant-a");
     await user.type(screen.getByLabelText("密码"), "strong-password");
     await user.click(screen.getByRole("button", { name: "登录" }));
 
     expect(login).toHaveBeenCalledWith({
       email: "admin@example.com",
       password: "strong-password",
-      tenantId: "tenant-a",
     });
   });
 
@@ -42,17 +40,13 @@ describe("AuthPage", () => {
       register,
     });
 
-    await user.click(screen.getByRole("tab", { name: "创建租户" }));
-    await user.type(screen.getByLabelText("姓名"), "张路");
-    await user.type(screen.getByLabelText("组织名称"), "星河资本");
+    await user.click(screen.getByRole("tab", { name: "注册" }));
     await user.type(screen.getByLabelText("邮箱"), "admin@example.com");
     await user.type(screen.getByLabelText("密码"), "strong-password");
     await user.type(screen.getByLabelText("确认密码"), "different-password");
     await user.click(screen.getByRole("button", { name: "创建并登录" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "两次输入的密码不一致",
-    );
+    expect(screen.getByRole("alert")).toHaveTextContent("两次输入的密码不一致");
     expect(register).not.toHaveBeenCalled();
   });
 });
