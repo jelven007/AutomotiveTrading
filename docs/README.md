@@ -4,6 +4,7 @@
 
 ## 当前基线
 
+- [技术方案总览](architecture/2026-09-21-technical-overview.md)
 - [单账号分阶段设计](plans/2026-09-21-binance-single-account-phased-design.md)
 - [分阶段实施计划](plans/2026-09-21-binance-single-account-phased-implementation-plan.md)
 - [最小系统清理计划](plans/2026-09-21-minimal-binance-system-cleanup.md)
