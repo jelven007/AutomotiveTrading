@@ -102,9 +102,10 @@ mootdx 0.11.7 固定依赖 `httpx < 0.26`，因此不得与平台统一使用
 7. Trading 更新账本、持仓和资金镜像。
 8. Reconciliation 定时校验券商/交易所实际状态。
 
-币安是当前单机部署的例外：Trading Service 内部直接托管 Nautilus Runtime，
-由 Nautilus 完成交易所执行和恢复对账；不经过独立 Connector、Risk Service
-或 Kafka/Outbox。平台仍在调用 Nautilus 前执行本地同步风控和幂等落库。
+币安是当前个人 ECS 部署的例外：Trading Service 内部直接托管唯一 Nautilus
+Runtime。阶段一只查询权限、现货余额、U 本位余额和持仓；阶段二才开放人工下单、
+撤单、杠杆和保证金模式。币安链路不经过独立 Connector、Risk Service 或
+Kafka/Outbox。
 
 ### 4.3 回测链路
 
@@ -158,31 +159,42 @@ mootdx 0.11.7 固定依赖 `httpx < 0.26`，因此不得与平台统一使用
 ## 8. 币安 NautilusTrader 架构
 
 币安接入运行在 Trading Service 内部，由一个 NautilusTrader `LiveNode`
-提供统一市场数据和执行能力。当前个人单用户 ECS 可以保存多个币安帐号，
-但同一时间只能运行一个活动帐号。
+提供统一账户状态和执行能力。每个用户只能保存一个 HMAC 币安帐号，重新绑定
+成功后覆盖旧帐号，不提供帐号激活、停用和切换。
 
 运行时包含：
 
 1. Local Credential Vault：使用 ECS 只读主密钥和 AES-256-GCM 加密帐号凭据。
-2. Runtime Manager：创建、切换和停止唯一 LiveNode。
-3. `BINANCE_SPOT`：现货数据与执行客户端。
-4. `BINANCE_FUTURES`：U 本位数据与执行客户端。
-5. Portfolio Projection：将余额、订单、成交和持仓投影到 Web。
-6. Local Risk Guard：同步执行急停、金额、仓位、杠杆和每日亏损限制。
+2. Single Account Service：验证并原子替换唯一帐号。
+3. Permission Probe：只调用 Binance API Key 权限查询接口。
+4. Runtime Manager：创建、替换和停止唯一 LiveNode。
+5. `BINANCE_SPOT`：现货账户和阶段二执行客户端。
+6. `BINANCE_FUTURES`：U 本位账户、持仓和阶段二执行客户端。
+7. Overview Service：按需聚合权限、余额和持仓，并允许单侧降级。
 
-不再维护自研 Binance REST 签名、WebSocket、User Data Stream、独立 Connector、
-KMS Adapter、远程 Risk Service 或 Binance 专用 Kafka/Outbox。业务代码只能使用
-NautilusTrader 公共 API，不得依赖其内部低层客户端。
+阶段一不创建余额或持仓历史表，不运行后台同步任务，也不向页面推送账户
+WebSocket。聚合查询默认复用最多 5 秒的进程内快照，手动刷新时绕过快照。
 
-帐号切换时先停止接受新订单，再停止旧节点、清除内存凭据、启动新节点并完成
-Spot/USD-M 对账。对账成功前禁止交易，切换失败时不自动回切。
+阶段二在同一运行时增加：
 
-产品范围只有 `spot` 和 `usdm_futures`。现货杠杆借还款、币本位、期权和交割合约
-由 API 能力矩阵直接拒绝。U 本位支持杠杆倍数、全仓/逐仓保证金模式、
-单向/双向持仓和 `reduceOnly`。
+- 现货和 U 本位市价单、限价单及单笔撤单。
+- U 本位杠杆和 `cross|isolated` 保证金模式。
+- 订单、成交和幂等记录。
+- 最长 15 分钟的 MFA 交易会话。
+
+所有交易写请求必须携带 `Idempotency-Key`。结果不确定时进入
+`pending_reconciliation`，不得自动重发。自动策略订单始终拒绝。
+
+不维护通用自研 Binance REST/WebSocket 客户端。由于 Nautilus 不完整暴露 API
+Key 权限字段，仅保留最小签名 REST 权限探测；该客户端不得包含订单、撤单或
+资产划转方法。币安链路不依赖 KMS Adapter、远程 Risk Service 或专用
+Kafka/Outbox。
+
+产品范围只有 `spot` 和 `usdm_futures`。不支持现货杠杆、借还款、资产划转、
+批量撤单、条件单、双向持仓、币本位、期权和交割合约。
 
 完整模块、数据流、依赖、权衡和迁移方案见
-[`QT-DES-BIN-NT-001`](../plans/2026-09-20-binance-nautilustrader-integration-design.md)。
+[`QT-DES-BIN-SIMPLE-001`](../plans/2026-09-21-binance-single-account-phased-design.md)。
 
 ## 9. 网络与安全边界
 
@@ -191,7 +203,7 @@ Spot/USD-M 对账。对账成功前禁止交易，切换失败时不自动回切
 - Broker Connector 使用独立命名空间、节点池和出口白名单；单机币安链路由
   Trading Service 内部 Nautilus Runtime 承载。
 - 币安生产 Key 必须配置固定出口 IP 白名单，禁止提现权限。
-- 币安权限由连接测试和人工控制台确认共同准入；生产写权限默认关闭。
+- 币安权限由最小权限探测和人工控制台确认共同准入；生产写权限默认关闭。
 - Backtest Runner 默认无网络策略。
 - 模型调用只能由 Model Gateway 发起。
 - 模型与其他券商的 KMS 权限按服务身份授予；币安凭据使用本地主密钥加密入库。
@@ -203,7 +215,8 @@ Spot/USD-M 对账。对账成功前禁止交易，切换失败时不自动回切
 - Model Provider 异常：按策略允许的备用模型降级，否则观望。
 - Risk 异常：Fail closed。
 - Broker 异常：禁止新订单，保留撤单与减仓。
-- 币安 Nautilus 客户端异常：暂停对应产品写入，恢复后先对账。
+- 币安 Nautilus 客户端异常：查询按 Spot/USD-M 局部降级；阶段二暂停对应产品
+  写入，恢复后先对账。
 - U 本位进入追加保证金、预强平或强平状态：强制进入保护模式。
 - Kafka 异常：本地 Outbox 持久化，不确认未落盘事件。
 - ClickHouse 异常：交易主链路继续，分析查询降级。
@@ -230,6 +243,7 @@ Spot/USD-M 对账。对账成功前禁止交易，切换失败时不自动回切
 | ADR-006 | 一期 Ollama/vLLM 仅配置，不调用 |
 | ADR-007 | 币安仅支持 Spot 与 USD-M，使用两个 Nautilus 客户端 |
 | ADR-008 | 币安凭据由本地主密钥加密入库，不使用 KMS |
-| ADR-009 | 可以保存多个币安帐号，但同一时间只运行一个 LiveNode |
+| ADR-009 | 每个用户只保存一个 HMAC 币安帐号，重新绑定覆盖旧帐号 |
+| ADR-010 | 币安先交付按需只读查询，再在同一 Runtime 增加人工交易 |
 
 正式实施前应将每项 ADR 独立成文，记录背景、备选方案和后果。

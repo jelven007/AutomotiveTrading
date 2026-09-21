@@ -20,10 +20,10 @@
 当前 M2 的开发、演示和集成验证可使用
 [Ubuntu 单机部署指南](ubuntu-single-node-deployment.md)。该方案不替代以下生产架构。
 
-币安目标部署使用可选的 `binance-trading` Profile，仅启动 `trading` 服务并在
-进程内运行 NautilusTrader；不依赖 `risk` 和 `kms-adapter`。Trading 诊断端口
-默认使用 `8004` 且只绑定宿主机回环地址。当前代码仍使用旧
-`binance-readonly` Profile，迁移状态见
+币安阶段一部署使用 `binance-readonly` Profile，仅启动 `trading` 服务并在
+进程内运行唯一 Nautilus Runtime；不依赖 `risk` 和 `kms-adapter`。Trading
+诊断端口默认使用 `8004` 且只绑定宿主机回环地址。阶段二复用同一服务，通过
+`LIVE_TRADING_ENABLED=true` 显式开启写入，迁移状态见
 [`QT-INT-BIN-001`](../integrations/binance-production-readiness.md)。
 
 ### 1.1 币安 Nautilus UAT 目标
@@ -43,11 +43,11 @@ bash scripts/deploy.sh init
 该文件必须为 `root:root`、权限 `600`，并只读挂载到 Trading 容器。普通配置：
 
 ```text
-BINANCE_CREDENTIAL_MASTER_KEY_FILE=/run/secrets/binance_credential_master_key
+BINANCE_CREDENTIAL_MASTER_KEY_FILE=/opt/quant-trading/secrets/credential-master-key
 FIXED_EGRESS_IP_CONFIGURED=true
 PUBLIC_BASE_URL=https://<已完成 TLS 终止的访问域名>
-BINANCE_TESTNET=true
-BINANCE_LIVE_TRADING_ENABLED=false
+BINANCE_TESTNET_ENABLED=true
+LIVE_TRADING_ENABLED=false
 ```
 
 只有确认 ECS 固定出口 IP 已加入币安 API Key 白名单后，才能把
@@ -86,7 +86,7 @@ Testnet 链路。生产写操作默认关闭，必须在 Testnet 和生产只读
 - 生产变更需审批并保留审计。
 - Broker Connector 的出口和凭据单独管理。
 - 币安使用 Trading 内部 Nautilus Runtime、固定出口 EIP 和域名白名单。
-- 币安 HMAC/Ed25519 凭据使用本地主密钥 AES-256-GCM 加密入库。
+- 币安 HMAC 凭据使用本地主密钥 AES-256-GCM 加密入库。
 - 主密钥只读挂载且权限为 `600`，必须与数据库分开备份。
 - 币安 IP 白名单和禁止提现由管理员在控制台确认并记录。
 
@@ -145,9 +145,9 @@ Testnet 链路。生产写操作默认关闭，必须在 Testnet 和生产只读
 - 券商断连。
 - 币安 Nautilus Spot/USD-M 客户端断线与恢复。
 - 币安 API Key 吊销、权限变化和紧急轮换。
-- 币安 U 本位永续 ADL、资金费率异常和强平保护。
+- 币安 U 本位杠杆或保证金模式设置失败。
 - 币安订单超时、`pending_reconciliation` 和执行对账。
-- 币安活动帐号切换失败。
+- 币安帐号重新绑定失败和旧帐号回滚。
 - 币安本地主密钥丢失或权限异常。
 - 行情数据延迟。
 - 模型供应商故障。

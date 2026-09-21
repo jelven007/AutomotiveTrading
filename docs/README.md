@@ -5,10 +5,10 @@
 范围基线见 [专项需求 0.2](requirements/a-share-market-data-requirements.md)，
 现有代码的对齐事项见 [Sidecar 说明](../services/mootdx-collector/README.md#范围对齐状态)。
 
-2026-09-20 确认：币安改用 NautilusTrader，当前范围为现货和 U 本位永续；
-U 本位包含杠杆及全仓/逐仓保证金模式。币安不使用官方 SDK、云 KMS、独立
-Risk Service 或自研协议栈，详情见
-[专项设计](plans/2026-09-20-binance-nautilustrader-integration-design.md)。
+2026-09-21 确认：币安采用单账号分阶段方案。阶段一仅查询权限、现货余额、
+U 本位余额和持仓；阶段二增加人工下单、撤单、杠杆及保证金模式。重新绑定覆盖
+旧账号，详情见
+[专项设计](plans/2026-09-21-binance-single-account-phased-design.md)。
 
 ## 文档清单
 
@@ -27,12 +27,14 @@ Risk Service 或自研协议栈，详情见
 | QT-OPS-001 | [部署与运维方案](operations/deployment-and-operations.md) | 火山引擎部署、监控和 Runbook |
 | QT-INT-001 | [交易通道接入计划](integrations/broker-integration-plan.md) | 同花顺、财信、富途、长桥、币安接入 |
 | QT-REQ-BIN-NT-001 | [币安 NautilusTrader 接入需求](requirements/binance-nautilustrader-requirements.md) | 当前币安范围、约束和验收标准 |
-| QT-DES-BIN-NT-001 | [币安 NautilusTrader 接入设计](plans/2026-09-20-binance-nautilustrader-integration-design.md) | 当前架构、模块、接口、数据、依赖和风险 |
-| QT-PLAN-BIN-NT-001 | [币安 NautilusTrader 实施计划](plans/2026-09-20-binance-nautilustrader-integration-implementation-plan.md) | TDD 迁移步骤、文件和提交顺序 |
+| QT-DES-BIN-SIMPLE-001 | [币安单账号分阶段接入设计](plans/2026-09-21-binance-single-account-phased-design.md) | 当前架构、接口、数据流和阶段边界 |
+| QT-PLAN-BIN-SIMPLE-001 | [币安单账号分阶段实施计划](plans/2026-09-21-binance-single-account-phased-implementation-plan.md) | 阶段一只读与阶段二人工交易的 TDD 实施顺序 |
 | QT-TP-BIN-NT-001 | [币安 NautilusTrader 测试计划](testing/binance-nautilustrader-test-plan.md) | 单元、组件、Testnet、故障和生产灰度 |
 | QT-RESULT-BIN-NT-M0-001 | [币安 M0 POC 验收](testing/results/binance-nautilustrader-m0-poc.md) | 依赖、公共 API、配置构造器和 wheel 证据 |
 | QT-OPS-BIN-NT-001 | [币安 NautilusTrader 运维手册](operations/binance-nautilustrader-runbook.md) | 部署、帐号操作、排障、恢复和升级 |
 | QT-INT-BIN-001 | [币安生产准入状态](integrations/binance-production-readiness.md) | 当前实现差距和真实资金闸门 |
+| QT-DES-BIN-NT-001 | [旧币安 NautilusTrader 接入设计](plans/2026-09-20-binance-nautilustrader-integration-design.md) | Superseded，仅保留历史 |
+| QT-PLAN-BIN-NT-001 | [旧币安 NautilusTrader 实施计划](plans/2026-09-20-binance-nautilustrader-integration-implementation-plan.md) | Superseded，仅保留历史 |
 | QT-DES-TRD-001 | [旧交易帐号与币安接入设计](plans/2026-09-19-trading-account-and-binance-integration-design.md) | Superseded，仅保留历史 |
 | QT-SRS-CNMD-001 | [A 股行情与分析系统需求](requirements/a-share-market-data-requirements.md) | 沪深范围、MOOTDX 数据持久化与前端需求 |
 | QT-DES-CNMD-001 | [A 股行情与前端分析设计](plans/2026-09-20-a-share-market-data-design.md) | 沪深采集、存储、质量、API 和页面设计 |

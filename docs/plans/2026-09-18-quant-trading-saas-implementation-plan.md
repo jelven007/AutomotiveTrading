@@ -1,8 +1,8 @@
 # Quant Trading SaaS Implementation Plan
 
-**币安范围变更（2026-09-20）：** 本文中的币安 Connector、四类 Scope、KMS
-和独立 Risk Service 任务已被
-[`QT-PLAN-BIN-NT-001`](2026-09-20-binance-nautilustrader-integration-implementation-plan.md)
+**币安范围变更（2026-09-21）：** 本文中的币安 Connector、四类 Scope、多帐号、
+KMS 和独立 Risk Service 任务已被
+[`QT-PLAN-BIN-SIMPLE-001`](2026-09-21-binance-single-account-phased-implementation-plan.md)
 取代；其他领域任务仍可作为历史计划参考。
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to

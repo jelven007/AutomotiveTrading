@@ -9,7 +9,7 @@
 - 需求来源：`software-requirements-specification.md`；币安专项使用
   `binance-nautilustrader-requirements.md`
 - 设计来源：`../architecture/technical-solution.md`；币安专项使用
-  `../plans/2026-09-20-binance-nautilustrader-integration-design.md`
+  `../plans/2026-09-21-binance-single-account-phased-design.md`
 - 接口来源：`../architecture/api-event-specification.md`
 - 数据来源：`../architecture/data-model.md`
 - 测试来源：`../testing/test-cases.md`；币安专项使用
@@ -33,9 +33,9 @@
 | FR-BT-* | Backtest Scheduler、Runner | TC-BT-* | Planned |
 | FR-TRD-001~012 | Trading、Broker Connectors | TC-TRD-000~007 | Planned |
 | FR-TRD-013~014 | Trading Web、Account Binding | TC-TRD-008~009 | Verified |
-| FR-TRD-015~017 | Nautilus、Local Vault | TC-TRD-009~011 | Planned |
-| FR-TRD-018~019 | Spot/USD-M、投影 | TC-TRD-010、013~014 | Planned |
-| FR-TRD-020~022 | 帐号、Runtime、本地风控 | TC-TRD-009、012~014 | Planned |
+| FR-BIN-NT-001~011 | 单帐号、凭据和权限 | TC-BIN-NT-001~005、030~033 | Partial |
+| FR-BIN-NT-012~019 | 只读聚合与降级 | TC-BIN-NT-006~007、020~022、034~036 | Planned |
+| FR-BIN-NT-020~030 | 人工交易、MFA、幂等与 U 本位设置 | TC-BIN-NT-040~052 | Planned |
 | FR-RSK-001~004 | Risk Service | TC-RSK-001~003 | Partial |
 | FR-RSK-005~007 | 本地风控、USD-M | TC-TRD-011、TC-RSK-004 | Planned |
 | FR-REC-* | Reconciliation Service | TC-REC-* | Planned |
@@ -62,6 +62,7 @@
 | NFR-CNMD-001~003 | 全市场采集与查询压测 | QT-TP-CNMD-001 第 6 节 | Planned |
 | NFR-CNMD-004~007 | 重放、幂等与缓存恢复 | TC-CNMD-REL-* | Planned |
 | NFR-CNMD-008~010 | 前端性能、可访问性与敏感信息检查 | TC-CNMD-WEB-* | Planned |
+| NFR-BIN-NT-001~008 | 锁版、快照、隔离、恢复与脱敏 | QT-TP-BIN-NT-001 第 3~12 节 | Planned |
 | NFR-OBS-* | 指标、日志、告警演练 | TC-OBS-* | Planned |
 | NFR-MNT-* | 架构与契约审查 | TC-ARC-* | Planned |
 
@@ -89,11 +90,11 @@
 [Sidecar 验收记录](../testing/results/mootdx-sidecar-acceptance.md)，
 实现差异见 [范围对齐状态](../../services/mootdx-collector/README.md#范围对齐状态)。
 
-2026-09-20 用户确认币安改用 NautilusTrader 单服务方案，仅支持现货和 U 本位，
-U 本位包含杠杆倍数及全仓/逐仓保证金模式。现货杠杆、KMS、独立 Risk Service、
-独立 Binance Connector 和币安官方 SDK 不再属于当前币安基线。新需求、设计和
-测试分别见 `QT-REQ-BIN-NT-001`、`QT-DES-BIN-NT-001` 和
-`QT-TP-BIN-NT-001`；旧实现证据不能自动继承为新方案的 Verified 状态。
+2026-09-21 用户确认币安采用单帐号分阶段方案：阶段一只查询权限、现货余额、
+U 本位余额和持仓；阶段二增加人工下单、单笔撤单、杠杆和保证金模式。重新绑定
+覆盖旧帐号，绑定不要求 MFA，交易写入要求短时 MFA 会话和幂等键。新需求、设计
+和测试分别见 `QT-REQ-BIN-NT-001` 2.0、`QT-DES-BIN-SIMPLE-001` 和
+`QT-TP-BIN-NT-001` 2.0；旧多帐号方案不再作为实现或验收依据。
 
 新增或修改需求时必须：
 

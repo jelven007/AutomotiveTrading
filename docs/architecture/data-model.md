@@ -202,8 +202,6 @@ status, created_at
 ```text
 id, tenant_id, market_group, provider, environment, external_account_ref,
 credential_type, api_key_fingerprint, currency, status, connection_status,
-is_active, spot_available, usdm_futures_available,
-ip_whitelist_confirmed_at, withdrawal_disabled_confirmed_at,
 last_tested_at, last_synced_at, created_by, created_at, updated_at
 ```
 
@@ -212,10 +210,11 @@ last_tested_at, last_synced_at, created_by, created_at, updated_at
 - `market_group` 为 `cn_equity|hk_us_equity|binance`。
 - `provider` 一期为
   `tonghuashun|caixin|futu|longbridge|binance`。
-- 币安生产帐号禁止保存明文 API Key、Secret 或私钥。
-- 币安帐号支持 HMAC 和 Ed25519，不支持 RSA。
-- 可以保存多个币安帐号，但只允许一个 `is_active=true`。
-- 固定出口 IP 和禁止提现由管理员人工确认并记录确认时间。
+- 币安生产帐号禁止保存明文 API Key 或 Secret。
+- 币安首版只支持 HMAC。
+- 对币安增加 `UNIQUE(tenant_id, provider)`，每个用户只能保存一条记录。
+- 币安不使用 `is_active`、帐号 Scope 或帐号切换状态。
+- 重新绑定成功时覆盖原记录；验证失败时原记录保持不变。
 
 ### binance_encrypted_credential
 
@@ -225,49 +224,42 @@ created_at, updated_at
 UNIQUE(tenant_id, account_id)
 ```
 
-密文由 AES-256-GCM 产生，`account_id`、凭据类型和算法版本作为附加认证数据。
+密文由 AES-256-GCM 产生，`account_id` 和算法版本作为附加认证数据。
 主密钥来自 ECS 只读文件，不进入数据库。
 
-### binance_runtime_state
+权限、现货余额、U 本位余额和持仓不落库，只存在于 Nautilus Runtime 和最多
+5 秒的进程内查询快照中。
 
-```text
-account_id, spot_status, futures_status, reconciliation_status,
-accepting_orders, last_event_at, last_reconciled_at, updated_at
-UNIQUE(account_id)
-```
+### binance_order
 
-运行状态由 Nautilus 事件更新；状态过期或未完成对账时禁止新订单。
-
-### order
+该表在阶段二启用，阶段一不写入订单数据。
 
 ```text
 id, tenant_id, account_id, client_order_id, broker_order_id,
-product, instrument_id, side, position_side, order_type, time_in_force,
-quantity, limit_price, stop_price, reduce_only,
-filled_quantity, average_price, status, source, decision_id, idempotency_key,
-request_fingerprint, submitted_at, updated_at
+product, instrument_id, side, order_type, time_in_force,
+quantity, limit_price, filled_quantity, average_price, status,
+idempotency_key, request_fingerprint, error_code, created_at, updated_at
 UNIQUE(tenant_id, idempotency_key)
 UNIQUE(tenant_id, account_id, client_order_id)
 ```
 
 `product` 仅允许 `spot|usdm_futures`。不确定写入使用
-`pending_reconciliation`，禁止自动重发。
+`pending_reconciliation`，禁止自动重发。订单来源固定为人工，不保存自动策略
+关联字段。
 
-### execution
+### binance_execution
+
+该表同样在阶段二启用。
 
 ```text
 id, tenant_id, account_id, order_id, broker_execution_id, quantity, price,
-fee, tax, currency, executed_at
+fee, fee_currency, executed_at
 UNIQUE(tenant_id, account_id, broker_execution_id)
 ```
 
-### binance_risk_setting
-
-```text
-account_id, emergency_stop, max_order_notional, max_position_notional,
-max_futures_leverage, max_daily_loss, updated_at
-UNIQUE(account_id)
-```
+币安当前方案不创建独立运行时状态、余额历史、持仓历史或风险设置表。阶段二写入
+前仅检查 MFA 交易会话、Nautilus 就绪状态、数据新鲜度、交易权限和 instrument
+规则。
 
 ### position_snapshot
 

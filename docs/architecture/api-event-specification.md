@@ -134,44 +134,45 @@ POST /model-decisions/{id}/reject
 
 ## 5. 交易 API
 
+币安阶段一：
+
 ```text
-GET    /trading/binance/accounts
-POST   /trading/binance/accounts
-PUT    /trading/binance/accounts/{id}
-DELETE /trading/binance/accounts/{id}
-POST   /trading/binance/accounts/{id}/test
-POST   /trading/binance/accounts/{id}/activate
-POST   /trading/binance/accounts/active/deactivate
-GET    /trading/binance/status
-GET    /trading/binance/balances
-GET    /trading/binance/positions
+GET    /trading/binance/account
+PUT    /trading/binance/account
+DELETE /trading/binance/account
+GET    /trading/binance/overview
+GET    /trading/binance/overview?refresh=true
+```
+
+币安阶段二：
+
+```text
 GET    /trading/binance/orders
 POST   /trading/binance/orders
 POST   /trading/binance/orders/{id}/cancel
 PUT    /trading/binance/futures/{symbol}/leverage
 PUT    /trading/binance/futures/{symbol}/margin-mode
-GET    /trading/binance/risk
-PUT    /trading/binance/risk
-POST   /trading/binance/emergency-stop
-DELETE /trading/binance/emergency-stop
 ```
 
-币安帐号绑定请求：
+币安帐号首次绑定和重新绑定使用同一请求：
 
 ```json
 {
   "alias": "main-binance",
-  "credential_type": "ed25519|hmac",
   "api_key": "write-only",
-  "secret": "write-only",
-  "ip_whitelist_confirmed": true,
-  "withdrawal_disabled_confirmed": true
+  "api_secret": "write-only",
+  "ip_whitelist_confirmed": true
 }
 ```
 
-响应不得返回 `api_key`、私钥、Secret、密文或 nonce，只返回帐号 ID、别名、
-脱敏指纹、Spot/USD-M 可用状态、连接状态和是否为当前帐号。管理员必须完成人工
-IP 白名单和禁止提现确认；未完成近期 MFA 时，帐号写操作必须失败。
+响应不得返回 `api_key`、Secret、密文或 nonce，只返回别名、脱敏指纹、连接状态
+和最近验证时间。每个用户只允许一条币安帐号记录。新凭据完成权限检查和候选
+Nautilus Runtime 验证后，才允许原子覆盖旧帐号；失败时旧帐号保持可用。
+
+`GET /overview` 一次返回权限、现货余额、U 本位余额和非零持仓。每个区域包含
+独立的 `status`、`data` 和可选 `error`；Spot 或 USD-M 单侧失败时，HTTP 响应
+仍返回其他可用区域。`refresh=true` 仅绕过最多 5 秒的进程内快照，不持久化
+账户数据。
 
 下单请求：
 
@@ -180,26 +181,23 @@ IP 白名单和禁止提现确认；未完成近期 MFA 时，帐号写操作必
   "product": "spot|usdm_futures",
   "instrument_id": "BTCUSDT.BINANCE",
   "side": "buy|sell",
-  "order_type": "market|limit|stop_market|stop_limit",
+  "order_type": "market|limit",
   "quantity": "0.001",
   "limit_price": "60000",
-  "time_in_force": "GTC",
-  "position_side": "both|long|short|null",
-  "reduce_only": false,
-  "source": "manual|strategy"
+  "time_in_force": "GTC"
 }
 ```
 
 币安请求规则：
 
-- 所有读取和执行均通过当前活动帐号的 Nautilus Runtime。
+- 权限由最小签名 REST 探测，余额、持仓和执行通过唯一帐号的 Nautilus Runtime。
 - 现货 instrument 使用 `BTCUSDT.BINANCE`；U 本位永续使用
   `BTCUSDT-PERP.BINANCE`。
-- `product=usdm_futures` 时必须校验持仓模式、保证金模式和本地杠杆上限。
-- `reduce_only` 仅用于合约风险降低语义。
+- 阶段一不注册任何币安交易写接口。
+- 阶段二仅接受人工来源，并要求有效的短时 MFA 交易会话。
 - 下单、撤单、杠杆和保证金模式调整必须使用独立 `Idempotency-Key`。
 - 外部结果不确定时返回 `pending_reconciliation`，不得自动重放。
-- 现货借款、还款、划转及现货杠杆请求不属于当前 API。
+- 批量撤单、条件单、双向持仓、现货杠杆、借还款和资产划转不属于当前 API。
 
 ## 6. WebSocket
 
@@ -218,14 +216,12 @@ GET /ws/v1?access_token=<short-lived-token>
 - `quality:cn`
 - `backfills:{job_id}`
 - `backtests:{task_id}`
-- `orders:{account_id}`
-- `balances:{account_id}`
-- `futures-positions:{account_id}`
-- `binance-runtime`
+- `orders:{account_id}`，仅阶段二启用
 - `alerts:{tenant_id}`
 - `strategies:{strategy_id}`
 
 客户端必须支持断线重连、序列号检查和 REST 补偿查询。
+币安阶段一账户查询不使用 WebSocket 页面频道。
 
 A 股行情 REST、WebSocket 和事件契约的专项设计见
 [`QT-DES-CNMD-001`](../plans/2026-09-20-a-share-market-data-design.md)。

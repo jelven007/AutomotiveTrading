@@ -2,6 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+**范围修订（2026-09-21）：** 币安帐号绑定和只读查询不再要求 MFA。本文中的
+绑定前 MFA 步骤已失效；MFA 仅用于
+[`QT-DES-BIN-SIMPLE-001`](2026-09-21-binance-single-account-phased-design.md)
+阶段二的短时交易会话。
+
 **Goal:** 为 Quant Desk Web 接通登录、注册、会话刷新和 TOTP MFA，并在添加币安真实帐号前强制完成近期 MFA。
 
 **Architecture:** 使用 React Context 统一管理访问令牌与刷新令牌，应用入口根据认证状态显示登录页或业务工作台。普通页面只要求登录，添加币安帐号时按需弹出 MFA 验证；首次使用可在同一弹窗配置 TOTP。

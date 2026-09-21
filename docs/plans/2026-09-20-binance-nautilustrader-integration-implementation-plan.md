@@ -2,6 +2,10 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use
 > superpowers:executing-plans to implement this plan task-by-task.
+>
+> **Status:** Superseded by
+> [`QT-PLAN-BIN-SIMPLE-001`](2026-09-21-binance-single-account-phased-implementation-plan.md).
+> 本文仅保留历史，不再执行其中的多账号切换和一次性交付完整交易任务。
 
 **Goal:** 将币安接入迁移为 NautilusTrader 驱动的现货与 U 本位单活动帐号
 方案，并支持登录后添加、加密保存和切换帐号。

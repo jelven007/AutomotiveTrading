@@ -6,8 +6,8 @@
 >
 > 状态：已确认实施
 
-**Superseded（2026-09-20）：** 本文的 KMS/Risk/只读 Profile 方案已由
-[`QT-DES-BIN-NT-001`](2026-09-20-binance-nautilustrader-integration-design.md)
+**Superseded（2026-09-21）：** 本文的 KMS/Risk/只读 Profile 方案已由
+[`QT-DES-BIN-SIMPLE-001`](2026-09-21-binance-single-account-phased-design.md)
 取代。本文仅保留历史记录。
 
 ## 1. 目标
