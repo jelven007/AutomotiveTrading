@@ -277,12 +277,33 @@ button:disabled {
 .state {
   display: inline-flex;
   align-items: center;
+  border-radius: 4px;
+  padding: 3px 8px;
   font-size: 12px;
+  font-weight: 600;
 }
 
-.state--success,
+.state--success {
+  background: #edf8f3;
+  color: var(--accent);
+}
+
+.state--warning {
+  background: #fdf5e6;
+  color: var(--warning);
+}
+
+.state--neutral {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
 .metric-positive {
   color: var(--accent);
+}
+
+.metric-negative {
+  color: var(--danger);
 }
 
 .metric-muted {
@@ -479,8 +500,26 @@ button:disabled {
 }
 
 .panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   border-bottom: 1px solid var(--line);
   padding: 14px 16px;
+}
+
+.panel-heading h2,
+.section-heading h2 {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.panel-heading span,
+.section-heading span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .user-profile-list {
@@ -816,17 +855,320 @@ button:disabled {
   }
 }
 
+/* 顶部右侧系统状态 pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* 区块标题：与 panel-heading 共享排版，但无边框、贴合分栏 */
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 24px 0 11px;
+}
+
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  padding: 4px;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 首页行情卡片 */
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.market-tile {
+  min-height: 140px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 16px;
+}
+
+.tile-topline,
+.market-value-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tile-topline strong,
+.tile-topline small {
+  display: block;
+}
+
+.tile-topline strong {
+  font-size: 13px;
+}
+
+.tile-topline small,
+.market-time {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.market-status {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.market-status--open {
+  background: #edf8f3;
+  color: var(--accent);
+}
+
+.market-status--closed {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.market-value-row {
+  align-items: flex-end;
+  margin-top: 16px;
+}
+
+.market-value {
+  display: block;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.change {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.change--up,
+.mini-chart--up {
+  color: var(--accent);
+}
+
+.change--down,
+.mini-chart--down {
+  color: var(--danger);
+}
+
+.mini-chart {
+  width: 120px;
+  max-width: 44%;
+  height: 40px;
+  overflow: visible;
+}
+
+.market-time {
+  display: block;
+  margin-top: 8px;
+}
+
+/* 列表面板：策略表格 / 资讯流复用 */
+.list-panel {
+  margin-top: 20px;
+  overflow: hidden;
+}
+
+.panel-heading--tools {
+  min-height: 62px;
+}
+
+.news-list {
+  display: grid;
+}
+
+.news-row {
+  display: grid;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding: 14px 16px;
+  grid-template-columns: 44px minmax(0, 1fr) 34px;
+}
+
+.news-row:last-child {
+  border-bottom: 0;
+}
+
+.news-row > time {
+  align-self: start;
+  padding-top: 4px;
+  color: var(--muted);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+}
+
+.news-row h3 {
+  margin: 6px 0 3px;
+  font-size: 13px;
+}
+
+.news-row p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tag-row {
+  display: flex;
+  gap: 5px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #edf8f3;
+  color: var(--accent);
+}
+
+.tag--neutral {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+/* 策略统计卡：四列细线分隔 */
+.summary-strip {
+  display: grid;
+  overflow: hidden;
+  margin-top: 20px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.summary-strip > div {
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  padding: 15px 18px;
+}
+
+.summary-strip > div:last-child {
+  border-right: 0;
+}
+
+.summary-strip span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.summary-strip strong {
+  display: block;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 18px;
+}
+
+.search-field {
+  display: flex;
+  width: min(360px, 100%);
+  height: 34px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  padding: 0 11px;
+  color: var(--muted);
+}
+
+.search-field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.search-field--compact {
+  width: 210px;
+}
+
+/* 交易页总资产区块 */
+.binance-assets {
+  margin-top: 4px;
+}
+
+.binance-assets .section-heading {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+
 @media (max-width: 720px) {
   .appbar {
     padding: 0 12px;
   }
 
-  .appbar-lead {
-    gap: 15px;
-  }
-
+  .status-pill,
   .brand strong {
     display: none;
+  }
+
+  .market-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-strip > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .panel-heading--tools {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search-field,
+  .search-field--compact {
+    width: 100%;
+  }
+
+  .appbar-lead {
+    gap: 15px;
   }
 
   .user-context {
@@ -838,7 +1180,6 @@ button:disabled {
     padding-top: 20px;
   }
 
-  .binance-account-header,
   .page-heading {
     display: grid;
     gap: 14px;

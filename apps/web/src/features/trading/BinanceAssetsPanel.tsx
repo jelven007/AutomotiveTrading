@@ -8,21 +8,19 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { useAuth } from "../../features/auth/AuthContext";
-import { AccountBindingDialog } from "../../features/trading/AccountBindingDialog";
-import { BinanceAccountOverview } from "../../features/trading/BinanceAccountOverview";
+import { useAuth } from "../auth/AuthContext";
+import { AccountBindingDialog } from "./AccountBindingDialog";
+import { BinanceAccountOverview } from "./BinanceAccountOverview";
 import {
   deleteBinanceAccount,
   fetchBinanceOverview,
   replaceBinanceAccount,
   TradingApiError,
-} from "../../features/trading/api";
-import type {
-  BinanceAccountDraft,
-  BinanceOverview,
-} from "../../features/trading/types";
+} from "./api";
+import type { BinanceAccountDraft, BinanceOverview } from "./types";
 
-export function BinanceTradingPage() {
+// 总资产面板：读取真实币安 overview，并复用绑定 / 重新绑定 / 删除流程
+export function BinanceAssetsPanel() {
   const auth = useAuth();
   const [overview, setOverview] = useState<BinanceOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +38,7 @@ export function BinanceTradingPage() {
         setOverview(await fetchBinanceOverview(auth.accessToken, refresh));
         setNotice(null);
       } catch (error) {
+        // 未绑定账号属于正常空态，其余错误才作为提示展示
         if (
           error instanceof TradingApiError &&
           error.code === "binance.account_missing"
@@ -91,53 +90,51 @@ export function BinanceTradingPage() {
   }
 
   return (
-    <div className="page binance-account-page">
-      <header className="binance-account-header">
+    <section className="binance-assets" aria-labelledby="binance-assets">
+      <div className="section-heading">
         <div>
-          <h1>币安账户</h1>
-          {overview && (
-            <div className="binance-account-identity">
-              <strong>{overview.account.alias}</strong>
-              <span>{overview.account.apiKeyFingerprint}</span>
-              <span className="state state--success">已连接</span>
-            </div>
+          <h2 id="binance-assets">总资产</h2>
+          {overview ? (
+            <span>
+              {overview.account.alias} · 数据时间 {formatTime(overview.asOf)}
+            </span>
+          ) : (
+            <span>币安现货 / U 本位合约</span>
           )}
         </div>
-        <div className="page-actions">
-          {overview && (
-            <>
-              <button
-                className="button button--secondary"
-                disabled={loading}
-                onClick={() => void loadOverview(true)}
-                type="button"
-              >
-                <RefreshCw
-                  className={loading ? "is-spinning" : undefined}
-                  size={16}
-                />
-                刷新
-              </button>
-              <button
-                className="button button--secondary"
-                onClick={() => setShowBinding(true)}
-                type="button"
-              >
-                <RotateCcw size={16} />
-                重新绑定
-              </button>
-              <button
-                className="button button--danger"
-                onClick={() => void removeAccount()}
-                type="button"
-              >
-                <Trash2 size={16} />
-                删除账号
-              </button>
-            </>
-          )}
-        </div>
-      </header>
+        {overview && (
+          <div className="page-actions">
+            <button
+              className="button button--secondary"
+              disabled={loading}
+              onClick={() => void loadOverview(true)}
+              type="button"
+            >
+              <RefreshCw
+                className={loading ? "is-spinning" : undefined}
+                size={16}
+              />
+              刷新
+            </button>
+            <button
+              className="button button--secondary"
+              onClick={() => setShowBinding(true)}
+              type="button"
+            >
+              <RotateCcw size={16} />
+              重新绑定
+            </button>
+            <button
+              className="button button--danger"
+              onClick={() => void removeAccount()}
+              type="button"
+            >
+              <Trash2 size={16} />
+              删除账号
+            </button>
+          </div>
+        )}
+      </div>
 
       {notice && (
         <div className="inline-notice" role="status">
@@ -155,18 +152,9 @@ export function BinanceTradingPage() {
           正在读取账户
         </div>
       ) : overview ? (
-        <>
-          <div className="binance-account-meta">
-            <span>
-              <KeyRound size={15} />
-              权限最近验证于 {formatTime(overview.account.lastVerifiedAt)}
-            </span>
-            <span>数据时间 {formatTime(overview.asOf)}</span>
-          </div>
-          <BinanceAccountOverview overview={overview} />
-        </>
+        <BinanceAccountOverview overview={overview} />
       ) : (
-        <section className="binance-empty">
+        <div className="binance-empty">
           <KeyRound size={22} />
           <h2>尚未绑定币安账号</h2>
           <button
@@ -177,7 +165,7 @@ export function BinanceTradingPage() {
             <Plus size={16} />
             添加账号
           </button>
-        </section>
+        </div>
       )}
 
       {showBinding && (
@@ -186,7 +174,7 @@ export function BinanceTradingPage() {
           onSave={saveAccount}
         />
       )}
-    </div>
+    </section>
   );
 }
 
