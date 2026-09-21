@@ -39,30 +39,41 @@ export function HomePage() {
   const [marketState, setMarketState] = useState<LoadState>("loading");
   const [newsState, setNewsState] = useState<LoadState>("loading");
 
-  // 行情与资讯各自独立加载，互不阻塞
-  const loadMarket = useCallback(async () => {
-    setMarketState("loading");
+  // 行情与资讯各自独立加载，互不阻塞。
+  // silent=true 用于自动刷新：不重置为 loading，失败时保留已有数据避免界面闪烁。
+  const loadMarket = useCallback(async (silent = false) => {
+    if (!silent) {
+      setMarketState("loading");
+    }
     try {
       setQuotes(await fetchMarketQuotes());
       setMarketState("ready");
     } catch {
-      setMarketState("error");
+      setMarketState((prev) => (silent && prev === "ready" ? prev : "error"));
     }
   }, []);
 
-  const loadNews = useCallback(async () => {
-    setNewsState("loading");
+  const loadNews = useCallback(async (silent = false) => {
+    if (!silent) {
+      setNewsState("loading");
+    }
     try {
       setNews(await fetchAnnouncements());
       setNewsState("ready");
     } catch {
-      setNewsState("error");
+      setNewsState((prev) => (silent && prev === "ready" ? prev : "error"));
     }
   }, []);
 
   useEffect(() => {
+    // 首次进入展示加载态，之后每 5 秒静默刷新一次行情与资讯
     void loadMarket();
     void loadNews();
+    const timer = setInterval(() => {
+      void loadMarket(true);
+      void loadNews(true);
+    }, 5000);
+    return () => clearInterval(timer);
   }, [loadMarket, loadNews]);
 
   return (

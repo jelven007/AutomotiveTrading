@@ -88,4 +88,23 @@ describe("HomePage", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("silently re-fetches every 5 seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      render(<HomePage />);
+      const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+      // 首次加载后清零，仅统计定时器触发的请求
+      await vi.waitFor(() =>
+        expect(fetchMock.mock.calls.length).toBeGreaterThan(0),
+      );
+      fetchMock.mockClear();
+
+      // 推进 5 秒，应触发一轮静默刷新（行情 + 资讯）
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(fetchMock).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
