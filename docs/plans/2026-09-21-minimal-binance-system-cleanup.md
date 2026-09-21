@@ -13,6 +13,11 @@ Binance 分阶段计划新增，不保留旧通用多账号、Risk/KMS 或事件
 **Tech Stack:** React 19、TypeScript、FastAPI、SQLAlchemy、MySQL、
 NautilusTrader 1.231.0、Docker Compose。
 
+> 后续演进：本计划完成后，前端在此最小基线上重新引入了首页、策略、交易三个
+> 一级页面。当前前端结构以
+> [Web 前端三页全流程设计](../frontend/2026-09-21-web-three-page-design.md)
+> 为准；下文 Task 2 记录的是当时的精简决策。
+
 ---
 
 ## Tasks

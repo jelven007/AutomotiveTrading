@@ -4,13 +4,15 @@
 
 ## 组成
 
-- `apps/web`：登录、用户信息、币安账号和资产概览。
+- `apps/web`：首页（币安公开行情与资讯）、策略看板、交易（总资产与当前订单）、
+  登录与用户信息。
 - `services/identity-tenant`：邮箱密码认证、JWT、刷新令牌和 TOTP MFA。
 - `services/trading`：单币安账号、AES-256-GCM 凭据存储及 NautilusTrader。
 - `infra/compose`：MySQL 与上述三个应用服务的单机部署。
 
 阶段一只提供权限、现货余额、U 本位余额和持仓查询。人工下单、撤单、杠杆和
-保证金模式按阶段二计划实施，生产写入默认关闭。
+保证金模式按阶段二计划实施，生产写入默认关闭。前端页面结构见
+[Web 前端三页全流程设计](docs/frontend/2026-09-21-web-three-page-design.md)。
 
 ## 本地验证
 
