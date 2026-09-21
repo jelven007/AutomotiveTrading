@@ -984,6 +984,10 @@ button:disabled {
   color: var(--danger);
 }
 
+.change--muted {
+  color: var(--muted);
+}
+
 .mini-chart {
   width: 120px;
   max-width: 44%;
@@ -1004,6 +1008,45 @@ button:disabled {
 
 .panel-heading--tools {
   min-height: 62px;
+}
+
+/* 区块标题带工具栏（搜索 + 操作按钮）：策略、当前订单复用 */
+.section-heading--tools {
+  flex-wrap: wrap;
+}
+
+.tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 资讯卡片：与行情卡片共用 market-tile 外框，内部为纵向排版 */
+.news-tile {
+  display: flex;
+  flex-direction: column;
+}
+
+.news-tile .tile-topline {
+  align-items: center;
+}
+
+.news-tile__title {
+  flex: 1;
+  margin: 12px 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.news-tile__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .news-list {
@@ -1135,6 +1178,31 @@ button:disabled {
   padding-bottom: 14px;
 }
 
+/* 总资产内容区左右分栏：左侧账户资产、右侧 BTC/USDT 实时价 */
+.trading-split {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+}
+
+.trading-split__main {
+  min-width: 0;
+}
+
+.trading-split__aside {
+  min-width: 0;
+}
+
+/* 交易页右侧实时价：卡片风格与首页行情一致 */
+.btc-price .section-heading {
+  margin-top: 0;
+}
+
+.btc-price .market-tile {
+  min-height: 160px;
+}
+
 @media (max-width: 720px) {
   .appbar {
     padding: 0 12px;
@@ -1149,6 +1217,10 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .trading-split {
+    grid-template-columns: 1fr;
+  }
+
   .summary-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1160,6 +1232,15 @@ button:disabled {
   .panel-heading--tools {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .section-heading--tools {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tools-row {
+    width: 100%;
   }
 
   .search-field,

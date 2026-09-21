@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { BtcSpotPriceCard } from "../market/BtcSpotPriceCard";
 import { useAuth } from "../auth/AuthContext";
 import { AccountBindingDialog } from "./AccountBindingDialog";
 import { BinanceAccountOverview } from "./BinanceAccountOverview";
@@ -146,27 +147,35 @@ export function BinanceAssetsPanel() {
         </div>
       )}
 
-      {loading && !overview ? (
-        <div className="binance-page-state" role="status">
-          <RefreshCw className="is-spinning" size={18} />
-          正在读取账户
+      {/* 总资产内容区拆左右两栏：左侧账户资产 / 绑定入口，右侧 BTC/USDT 实时价 */}
+      <div className="trading-split">
+        <div className="trading-split__main">
+          {loading && !overview ? (
+            <div className="binance-page-state" role="status">
+              <RefreshCw className="is-spinning" size={18} />
+              正在读取账户
+            </div>
+          ) : overview ? (
+            <BinanceAccountOverview overview={overview} />
+          ) : (
+            <div className="binance-empty">
+              <KeyRound size={22} />
+              <h2>尚未绑定币安账号</h2>
+              <button
+                className="button button--primary"
+                onClick={() => setShowBinding(true)}
+                type="button"
+              >
+                <Plus size={16} />
+                账号
+              </button>
+            </div>
+          )}
         </div>
-      ) : overview ? (
-        <BinanceAccountOverview overview={overview} />
-      ) : (
-        <div className="binance-empty">
-          <KeyRound size={22} />
-          <h2>尚未绑定币安账号</h2>
-          <button
-            className="button button--primary"
-            onClick={() => setShowBinding(true)}
-            type="button"
-          >
-            <Plus size={16} />
-            添加账号
-          </button>
+        <div className="trading-split__aside">
+          <BtcSpotPriceCard />
         </div>
-      )}
+      </div>
 
       {showBinding && (
         <AccountBindingDialog

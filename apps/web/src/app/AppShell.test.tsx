@@ -51,9 +51,6 @@ describe("AppShell", () => {
     renderShell();
 
     expect(
-      screen.getByRole("heading", { name: "首页", level: 1 }),
-    ).toBeInTheDocument();
-    expect(
       screen.getByRole("heading", { name: "行情", level: 2 }),
     ).toBeInTheDocument();
     expect(
@@ -61,34 +58,27 @@ describe("AppShell", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the strategies page with statistics and the strategy table", () => {
+  it("renders the strategies page with statistics and the strategy list", () => {
     renderShell("/strategies");
 
     expect(
-      screen.getByRole("heading", { name: "策略", level: 1 }),
+      screen.getByRole("heading", { name: "全部策略", level: 2 }),
     ).toBeInTheDocument();
     expect(screen.getByText("策略总数")).toBeInTheDocument();
     expect(screen.getByText("多因子动量")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "创建策略" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "策略" })).toBeInTheDocument();
   });
 
   it("renders total assets and open orders on the trading page", async () => {
     renderShell("/trading");
 
     expect(
-      screen.getByRole("heading", { name: "交易", level: 1 }),
-    ).toBeInTheDocument();
-    expect(
       await screen.findByRole("heading", { name: "总资产", level: 2 }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "当前订单", level: 2 }),
     ).toBeInTheDocument();
-    // 订单能力尚未开放，展示阶段二占位提示
-    expect(
-      screen.getByText("下单与撤单能力将于阶段二开放后接入。"),
-    ).toBeInTheDocument();
+    // 订单能力尚未开放，展示空列表提示
+    expect(screen.getByText("当前没有进行中的订单")).toBeInTheDocument();
   });
 });
