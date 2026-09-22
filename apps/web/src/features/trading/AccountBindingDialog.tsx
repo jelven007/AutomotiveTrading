@@ -48,7 +48,7 @@ export function AccountBindingDialog({ onCancel, onSave }: Props) {
         role="dialog"
       >
         <div className="modal-header">
-          <h2 id="account-binding-title">添加币安账号</h2>
+          <h2 id="account-binding-title">添加B账号</h2>
           <button
             aria-label="关闭"
             className="icon-button"

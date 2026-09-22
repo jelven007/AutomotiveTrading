@@ -116,7 +116,7 @@ async function fetchJson<T>(url: string): Promise<T> {
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
-    throw new Error(`币安公开接口请求失败（${response.status}）`);
+    throw new Error(`B公开接口请求失败（${response.status}）`);
   }
   return (await response.json()) as T;
 }

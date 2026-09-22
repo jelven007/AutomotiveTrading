@@ -1,8 +1,9 @@
 :root {
-  color: #18212b;
-  background: #f4f6f5;
+  color: #17201c;
+  background: #f2f4f3;
   font-family:
-    Inter,
+    "Avenir Next",
+    Avenir,
     "PingFang SC",
     "Microsoft YaHei",
     system-ui,
@@ -10,18 +11,24 @@
     sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #f4f6f5;
+  --bg: #f2f4f3;
   --surface: #ffffff;
-  --surface-muted: #f8faf9;
-  --text: #18212b;
-  --muted: #667085;
-  --line: #d8dedb;
-  --line-strong: #b8c2bd;
+  --surface-muted: #f7f9f8;
+  --surface-strong: #eef2f0;
+  --text: #17201c;
+  --text-strong: #0d1511;
+  --muted: #68746e;
+  --line: #d9e0dc;
+  --line-strong: #b9c5bf;
   --accent: #087f5b;
   --accent-strong: #066849;
+  --accent-soft: #eaf6f1;
   --danger: #b42318;
   --danger-bg: #fff4f2;
   --warning: #9a6700;
+  --shadow-sm: 0 1px 2px rgb(13 21 17 / 5%);
+  --shadow-md: 0 12px 30px rgb(13 21 17 / 10%);
+  --radius: 6px;
 }
 
 * {
@@ -33,6 +40,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: var(--bg);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 button,
@@ -68,12 +77,13 @@ button:disabled {
   z-index: 20;
   top: 0;
   display: flex;
-  min-height: 52px;
+  min-height: 58px;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  background: rgb(255 255 255 / 96%);
-  padding: 0 24px;
+  background: rgb(255 255 255 / 97%);
+  box-shadow: 0 1px 0 rgb(13 21 17 / 3%);
+  padding-inline: max(24px, calc((100vw - 1240px) / 2));
 }
 
 .appbar-lead,
@@ -84,7 +94,7 @@ button:disabled {
 }
 
 .appbar-lead {
-  gap: 32px;
+  gap: 36px;
 }
 
 .appbar-trail {
@@ -101,18 +111,20 @@ button:disabled {
 
 .brand-mark {
   display: inline-grid;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   place-items: center;
   border: 1px solid #91a69d;
-  border-radius: 4px;
+  border-radius: var(--radius);
   color: var(--accent);
-  background: #edf8f3;
+  background: var(--accent-soft);
 }
 
 .brand strong {
   white-space: nowrap;
+  color: var(--text-strong);
   font-size: 14px;
+  font-weight: 700;
 }
 
 .primary-nav {
@@ -125,14 +137,15 @@ button:disabled {
   align-items: center;
   border-bottom: 2px solid transparent;
   color: var(--muted);
-  padding: 0 10px;
-  font-size: 14px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
   text-decoration: none;
 }
 
 .nav-item.is-active {
   border-bottom-color: var(--accent);
-  color: var(--text);
+  color: var(--text-strong);
 }
 
 .user-context {
@@ -144,20 +157,24 @@ button:disabled {
   white-space: nowrap;
 }
 
+.user-context:hover {
+  color: var(--text);
+}
+
 .icon-button {
   display: inline-grid;
   width: 34px;
   height: 34px;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: transparent;
   cursor: pointer;
 }
 
 .icon-button:hover {
   border-color: var(--line);
-  background: var(--surface-muted);
+  background: var(--surface-strong);
 }
 
 .icon-button--small {
@@ -170,9 +187,9 @@ button:disabled {
 }
 
 .page {
-  width: min(1180px, calc(100% - 40px));
+  width: min(1240px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 28px 0 48px;
+  padding: 32px 0 56px;
 }
 
 .page h1,
@@ -184,13 +201,15 @@ button:disabled {
 }
 
 .page h1 {
-  font-size: 24px;
+  color: var(--text-strong);
+  font-size: 22px;
   line-height: 1.25;
 }
 
 .page h2,
 .modal h2 {
-  font-size: 17px;
+  color: var(--text-strong);
+  font-size: 16px;
 }
 
 .page-description {
@@ -223,11 +242,15 @@ button:disabled {
   justify-content: center;
   gap: 7px;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 7px 13px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
 }
 
 .button--primary {
@@ -247,6 +270,7 @@ button:disabled {
 }
 
 .button--secondary:hover:not(:disabled) {
+  border-color: #8d9c95;
   background: var(--surface-muted);
 }
 
@@ -277,14 +301,14 @@ button:disabled {
 .state {
   display: inline-flex;
   align-items: center;
-  border-radius: 4px;
-  padding: 3px 8px;
-  font-size: 12px;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .state--success {
-  background: #edf8f3;
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -314,8 +338,10 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 9px;
-  border-bottom: 1px solid var(--line);
+  border: 1px solid #ead9a4;
+  border-radius: var(--radius);
   background: #fffbea;
+  box-shadow: var(--shadow-sm);
   padding: 11px 12px;
   color: #734f00;
   font-size: 13px;
@@ -406,6 +432,20 @@ button:disabled {
   max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 表格行内的次要信息：版本号、时间等，与主文案区分 */
+.row-subtext {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.row-muted {
+  color: var(--muted);
 }
 
 .table-scroll table {
@@ -418,16 +458,28 @@ button:disabled {
 .table-scroll th,
 .table-scroll td {
   border-bottom: 1px solid var(--line);
-  padding: 11px 13px;
+  padding: 12px 16px;
   text-align: right;
   white-space: nowrap;
 }
 
 .table-scroll th {
-  background: var(--surface-muted);
+  background: var(--surface-strong);
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
+}
+
+.table-scroll td {
+  font-size: 13px;
+}
+
+.table-scroll tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.table-scroll tbody tr:hover {
+  background: var(--surface-muted);
 }
 
 .table-scroll th:first-child,
@@ -437,6 +489,13 @@ button:disabled {
 
 .table-scroll tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.table-scroll td.table-empty {
+  height: 120px;
+  color: var(--muted);
+  text-align: center;
+  white-space: normal;
 }
 
 .permission-list {
@@ -478,7 +537,9 @@ button:disabled {
   justify-content: center;
   gap: 8px;
   border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
   color: var(--muted);
   overflow-wrap: anywhere;
 }
@@ -491,12 +552,15 @@ button:disabled {
 
 .panel {
   border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 .user-profile-panel {
-  max-width: 720px;
-  margin-top: 20px;
+  max-width: 840px;
+  margin-top: 16px;
 }
 
 .panel-heading {
@@ -510,7 +574,8 @@ button:disabled {
 
 .panel-heading h2,
 .section-heading h2 {
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1.4;
 }
 
@@ -531,7 +596,7 @@ button:disabled {
   grid-template-columns: 180px minmax(0, 1fr);
   gap: 18px;
   border-bottom: 1px solid var(--line);
-  padding: 14px 16px;
+  padding: 16px 18px;
 }
 
 .user-profile-list > div:last-child {
@@ -543,11 +608,14 @@ button:disabled {
   align-items: center;
   gap: 7px;
   color: var(--muted);
+  font-size: 13px;
 }
 
 .user-profile-list dd {
   margin: 0;
   overflow-wrap: anywhere;
+  color: var(--text-strong);
+  font-weight: 600;
 }
 
 .modal-backdrop {
@@ -566,8 +634,9 @@ button:disabled {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .modal-header {
@@ -606,13 +675,14 @@ button:disabled {
   min-width: 0;
   height: 38px;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: #ffffff;
   padding: 0 10px;
 }
 
 .field input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(8 127 91 / 10%);
 }
 
 .security-confirmation {
@@ -621,6 +691,7 @@ button:disabled {
   align-items: start;
   gap: 9px;
   border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: var(--surface-muted);
   padding: 12px;
 }
@@ -660,7 +731,7 @@ button:disabled {
 .auth-layout {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: minmax(300px, 0.85fr) minmax(420px, 1.15fr);
+  grid-template-columns: minmax(360px, 0.9fr) minmax(440px, 1.1fr);
 }
 
 .auth-context {
@@ -668,8 +739,9 @@ button:disabled {
   min-height: 100vh;
   flex-direction: column;
   justify-content: space-between;
-  background: #16231e;
-  padding: 32px;
+  border-right: 1px solid #31443b;
+  background: #1b2923;
+  padding: clamp(32px, 4vw, 64px);
   color: #ffffff;
 }
 
@@ -685,6 +757,7 @@ button:disabled {
 
 .auth-brand small {
   color: #aebdb6;
+  font-size: 12px;
 }
 
 .auth-context__content {
@@ -694,8 +767,9 @@ button:disabled {
 
 .auth-context__content h1 {
   margin: 0;
-  font-size: clamp(30px, 5vh, 52px);
-  line-height: 1.08;
+  max-width: 420px;
+  font-size: clamp(30px, 4vw, 40px);
+  line-height: 1.15;
 }
 
 .auth-context__content p {
@@ -706,13 +780,17 @@ button:disabled {
 
 .auth-security-list {
   display: grid;
-  gap: 11px;
+  max-width: 360px;
+  gap: 0;
+  border-top: 1px solid rgb(255 255 255 / 12%);
 }
 
 .auth-security-list span {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
+  border-bottom: 1px solid rgb(255 255 255 / 12%);
+  padding: 11px 0;
   color: #dfe8e4;
   font-size: 13px;
 }
@@ -721,24 +799,33 @@ button:disabled {
   display: grid;
   min-height: 100vh;
   place-items: center;
-  padding: 30px;
+  background: var(--bg);
+  padding: 40px;
 }
 
 .auth-panel {
-  width: min(390px, 100%);
+  width: min(420px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  padding: 28px;
 }
 
 .auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
   border-bottom: 1px solid var(--line);
+  margin: -28px -28px 0;
+  background: var(--surface-muted);
 }
 
 .auth-tabs button {
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  padding: 11px;
+  padding: 14px;
   color: var(--muted);
   cursor: pointer;
 }
@@ -755,7 +842,8 @@ button:disabled {
 
 .auth-form-heading h2 {
   margin: 0;
-  font-size: 22px;
+  color: var(--text-strong);
+  font-size: 20px;
 }
 
 .auth-form-heading p {
@@ -779,12 +867,19 @@ button:disabled {
   width: 34px;
   height: 34px;
   border: 0;
+  border-radius: 4px;
   background: transparent;
   cursor: pointer;
 }
 
+.secret-input button:hover {
+  background: var(--surface-strong);
+}
+
 .auth-error {
+  border: 1px solid #e7b5b0;
   border-left: 3px solid var(--danger);
+  border-radius: var(--radius);
   background: var(--danger-bg);
   padding: 10px 12px;
   color: var(--danger);
@@ -860,8 +955,12 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  padding: 5px 9px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -878,7 +977,12 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin: 24px 0 11px;
+  min-height: 42px;
+  margin: 30px 0 12px;
+}
+
+.page > section:first-child > .section-heading {
+  margin-top: 0;
 }
 
 .text-button {
@@ -902,11 +1006,13 @@ button:disabled {
 }
 
 .market-tile {
-  min-height: 140px;
+  height: 164px;
+  min-height: 164px;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--surface);
-  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 16px 17px;
 }
 
 .tile-topline,
@@ -923,7 +1029,9 @@ button:disabled {
 }
 
 .tile-topline strong {
+  color: var(--text-strong);
   font-size: 13px;
+  font-weight: 700;
 }
 
 .tile-topline small,
@@ -955,14 +1063,14 @@ button:disabled {
 
 .market-value-row {
   align-items: flex-end;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .market-value {
   display: block;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 20px;
-  font-weight: 650;
+  font-size: 21px;
+  font-weight: 700;
 }
 
 .change {
@@ -1002,7 +1110,7 @@ button:disabled {
 
 /* 列表面板：策略表格 / 资讯流复用 */
 .list-panel {
-  margin-top: 20px;
+  margin-top: 12px;
   overflow: hidden;
 }
 
@@ -1012,45 +1120,31 @@ button:disabled {
 
 /* 区块标题带工具栏（搜索 + 操作按钮）：策略、当前订单复用 */
 .section-heading--tools {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.section-heading--tools > div:first-child {
+  flex: 0 0 auto;
 }
 
 .tools-row {
   display: flex;
-  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: nowrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
 }
 
-/* 资讯卡片：与行情卡片共用 market-tile 外框，内部为纵向排版 */
-.news-tile {
-  display: flex;
-  flex-direction: column;
-}
-
-.news-tile .tile-topline {
-  align-items: center;
-}
-
-.news-tile__title {
-  flex: 1;
-  margin: 12px 0;
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.news-tile__link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
+/* 资讯列表：标准资讯流样式，与全站卡片风格统一（细线分隔的列表面板） */
 .news-list {
   display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .news-row {
@@ -1058,8 +1152,14 @@ button:disabled {
   align-items: center;
   gap: 16px;
   border-bottom: 1px solid var(--line);
-  padding: 14px 16px;
-  grid-template-columns: 44px minmax(0, 1fr) 34px;
+  padding: 14px 18px;
+  grid-template-columns: 92px minmax(0, 1fr) 20px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.news-row:hover {
+  background: var(--surface-muted);
 }
 
 .news-row:last-child {
@@ -1067,22 +1167,35 @@ button:disabled {
 }
 
 .news-row > time {
-  align-self: start;
-  padding-top: 4px;
+  align-self: center;
   color: var(--muted);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
 }
 
-.news-row h3 {
-  margin: 6px 0 3px;
-  font-size: 13px;
+.news-row__body {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
 }
 
-.news-row p {
+.news-row__body h3 {
+  overflow: hidden;
   margin: 0;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.news-row__icon {
   color: var(--muted);
-  font-size: 12px;
+}
+
+.news-row:hover .news-row__icon {
+  color: var(--accent);
 }
 
 .tag-row {
@@ -1093,11 +1206,11 @@ button:disabled {
 .tag {
   display: inline-flex;
   align-items: center;
-  border-radius: 4px;
-  padding: 3px 6px;
+  border-radius: 999px;
+  padding: 3px 8px;
   font-size: 11px;
   font-weight: 600;
-  background: #edf8f3;
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -1106,52 +1219,26 @@ button:disabled {
   color: var(--muted);
 }
 
-/* 策略统计卡：四列细线分隔 */
-.summary-strip {
-  display: grid;
-  overflow: hidden;
-  margin-top: 20px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--surface);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.summary-strip > div {
-  min-width: 0;
-  border-right: 1px solid var(--line);
-  padding: 15px 18px;
-}
-
-.summary-strip > div:last-child {
-  border-right: 0;
-}
-
-.summary-strip span {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.summary-strip strong {
-  display: block;
-  margin-top: 5px;
-  overflow-wrap: anywhere;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 18px;
-}
-
+/* 搜索输入：策略与订单工具栏复用 */
 .search-field {
   display: flex;
   width: min(360px, 100%);
-  height: 34px;
+  height: 36px;
   align-items: center;
   gap: 8px;
   border: 1px solid var(--line-strong);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--surface);
   padding: 0 11px;
   color: var(--muted);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.search-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(8 127 91 / 10%);
 }
 
 .search-field input {
@@ -1168,22 +1255,24 @@ button:disabled {
   width: 210px;
 }
 
-/* 交易页总资产区块 */
+/* 交易页资产区块 */
 .binance-assets {
-  margin-top: 4px;
+  margin-top: 0;
 }
 
-.binance-assets .section-heading {
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 14px;
+.trading-split .section-heading {
+  min-height: 42px;
+  margin: 0 0 12px;
+  padding: 0;
 }
 
-/* 总资产内容区左右分栏：左侧账户资产、右侧 BTC/USDT 实时价 */
+/* 交易页内容区左右分栏：左栏行情（BTC/USDT 实时价），右栏资产 + 绑定控件 */
 .trading-split {
   display: grid;
   gap: 16px;
-  margin-top: 16px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  margin-top: 0;
+  align-items: start;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
 }
 
 .trading-split__main {
@@ -1194,13 +1283,10 @@ button:disabled {
   min-width: 0;
 }
 
-/* 交易页右侧实时价：卡片风格与首页行情一致 */
-.btc-price .section-heading {
-  margin-top: 0;
-}
-
-.btc-price .market-tile {
-  min-height: 160px;
+@media (max-width: 960px) {
+  .market-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -1209,24 +1295,9 @@ button:disabled {
   }
 
   .status-pill,
-  .brand strong {
+  .brand strong,
+  .user-context {
     display: none;
-  }
-
-  .market-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .trading-split {
-    grid-template-columns: 1fr;
-  }
-
-  .summary-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .summary-strip > div:nth-child(2) {
-    border-right: 0;
   }
 
   .panel-heading--tools {
@@ -1235,30 +1306,33 @@ button:disabled {
   }
 
   .section-heading--tools {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
   }
 
   .tools-row {
-    width: 100%;
+    width: auto;
+    min-width: 0;
+    flex: 1;
+    flex-wrap: nowrap;
   }
 
-  .search-field,
-  .search-field--compact {
-    width: 100%;
+  .section-heading--tools .search-field,
+  .section-heading--tools .search-field--compact {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 120px;
   }
 
   .appbar-lead {
     gap: 15px;
   }
 
-  .user-context {
-    max-width: 42vw;
-  }
-
   .page {
-    width: min(100% - 24px, 1180px);
+    width: min(100% - 24px, 1240px);
     padding-top: 20px;
+    padding-bottom: 40px;
   }
 
   .page-heading {
@@ -1268,6 +1342,24 @@ button:disabled {
 
   .page-actions {
     justify-content: flex-start;
+  }
+
+  .trading-split {
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trading-split .section-heading {
+    min-height: 40px;
+    margin-bottom: 8px;
+  }
+
+  .trading-split .market-tile {
+    padding: 12px;
+  }
+
+  .trading-split .mini-chart {
+    display: none;
   }
 
   .permission-list {
@@ -1284,16 +1376,16 @@ button:disabled {
   }
 
   .auth-context {
-    min-height: 220px;
+    min-height: 200px;
     padding: 24px;
   }
 
   .auth-context__content {
-    margin: 36px 0 0;
+    margin: 30px 0 0;
   }
 
   .auth-context__content h1 {
-    font-size: 30px;
+    font-size: 28px;
   }
 
   .auth-security-list {
@@ -1302,7 +1394,33 @@ button:disabled {
 
   .auth-form-region {
     min-height: auto;
-    padding: 28px 20px 44px;
+    padding: 24px 16px 40px;
+  }
+
+  .auth-panel {
+    padding: 24px;
+  }
+
+  .auth-tabs {
+    margin: -24px -24px 0;
+  }
+
+  .news-row {
+    gap: 4px 12px;
+    grid-template-columns: minmax(0, 1fr) 20px;
+  }
+
+  .news-row > time {
+    grid-column: 1;
+  }
+
+  .news-row__body {
+    grid-column: 1;
+  }
+
+  .news-row__icon {
+    grid-column: 2;
+    grid-row: 1 / span 2;
   }
 
   .modal-backdrop {
@@ -1316,5 +1434,56 @@ button:disabled {
 
   .mfa-enrollment {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .market-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .primary-nav .nav-item {
+    padding-inline: 9px;
+  }
+
+  .appbar-trail {
+    gap: 2px;
+  }
+
+  .section-heading--tools {
+    gap: 8px;
+  }
+
+  .section-heading--tools > div:first-child > span {
+    display: none;
+  }
+
+  .section-heading--tools .tools-row {
+    gap: 6px;
+  }
+
+  .section-heading--tools .search-field {
+    height: 34px;
+    padding-inline: 8px;
+  }
+
+  .section-heading--tools .button {
+    min-height: 34px;
+    padding-inline: 10px;
+  }
+
+  .asset-empty-tile .change {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

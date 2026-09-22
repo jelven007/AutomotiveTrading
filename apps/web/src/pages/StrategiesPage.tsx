@@ -1,14 +1,6 @@
 import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
-// 顶部四张统计卡
-const stats = [
-  { label: "策略总数", value: "12" },
-  { label: "运行中", value: "6" },
-  { label: "本月模型调用", value: "18,420" },
-  { label: "预算使用", value: "42%" },
-];
-
 // 状态到样式 tone 的映射，避免行内多层三元
 const stateTone: Record<string, string> = {
   运行中: "success",
@@ -26,7 +18,7 @@ type Strategy = {
   updated: string;
 };
 
-// 全部策略数据：名称/版本、状态、标的池、环境、累计收益、最近运行
+// 策略数据：名称/版本、状态、标的池、环境、累计收益、最近运行
 const strategies: Strategy[] = [
   {
     name: "多因子动量",
@@ -66,36 +58,27 @@ const strategies: Strategy[] = [
   },
 ];
 
-// 策略卡片：复用首页行情卡片的 market-tile 外框，保证全站卡片风格一致
-function StrategyCard({ strategy }: { strategy: Strategy }) {
+// 策略列表行：复用全站数据表样式（.table-scroll），保证与交易页表格风格一致
+function StrategyRow({ strategy }: { strategy: Strategy }) {
   const positive = strategy.pnl.startsWith("+");
   return (
-    <article className="market-tile">
-      <div className="tile-topline">
-        <div>
-          <strong>{strategy.name}</strong>
-          <small>{strategy.version}</small>
-        </div>
+    <tr>
+      <td>
+        <strong>{strategy.name}</strong>
+        <small className="row-subtext">{strategy.version}</small>
+      </td>
+      <td>
         <span className={`state state--${stateTone[strategy.state]}`}>
           {strategy.state}
         </span>
-      </div>
-      <div className="market-value-row">
-        <div>
-          <span
-            className={`market-value ${
-              positive ? "metric-positive" : "metric-negative"
-            }`}
-          >
-            {strategy.pnl}
-          </span>
-          <span className="change change--muted">累计收益</span>
-        </div>
-      </div>
-      <small className="market-time">
-        {strategy.pool} · {strategy.environment} · {strategy.updated}
-      </small>
-    </article>
+      </td>
+      <td>{strategy.pool}</td>
+      <td>{strategy.environment}</td>
+      <td className={positive ? "metric-positive" : "metric-negative"}>
+        {strategy.pnl}
+      </td>
+      <td className="row-muted">{strategy.updated}</td>
+    </tr>
   );
 }
 
@@ -113,19 +96,10 @@ export function StrategiesPage() {
 
   return (
     <div className="page">
-      <div className="summary-strip">
-        {stats.map((stat) => (
-          <div key={stat.label}>
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-          </div>
-        ))}
-      </div>
-
       <section aria-labelledby="strategy-list">
         <div className="section-heading section-heading--tools">
           <div>
-            <h2 id="strategy-list">全部策略</h2>
+            <h2 id="strategy-list">策略</h2>
             <span>按最近运行排序</span>
           </div>
           <div className="tools-row">
@@ -147,10 +121,24 @@ export function StrategiesPage() {
         {filtered.length === 0 ? (
           <div className="binance-section-state">没有匹配的策略</div>
         ) : (
-          <div className="market-grid">
-            {filtered.map((strategy) => (
-              <StrategyCard key={strategy.name} strategy={strategy} />
-            ))}
+          <div className="table-scroll list-panel">
+            <table>
+              <thead>
+                <tr>
+                  <th>策略</th>
+                  <th>状态</th>
+                  <th>标的池</th>
+                  <th>环境</th>
+                  <th>累计收益</th>
+                  <th>最近运行</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((strategy) => (
+                  <StrategyRow key={strategy.name} strategy={strategy} />
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>

@@ -56,26 +56,23 @@ export function MarketTile({ quote }: { quote: MarketQuote }) {
   );
 }
 
-// 资讯卡片：与行情卡片共用 market-tile 外框，保证首页两个区块视觉一致
-export function NewsTile({ item }: { item: NewsItem }) {
+// 资讯列表行：标准资讯流样式（时间 + 标题 + 外链），复用全站 .news-row 列表外观
+export function NewsRow({ item }: { item: NewsItem }) {
   return (
-    <article className="market-tile news-tile">
-      <div className="tile-topline">
+    <a
+      className="news-row"
+      href={item.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`查看公告 ${item.title}`}
+      title="查看原文"
+    >
+      <time>{item.time}</time>
+      <div className="news-row__body">
         <span className="tag">公告</span>
-        <time className="market-time">{item.time}</time>
+        <h3>{item.title}</h3>
       </div>
-      <h3 className="news-tile__title">{item.title}</h3>
-      <a
-        className="news-tile__link"
-        href={item.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`查看公告 ${item.title}`}
-        title="查看原文"
-      >
-        查看原文
-        <ExternalLink size={14} />
-      </a>
-    </article>
+      <ExternalLink className="news-row__icon" size={16} aria-hidden="true" />
+    </a>
   );
 }

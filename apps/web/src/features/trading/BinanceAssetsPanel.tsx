@@ -1,11 +1,4 @@
-import {
-  AlertCircle,
-  KeyRound,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Trash2,
-} from "lucide-react";
+import { AlertCircle, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { BtcSpotPriceCard } from "../market/BtcSpotPriceCard";
@@ -20,7 +13,7 @@ import {
 } from "./api";
 import type { BinanceAccountDraft, BinanceOverview } from "./types";
 
-// 总资产面板：读取真实币安 overview，并复用绑定 / 重新绑定 / 删除流程
+// 资产面板：读取真实 Binance overview，并复用绑定 / 重新绑定 / 删除流程
 export function BinanceAssetsPanel() {
   const auth = useAuth();
   const [overview, setOverview] = useState<BinanceOverview | null>(null);
@@ -48,7 +41,7 @@ export function BinanceAssetsPanel() {
           setNotice(null);
         } else {
           setNotice(
-            error instanceof Error ? error.message : "币安账户数据加载失败",
+            error instanceof Error ? error.message : "B账户数据加载失败",
           );
         }
       } finally {
@@ -73,70 +66,25 @@ export function BinanceAssetsPanel() {
       setShowBinding(false);
       setNotice(`${draft.alias} 已连接。`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "币安账号保存失败。");
+      setNotice(error instanceof Error ? error.message : "B账号保存失败。");
     }
   }
 
   async function removeAccount() {
-    if (!auth.accessToken || !window.confirm("确认删除当前币安账号？")) {
+    if (!auth.accessToken || !window.confirm("确认删除当前B账号？")) {
       return;
     }
     try {
       await deleteBinanceAccount(auth.accessToken);
       setOverview(null);
-      setNotice("币安账号已删除。");
+      setNotice("B账号已删除。");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "币安账号删除失败。");
+      setNotice(error instanceof Error ? error.message : "B账号删除失败。");
     }
   }
 
   return (
     <section className="binance-assets" aria-labelledby="binance-assets">
-      <div className="section-heading">
-        <div>
-          <h2 id="binance-assets">总资产</h2>
-          {overview ? (
-            <span>
-              {overview.account.alias} · 数据时间 {formatTime(overview.asOf)}
-            </span>
-          ) : (
-            <span>币安现货 / U 本位合约</span>
-          )}
-        </div>
-        {overview && (
-          <div className="page-actions">
-            <button
-              className="button button--secondary"
-              disabled={loading}
-              onClick={() => void loadOverview(true)}
-              type="button"
-            >
-              <RefreshCw
-                className={loading ? "is-spinning" : undefined}
-                size={16}
-              />
-              刷新
-            </button>
-            <button
-              className="button button--secondary"
-              onClick={() => setShowBinding(true)}
-              type="button"
-            >
-              <RotateCcw size={16} />
-              重新绑定
-            </button>
-            <button
-              className="button button--danger"
-              onClick={() => void removeAccount()}
-              type="button"
-            >
-              <Trash2 size={16} />
-              删除账号
-            </button>
-          </div>
-        )}
-      </div>
-
       {notice && (
         <div className="inline-notice" role="status">
           <AlertCircle size={16} />
@@ -147,9 +95,58 @@ export function BinanceAssetsPanel() {
         </div>
       )}
 
-      {/* 总资产内容区拆左右两栏：左侧账户资产 / 绑定入口，右侧 BTC/USDT 实时价 */}
+      {/* 内容区左右两栏：左栏为行情（BTC/USDT 实时价），右栏为资产概览 + 绑定/重绑/删除控件 */}
       <div className="trading-split">
+        <div className="trading-split__aside">
+          <BtcSpotPriceCard />
+        </div>
         <div className="trading-split__main">
+          <div className="section-heading">
+            <div>
+              <h2 id="binance-assets">资产</h2>
+              {overview ? (
+                <span>
+                  {overview.account.alias} · 数据时间{" "}
+                  {formatTime(overview.asOf)}
+                </span>
+              ) : (
+                <span>USDT</span>
+              )}
+            </div>
+            {overview && (
+              <div className="page-actions">
+                <button
+                  className="button button--secondary"
+                  disabled={loading}
+                  onClick={() => void loadOverview(true)}
+                  type="button"
+                >
+                  <RefreshCw
+                    className={loading ? "is-spinning" : undefined}
+                    size={16}
+                  />
+                  刷新
+                </button>
+                <button
+                  className="button button--secondary"
+                  onClick={() => setShowBinding(true)}
+                  type="button"
+                >
+                  <RotateCcw size={16} />
+                  重新绑定
+                </button>
+                <button
+                  className="button button--danger"
+                  onClick={() => void removeAccount()}
+                  type="button"
+                >
+                  <Trash2 size={16} />
+                  删除账号
+                </button>
+              </div>
+            )}
+          </div>
+
           {loading && !overview ? (
             <div className="binance-page-state" role="status">
               <RefreshCw className="is-spinning" size={18} />
@@ -158,22 +155,32 @@ export function BinanceAssetsPanel() {
           ) : overview ? (
             <BinanceAccountOverview overview={overview} />
           ) : (
-            <div className="binance-empty">
-              <KeyRound size={22} />
-              <h2>尚未绑定币安账号</h2>
-              <button
-                className="button button--primary"
-                onClick={() => setShowBinding(true)}
-                type="button"
-              >
-                <Plus size={16} />
-                账号
-              </button>
-            </div>
+            <article className="market-tile asset-empty-tile">
+              <div className="tile-topline">
+                <div>
+                  <strong>USDT</strong>
+                  <small>账户总览</small>
+                </div>
+                <span className="tag tag--neutral">未连接</span>
+              </div>
+              <div className="market-value-row">
+                <div>
+                  <span className="market-value">--</span>
+                  <span className="change change--muted">
+                    连接账号后展示资产
+                  </span>
+                </div>
+                <button
+                  className="button button--primary"
+                  onClick={() => setShowBinding(true)}
+                  type="button"
+                >
+                  <Plus size={16} />
+                  账号
+                </button>
+              </div>
+            </article>
           )}
-        </div>
-        <div className="trading-split__aside">
-          <BtcSpotPriceCard />
         </div>
       </div>
 

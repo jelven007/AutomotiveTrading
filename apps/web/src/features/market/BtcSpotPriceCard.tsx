@@ -1,7 +1,7 @@
 import { MarketTile } from "./MarketTile";
 import { useLiveMarketQuotes } from "./useLiveData";
 
-// 交易页右侧实时价：信息源同首页行情，每秒静默刷新，复用统一行情卡片
+// 交易页左侧行情：信息源同首页行情，每秒静默刷新，复用统一行情卡片
 const BTC_SYMBOLS = ["BTCUSDT"];
 
 export function BtcSpotPriceCard() {
@@ -12,8 +12,8 @@ export function BtcSpotPriceCard() {
     <section className="btc-price" aria-label="BTC/USDT 实时价格">
       <div className="section-heading">
         <div>
-          <h2>实时价格</h2>
-          <span>币安现货 · BTC/USDT</span>
+          <h2>行情</h2>
+          <span>B现货 · BTC/USDT</span>
         </div>
       </div>
       {state === "error" && !quote ? (

@@ -96,6 +96,6 @@ describe("binancePublic", () => {
 
   it("throws when the public endpoint fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({}, false)));
-    await expect(fetchAnnouncements()).rejects.toThrow("币安公开接口请求失败");
+    await expect(fetchAnnouncements()).rejects.toThrow("B公开接口请求失败");
   });
 });

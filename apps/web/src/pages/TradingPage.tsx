@@ -35,7 +35,7 @@ export function TradingPage() {
       <section aria-labelledby="open-orders">
         <div className="section-heading section-heading--tools">
           <div>
-            <h2 id="open-orders">当前订单</h2>
+            <h2 id="open-orders">订单</h2>
             <span>按下单时间排序</span>
           </div>
           <div className="tools-row">
@@ -54,43 +54,57 @@ export function TradingPage() {
             </button>
           </div>
         </div>
-        {filtered.length === 0 ? (
-          <div className="binance-section-state">
-            {orders.length === 0 ? "当前没有进行中的订单" : "没有匹配的订单"}
-          </div>
-        ) : (
-          <div className="market-grid">
-            {filtered.map((order) => (
-              <OrderCard key={order.id} order={order} />
-            ))}
-          </div>
-        )}
+        <div className="table-scroll list-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>合约</th>
+                <th>方向</th>
+                <th>类型</th>
+                <th>价格</th>
+                <th>数量</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td className="table-empty" colSpan={6}>
+                    {orders.length === 0
+                      ? "当前没有进行中的订单"
+                      : "没有匹配的订单"}
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((order) => (
+                  <OrderRow key={order.id} order={order} />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );
 }
 
-// 订单卡片：复用首页行情卡片的 market-tile 外框，保证全站卡片风格一致
-function OrderCard({ order }: { order: Order }) {
+// 订单列表行：与策略页共用表格结构和状态标签
+function OrderRow({ order }: { order: Order }) {
   const isBuy = order.side === "买入";
   return (
-    <article className="market-tile">
-      <div className="tile-topline">
-        <div>
-          <strong>{order.symbol}</strong>
-          <small>{order.type}</small>
-        </div>
+    <tr>
+      <td>
+        <strong>{order.symbol}</strong>
+      </td>
+      <td>
         <span className={`state state--${isBuy ? "success" : "warning"}`}>
           {order.side}
         </span>
-      </div>
-      <div className="market-value-row">
-        <div>
-          <span className="market-value">{order.price}</span>
-          <span className="change change--muted">数量 {order.quantity}</span>
-        </div>
-      </div>
-      <small className="market-time">{order.status}</small>
-    </article>
+      </td>
+      <td>{order.type}</td>
+      <td>{order.price}</td>
+      <td>{order.quantity}</td>
+      <td className="row-muted">{order.status}</td>
+    </tr>
   );
 }

@@ -1,10 +1,10 @@
-import { MarketTile, NewsTile } from "../features/market/MarketTile";
+import { MarketTile, NewsRow } from "../features/market/MarketTile";
 import {
   useLiveAnnouncements,
   useLiveMarketQuotes,
 } from "../features/market/useLiveData";
 
-// 首页：聚合币安公开行情与官方资讯，两块均为卡片网格，每秒静默刷新。
+// 首页：上方为币安公开行情卡片网格，下方为官方资讯列表，均每秒静默刷新。
 export function HomePage() {
   const { quotes, state: marketState } = useLiveMarketQuotes();
   const { news, state: newsState } = useLiveAnnouncements();
@@ -15,7 +15,7 @@ export function HomePage() {
         <div className="section-heading">
           <div>
             <h2 id="market-overview">行情</h2>
-            <span>币安现货 · 公开行情</span>
+            <span>B现货 · 公开行情</span>
           </div>
         </div>
         {marketState === "error" && quotes.length === 0 ? (
@@ -37,7 +37,7 @@ export function HomePage() {
         <div className="section-heading">
           <div>
             <h2 id="news-stream">资讯</h2>
-            <span>币安官方公告</span>
+            <span>B官方公告</span>
           </div>
         </div>
         {newsState === "error" && news.length === 0 ? (
@@ -47,9 +47,9 @@ export function HomePage() {
         ) : news.length === 0 ? (
           <div className="binance-section-state">正在加载资讯</div>
         ) : (
-          <div className="market-grid">
+          <div className="news-list list-panel">
             {news.map((item) => (
-              <NewsTile key={item.id} item={item} />
+              <NewsRow key={item.id} item={item} />
             ))}
           </div>
         )}

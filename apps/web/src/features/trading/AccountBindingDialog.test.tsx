@@ -11,7 +11,7 @@ describe("AccountBindingDialog", () => {
     render(<AccountBindingDialog onCancel={vi.fn()} onSave={onSave} />);
 
     expect(
-      screen.getByRole("heading", { name: "添加币安账号" }),
+      screen.getByRole("heading", { name: "添加B账号" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("combobox", { name: "凭据类型" }),

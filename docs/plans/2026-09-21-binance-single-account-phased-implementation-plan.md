@@ -23,7 +23,7 @@
 | 安全替换 | 完成 | 候选验证、事务与补偿 |
 | 权限探测 | 完成 | 仅允许读取 API 权限 |
 | 账户概览 | 完成 | Spot/USD-M、5 秒快照、局部降级 |
-| Web 页面 | 完成 | 首页（币安公开行情/资讯）、策略看板、交易（总资产/当前订单） |
+| Web 页面 | 完成 | 首页行情/资讯、策略表格、交易行情/资产/订单 |
 | 阶段一部署 | 完成 | ECS 服务和迁移健康 |
 | 真实只读验收 | 阻塞 | Binance 签名接口出口不可达 |
 | 阶段二 | 未开始 | 必须等待阶段一真实验收 |
@@ -133,10 +133,12 @@ PUT /api/v1/trading/binance/futures/{symbol}/margin-mode
 - Modify: `apps/web/src/features/trading/api.ts`
 - Modify: `apps/web/src/features/trading/types.ts`
 
-交易页当前由 `TradingPage.tsx` 组合 `BinanceAssetsPanel.tsx`（总资产）与当前订单
-占位。阶段二在「当前订单」区块接入订单表、下单票据与 USD-M 设置，只提供市价、
-限价、单笔撤单、杠杆和保证金模式。交易区域受功能开关和 MFA 会话保护；
-`pending_reconciliation` 不提供重试按钮。
+交易页当前由 `TradingPage.tsx` 组合左侧 BTC/USDT 行情、右侧
+`BinanceAssetsPanel.tsx` 资产概览，以及「订单」六列表格。阶段一订单表在表格内
+展示空态；阶段二在该区块接入真实订单数据、下单票据与 USD-M 设置，只提供
+市价、限价、单笔撤单、杠杆和保证金模式。交易区域受功能开关和 MFA 会话保护；
+`pending_reconciliation` 不提供重试按钮。新增表单和操作应沿用现有单行工具栏、
+表格与响应式规范。
 
 ## Task 12: Testnet 与生产门禁
 

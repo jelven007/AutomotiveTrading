@@ -71,7 +71,7 @@ export function AuthPage() {
         </div>
         <div className="auth-context__content">
           <h1>进入交易工作区</h1>
-          <p>安全管理唯一币安账号与账户数据。</p>
+          <p>安全管理唯一B账号与账户数据。</p>
           <div className="auth-security-list">
             <span>
               <ShieldCheck size={17} />

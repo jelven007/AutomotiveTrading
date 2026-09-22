@@ -2,15 +2,15 @@
 
 > 文档编号：QT-ARCH-001
 >
-> 版本：1.0
+> 版本：1.1
 >
-> 日期：2026-09-21
+> 日期：2026-09-22
 >
 > 状态：阶段一已上线（ECS 生产环境）
 
 本文整理系统当前的整体技术方案，覆盖架构、模块职责、技术栈、数据与接口、
 安全、部署与演进路线。分模块细节以各专项文档为准，发生冲突时以
-[单账号分阶段设计](plans/2026-09-21-binance-single-account-phased-design.md)
+[单账号分阶段设计](../plans/2026-09-21-binance-single-account-phased-design.md)
 为权威。
 
 ## 1. 系统定位
@@ -55,20 +55,25 @@ NautilusTrader Runtime。首页行情与资讯由浏览器直连币安公开接�
 
 一级导航为首页、策略、交易三项，右侧保留系统状态、用户邮箱、设置与退出。
 前端结构详见
-[Web 前端三页全流程设计](frontend/2026-09-21-web-three-page-design.md)。
+[Web 前端三页全流程设计](../frontend/2026-09-21-web-three-page-design.md)。
 
 ```text
 apps/web/src/app          # AppShell 顶部导航与路由
 apps/web/src/pages        # HomePage / StrategiesPage / TradingPage / 登录 / 用户
 apps/web/src/features/auth      # 认证上下文与登录、MFA
 apps/web/src/features/market    # 币安公开行情/资讯取数
-apps/web/src/features/trading   # 账户概览、绑定对话框、总资产面板
+apps/web/src/features/trading   # 账户概览、绑定对话框、资产面板
 apps/web/src/styles       # 设计令牌与页面样式
 ```
 
-- 首页：行情与资讯走币安公开接口，每 1 秒主动静默刷新。
-- 策略：研究执行看板，阶段一为静态数据。
-- 交易：总资产读取真实概览并复用绑定流程；当前订单为阶段二占位。
+- 首页：四个行情摘要卡与资讯列表走 Binance 公开接口，每 1 秒静默刷新。
+- 策略：六列数据表、搜索和新增入口，阶段一使用静态数据。
+- 交易：左侧行情、右侧资产；订单区与策略区使用相同的工具栏和六列表格。
+  资产读取真实概览并复用绑定流程，订单数据为阶段二占位。
+- 登录和用户页与三个一级页面共用字体、色彩、控件和状态反馈规范。
+
+产品界面的中文文案统一使用“B”，避免出现“币安”；`binance` API 路径、
+类型名、代码标识符以及本技术文档中的交易所名称保持不变。
 
 ### 3.2 Identity
 
@@ -181,7 +186,7 @@ bash scripts/deploy.sh status
 
 仅前端改动时可只重建 Web 镜像并 `up -d --no-deps web`，其余服务不停机。部署
 前置（主密钥、固定出口 IP、可信 HTTPS）与排障见
-[Binance 运维手册](operations/binance-nautilustrader-runbook.md)。
+[Binance 运维手册](../operations/binance-nautilustrader-runbook.md)。
 
 ## 10. 演进路线
 
@@ -191,4 +196,4 @@ bash scripts/deploy.sh status
 
 当前外部阻塞：ECS 到币安签名接口出口不可达、公网入口证书链待可信、缺专用
 只读 Key，解决前不进入阶段二。详见
-[生产准入状态](integrations/binance-production-readiness.md)。
+[生产准入状态](../integrations/binance-production-readiness.md)。

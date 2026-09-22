@@ -19,8 +19,8 @@ export function BinanceAccountOverview({ overview }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("spot");
 
   return (
-    <section className="binance-overview" aria-label="币安账户数据">
-      <div className="product-tabs" role="tablist" aria-label="币安账户视图">
+    <section className="binance-overview" aria-label="B账户数据">
+      <div className="product-tabs" role="tablist" aria-label="B账户视图">
         {tabs.map((tab) => (
           <button
             aria-controls={`binance-${tab.id}-panel`}
