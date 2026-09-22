@@ -7,6 +7,7 @@ export type BinanceAccountDraft = {
 
 export type BinanceAccountSummary = {
   alias: string;
+  environment: "demo";
   apiKeyFingerprint: string;
   connectionStatus: "connected" | "disconnected" | "error";
   lastVerifiedAt: string;

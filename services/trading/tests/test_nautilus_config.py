@@ -8,7 +8,6 @@ def test_builds_distinct_spot_and_futures_clients() -> None:
     configs = build_binance_client_configs(
         api_key="test-api-key",
         api_secret="test-secret",
-        testnet=True,
     )
 
     assert configs.spot.client_id == "BINANCE_SPOT"
@@ -23,12 +22,12 @@ def test_builds_distinct_spot_and_futures_clients() -> None:
     assert configs.futures.execution is not None
     assert configs.futures.execution.account_type is BinanceAccountType.USDT_FUTURES
     assert configs.futures.execution.key_type is BinanceKeyType.HMAC
-    assert configs.spot.data.environment is BinanceEnvironment.TESTNET
-    assert configs.futures.data.environment is BinanceEnvironment.TESTNET
+    assert configs.spot.data.environment is BinanceEnvironment.DEMO
+    assert configs.futures.data.environment is BinanceEnvironment.DEMO
 
 
 def test_without_credentials_builds_data_clients_only() -> None:
-    configs = build_binance_client_configs(testnet=True)
+    configs = build_binance_client_configs()
 
     assert configs.spot.execution is None
     assert configs.futures.execution is None
@@ -36,13 +35,6 @@ def test_without_credentials_builds_data_clients_only() -> None:
     assert configs.spot.data.api_secret is None
     assert configs.futures.data.api_key is None
     assert configs.futures.data.api_secret is None
-
-
-def test_production_uses_live_environment() -> None:
-    configs = build_binance_client_configs(testnet=False)
-
-    assert configs.spot.data.environment is BinanceEnvironment.LIVE
-    assert configs.futures.data.environment is BinanceEnvironment.LIVE
 
 
 @pytest.mark.parametrize(
@@ -60,5 +52,4 @@ def test_rejects_partial_credentials(
         build_binance_client_configs(
             api_key=api_key,
             api_secret=api_secret,
-            testnet=True,
         )

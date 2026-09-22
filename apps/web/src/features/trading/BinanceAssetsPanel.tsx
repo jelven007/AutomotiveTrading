@@ -77,7 +77,7 @@ export function BinanceAssetsPanel() {
       await replaceBinanceAccount(auth.accessToken, draft);
       await loadOverview(true);
       setShowBinding(false);
-      setNotice(`${draft.alias} 已连接。`);
+      setNotice(`${draft.alias} 已连接到 B 模拟环境。`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "B账号保存失败。");
     }
@@ -102,7 +102,7 @@ export function BinanceAssetsPanel() {
   }
 
   function requestRemoval() {
-    if (!auth.accessToken || !window.confirm("确认删除当前B账号？")) {
+    if (!auth.accessToken || !window.confirm("确认删除当前B模拟账号？")) {
       return;
     }
     if (auth.hasRecentMfa()) {
@@ -151,11 +151,11 @@ export function BinanceAssetsPanel() {
               <h2 id="binance-assets">资产</h2>
               {overview ? (
                 <span>
-                  {overview.account.alias} · 数据时间{" "}
+                  {overview.account.alias} · B Demo · 数据时间{" "}
                   {formatTime(overview.asOf)}
                 </span>
               ) : (
-                <span>USDT</span>
+                <span>B Demo · USDT</span>
               )}
             </div>
             {overview && (
@@ -204,7 +204,7 @@ export function BinanceAssetsPanel() {
               <div className="tile-topline">
                 <div>
                   <strong>USDT</strong>
-                  <small>账户总览</small>
+                  <small>B Demo 模拟资产</small>
                 </div>
                 <span className="tag tag--neutral">未连接</span>
               </div>
@@ -221,7 +221,7 @@ export function BinanceAssetsPanel() {
                   type="button"
                 >
                   <Plus size={16} />
-                  账号
+                  模拟账号
                 </button>
               </div>
             </article>

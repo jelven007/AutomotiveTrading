@@ -61,14 +61,19 @@ class FakeRuntimeManager:
         self.current = None
 
 
-def account(secret_ref: str, *, safe_permissions: bool = True) -> TradingAccount:
+def account(
+    secret_ref: str,
+    *,
+    environment: str = "demo",
+    safe_permissions: bool = True,
+) -> TradingAccount:
     return TradingAccount(
         tenant_id="tenant-a",
         alias="primary",
         market_group=MarketGroup.BINANCE,
         provider=TradingProvider.BINANCE,
         account_slot="primary",
-        environment="production",
+        environment=environment,
         credential_type=CredentialType.HMAC,
         secret_ref=secret_ref,
         status=AccountStatus.READ_ONLY,
@@ -120,6 +125,24 @@ async def test_rejects_unsafe_persisted_permissions(session: Session) -> None:
     manager = FakeRuntimeManager(FakeCandidate())
 
     with pytest.raises(RuntimeRestoreError, match="permissions are unsafe"):
+        await restore_account_runtime(stored_account, backend, manager)
+
+    assert manager.credentials is None
+
+
+@pytest.mark.asyncio
+async def test_rejects_persisted_mainnet_account(session: Session) -> None:
+    backend = InMemoryEncryptedSecretBackend()
+    secret_ref = backend.put(
+        "tenant-a",
+        {"api_key": "stored-key", "private_key_or_secret": "stored-secret"},
+    )
+    stored_account = account(secret_ref, environment="production")
+    session.add(stored_account)
+    session.commit()
+    manager = FakeRuntimeManager(FakeCandidate())
+
+    with pytest.raises(RuntimeRestoreError, match="only Binance Demo"):
         await restore_account_runtime(stored_account, backend, manager)
 
     assert manager.credentials is None

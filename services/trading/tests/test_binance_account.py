@@ -106,11 +106,14 @@ def test_replace_binance_account_overwrites_the_single_slot(
     assert secret_backend.count == 1
     assert set(second.json()) == {
         "alias",
+        "environment",
         "api_key_fingerprint",
         "connection_status",
         "last_verified_at",
     }
     assert second.json()["alias"] == "备用账号"
+    assert second.json()["environment"] == "demo"
+    assert session.scalar(select(TradingAccount.environment)) == "demo"
     assert "api-key-sensitive" not in second.text
     assert "api-secret-sensitive" not in second.text
 
@@ -126,6 +129,33 @@ def test_replace_binance_account_rejects_legacy_fields(
 
     assert response.status_code == 422
     assert response.json()["code"] == "request.invalid"
+
+
+def test_legacy_mainnet_account_requires_demo_rebind(
+    binance_api: tuple[TestClient, InMemoryEncryptedSecretBackend, Session],
+) -> None:
+    client, _, session = binance_api
+    assert (
+        client.put(
+            "/api/v1/trading/binance/account",
+            json=replacement_payload(),
+        ).status_code
+        == 200
+    )
+    account = session.scalar(select(TradingAccount))
+    assert account is not None
+    account.environment = "production"
+    session.commit()
+
+    current = client.get("/api/v1/trading/binance/account")
+    rebound = client.put(
+        "/api/v1/trading/binance/account",
+        json=replacement_payload("模拟账号"),
+    )
+
+    assert current.status_code == 404
+    assert rebound.status_code == 200
+    assert rebound.json()["environment"] == "demo"
 
 
 def test_replace_binance_account_requires_fixed_egress(

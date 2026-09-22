@@ -6,16 +6,16 @@
 
 ## 1. 目标
 
-系统只服务一个产品方向：首位所有者登录后绑定唯一币安账号，查询 Spot 与 USD-M
-账户数据，并在阶段二增加受 MFA 和幂等保护的人工交易。
+系统先服务 B Demo：首位所有者登录后绑定唯一模拟账号，查询 Spot 与 USD-M
+账户数据，并增加受 MFA 和幂等保护的人工模拟交易。主网接入作为独立后续阶段。
 
 核心原则：
 
-- 生产环境仅允许首位所有者注册，全系统只有一个 Binance HMAC 账号。
+- 生产部署仅允许首位所有者注册，全系统只有一个 Binance HMAC 账号。
 - 重新绑定先验证候选账号，成功后覆盖，失败时保留旧账号。
 - 凭据只以 AES-256-GCM 密文保存。
 - Spot 与 USD-M 独立连接、独立报告故障。
-- 阶段一没有可执行交易的业务接口。
+- 当前版本只构造 `BinanceEnvironment.DEMO`，不能通过配置切换主网。
 
 ## 2. 系统组成
 
@@ -30,9 +30,9 @@ flowchart LR
     V --> K[Read-only Master Key]
     T --> P[Permission Probe]
     T --> N[Nautilus Runtime]
-    P --> B[Binance API]
-    N --> S[Spot]
-    N --> F[USD-M]
+    P --> B[Binance Spot Demo]
+    N --> S[Spot Demo]
+    N --> F[USD-M Demo]
 ```
 
 运行组件只有 Web、Identity、Trading、MySQL 和 Trading 进程内的
@@ -52,8 +52,10 @@ ip_whitelist_confirmed
 安全要求：
 
 - 只支持 HMAC。
-- API Key 必须启用读取和固定 IP 限制。
-- 提现、内部划转和通用划转必须关闭。
+- 只接受一套跨产品共享的 Demo API Key；签名校验固定调用
+  `https://demo-api.binance.com/api/v3/account`。
+- API Key 必须启用读取和交易权限，并确认固定 IP 限制。
+- Demo 不启用提现、内部划转和通用划转能力。
 - 主密钥为 32 个原始随机字节，宿主机权限 `600`。
 - 主密钥只读挂载，不进入 Git、镜像、环境变量或日志。
 - API 响应只返回 Key 指纹，不返回凭据或密文。
@@ -73,7 +75,7 @@ ip_whitelist_confirmed
 服务重启时从数据库和本地密钥恢复唯一 Runtime；凭据缺失、权限不安全或候选
 校验失败会阻止 Trading 就绪，服务关闭时停止 Runtime。
 
-## 4. 阶段一接口
+## 4. Demo 连接阶段接口
 
 ```text
 GET    /api/v1/trading/binance/account
@@ -94,9 +96,9 @@ GET    /health/binance
 普通请求复用最多 5 秒的内存快照，`refresh=true` 强制刷新。Spot 或 USD-M
 单侧失败时，另一侧和权限数据仍返回。
 
-## 5. 阶段二接口
+## 5. Demo 交易阶段接口
 
-阶段二仅增加：
+Demo 交易阶段仅增加：
 
 ```text
 GET  /api/v1/trading/binance/orders
@@ -117,9 +119,10 @@ PUT  /api/v1/trading/binance/futures/{symbol}/margin-mode
 
 ## 6. 写入门禁
 
-所有阶段二写入必须同时满足：
+所有 Demo 写入必须同时满足：
 
-- `LIVE_TRADING_ENABLED=true`。
+- `BINANCE_ENVIRONMENT=demo`。
+- `DEMO_TRADING_ENABLED=true`。
 - 用户持有未过期的 MFA 交易会话。
 - 请求携带 `Idempotency-Key`。
 - Runtime 与目标产品已就绪。
@@ -138,7 +141,7 @@ PUT  /api/v1/trading/binance/futures/{symbol}/margin-mode
 | Runtime 未就绪 | `binance.runtime_not_ready` |
 | Spot 不可用 | `binance.spot_unavailable` |
 | USD-M 不可用 | `binance.usdm_unavailable` |
-| 实盘写入关闭 | `trading.live_disabled` |
+| Demo 写入关闭 | `trading.demo_disabled` |
 | MFA 缺失或过期 | `auth.mfa_required` |
 | 幂等冲突 | `idempotency.conflict` |
 
@@ -146,12 +149,13 @@ PUT  /api/v1/trading/binance/futures/{symbol}/margin-mode
 
 ## 8. 发布门禁
 
-阶段一必须完成：
+Demo 连接阶段必须完成：
 
 1. 单账号约束、加密存储与原子替换。
 2. Spot/USD-M 聚合查询和局部降级。
-3. 生产只读部署。
-4. 真实账号数据与 Binance 控制台一致。
+3. Demo-only 部署硬门禁。
+4. 模拟账号数据与 Demo 控制台一致。
 
-阶段二必须在 Testnet 完成 Spot/USD-M 下单、撤单、杠杆、保证金模式和故障演练
-后，才允许进入生产灰度。
+Demo 交易阶段必须完成 Spot/USD-M 下单、撤单、杠杆、保证金模式、重启恢复和
+不确定结果对账。全部通过后再单独设计主网只读验收和实盘灰度；当前版本不存在
+主网启用开关。

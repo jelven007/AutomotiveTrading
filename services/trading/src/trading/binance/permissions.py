@@ -22,6 +22,7 @@ class AccountPermissionProbe(Protocol):
         *,
         api_key: str,
         api_secret: str,
+        ip_whitelist_confirmed: bool,
     ) -> AccountPermissionSnapshot: ...
 
 

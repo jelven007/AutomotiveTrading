@@ -77,11 +77,11 @@ def require_sensitive_write(principal: Principal) -> None:
     require_recent_mfa(principal)
 
 
-def require_live_trading_write(principal: Principal) -> None:
-    if not get_settings().live_trading_enabled:
+def require_demo_trading_write(principal: Principal) -> None:
+    if not get_settings().demo_trading_enabled:
         raise ServiceError(
-            code="trading.live_disabled",
-            message="Live trading is disabled",
+            code="trading.demo_disabled",
+            message="Demo trading is disabled",
             status_code=409,
         )
     require_sensitive_write(principal)
@@ -90,7 +90,7 @@ def require_live_trading_write(principal: Principal) -> None:
 __all__ = [
     "Principal",
     "get_principal",
-    "require_live_trading_write",
+    "require_demo_trading_write",
     "require_recent_mfa",
     "require_sensitive_write",
 ]

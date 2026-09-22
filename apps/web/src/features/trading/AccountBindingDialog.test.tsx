@@ -5,13 +5,13 @@ import { describe, expect, it, vi } from "vitest";
 import { AccountBindingDialog } from "./AccountBindingDialog";
 
 describe("AccountBindingDialog", () => {
-  it("binds a production binance account and clears credentials", async () => {
+  it("binds a B Demo account and clears credentials", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
     render(<AccountBindingDialog onCancel={vi.fn()} onSave={onSave} />);
 
     expect(
-      screen.getByRole("heading", { name: "添加B账号" }),
+      screen.getByRole("heading", { name: "添加B模拟账号" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("combobox", { name: "凭据类型" }),

@@ -2,22 +2,16 @@ from collections.abc import Callable
 
 import httpx
 import pytest
-from trading.binance.client import BinancePermissionProbe
+from trading.binance.client import BinanceDemoAccountProbe
 from trading.binance.errors import BinanceConnectorError
 from trading.binance.permissions import AccountPermissionSnapshot
 
 
-def permission_payload(**overrides: bool | int) -> dict[str, bool | int]:
+def account_payload(**overrides: bool | int) -> dict[str, bool | int]:
     payload: dict[str, bool | int] = {
-        "ipRestrict": True,
-        "enableReading": True,
-        "enableSpotAndMarginTrading": True,
-        "enableMargin": False,
-        "enableFutures": True,
-        "enableWithdrawals": False,
-        "enableInternalTransfer": False,
-        "permitsUniversalTransfer": False,
-        "tradingAuthorityExpirationTime": 0,
+        "canTrade": True,
+        "canWithdraw": False,
+        "uid": 42,
     }
     payload.update(overrides)
     return payload
@@ -25,7 +19,7 @@ def permission_payload(**overrides: bool | int) -> dict[str, bool | int]:
 
 def probe(
     handler: Callable[[httpx.Request], httpx.Response],
-) -> tuple[BinancePermissionProbe, list[httpx.Request]]:
+) -> tuple[BinanceDemoAccountProbe, list[httpx.Request]]:
     requests: list[httpx.Request] = []
 
     def record(request: httpx.Request) -> httpx.Response:
@@ -33,23 +27,31 @@ def probe(
         return handler(request)
 
     http = httpx.Client(transport=httpx.MockTransport(record))
-    return BinancePermissionProbe(http=http, clock_ms=lambda: 1_700_000_000_000), requests
-
-
-def inspect(client: BinancePermissionProbe) -> AccountPermissionSnapshot:
-    return client.inspect(
-        api_key="production-api-key",
-        api_secret="hmac-secret",
+    return (
+        BinanceDemoAccountProbe(http=http, clock_ms=lambda: 1_700_000_000_000),
+        requests,
     )
 
 
-def test_permission_probe_only_calls_the_restrictions_endpoint() -> None:
-    client, requests = probe(lambda _: httpx.Response(200, json=permission_payload()))
+def inspect(
+    client: BinanceDemoAccountProbe,
+    *,
+    ip_whitelist_confirmed: bool = True,
+) -> AccountPermissionSnapshot:
+    return client.inspect(
+        api_key="demo-api-key",
+        api_secret="hmac-secret",
+        ip_whitelist_confirmed=ip_whitelist_confirmed,
+    )
+
+
+def test_account_probe_only_calls_the_spot_demo_account_endpoint() -> None:
+    client, requests = probe(lambda _: httpx.Response(200, json=account_payload()))
 
     result = inspect(client)
 
     assert result == AccountPermissionSnapshot(
-        external_account_ref="key-784c2e8dfba5a7ff",
+        external_account_ref="uid-42",
         ip_restricted=True,
         can_read=True,
         can_spot_trade=True,
@@ -61,35 +63,32 @@ def test_permission_probe_only_calls_the_restrictions_endpoint() -> None:
         trading_authority_expiration_time_ms=None,
     )
     assert [(request.method, request.url.path) for request in requests] == [
-        ("GET", "/sapi/v1/account/apiRestrictions")
+        ("GET", "/api/v3/account")
     ]
-    assert requests[0].headers["X-MBX-APIKEY"] == "production-api-key"
+    assert requests[0].url.host == "demo-api.binance.com"
+    assert requests[0].headers["X-MBX-APIKEY"] == "demo-api-key"
     assert "hmac-secret" not in str(requests[0].url)
     assert not hasattr(client, "signed_request")
     assert not hasattr(client, "submit_order")
     assert not hasattr(client, "cancel_order")
 
 
-@pytest.mark.parametrize(
-    ("overrides", "expected_code"),
-    [
-        ({"enableReading": False}, "binance.read_permission_required"),
-        ({"ipRestrict": False}, "binance.ip_not_allowed"),
-        ({"enableWithdrawals": True}, "binance.unsafe_permissions"),
-        ({"enableInternalTransfer": True}, "binance.unsafe_permissions"),
-        ({"permitsUniversalTransfer": True}, "binance.unsafe_permissions"),
-    ],
-)
-def test_permission_probe_rejects_unsafe_permissions(
-    overrides: dict[str, bool],
-    expected_code: str,
-) -> None:
-    client, _ = probe(lambda _: httpx.Response(200, json=permission_payload(**overrides)))
+def test_account_probe_requires_ip_whitelist_confirmation() -> None:
+    client, _ = probe(lambda _: httpx.Response(200, json=account_payload()))
+
+    with pytest.raises(BinanceConnectorError) as error:
+        inspect(client, ip_whitelist_confirmed=False)
+
+    assert error.value.code == "binance.ip_not_allowed"
+
+
+def test_account_probe_rejects_malformed_demo_response() -> None:
+    client, _ = probe(lambda _: httpx.Response(200, json={"uid": 42}))
 
     with pytest.raises(BinanceConnectorError) as error:
         inspect(client)
 
-    assert error.value.code == expected_code
+    assert error.value.code == "binance.response_invalid"
 
 
 @pytest.mark.parametrize(
@@ -102,7 +101,7 @@ def test_permission_probe_rejects_unsafe_permissions(
         (401, {"code": -2015}, "binance.credentials_invalid"),
     ],
 )
-def test_permission_probe_maps_binance_errors(
+def test_account_probe_maps_binance_errors(
     status_code: int,
     payload: dict[str, int],
     expected_code: str,
@@ -114,11 +113,3 @@ def test_permission_probe_maps_binance_errors(
 
     assert error.value.code == expected_code
     assert "hmac-secret" not in str(error.value)
-
-
-def test_permission_probe_rejects_non_official_host() -> None:
-    with pytest.raises(ValueError, match="official Binance HTTPS hosts"):
-        BinancePermissionProbe(
-            http=httpx.Client(),
-            base_url="https://attacker.example",
-        )

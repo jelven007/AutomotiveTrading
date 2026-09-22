@@ -2,11 +2,11 @@
 
 > 文档编号：QT-ARCH-001
 >
-> 版本：1.1
+> 版本：1.2
 >
 > 日期：2026-09-22
 >
-> 状态：阶段一已上线（ECS 生产环境）
+> 状态：Demo-only 基线完成
 
 本文整理系统当前的整体技术方案，覆盖架构、模块职责、技术栈、数据与接口、
 安全、部署与演进路线。分模块细节以各专项文档为准，发生冲突时以
@@ -15,9 +15,9 @@
 
 ## 1. 系统定位
 
-面向单用户的币安账户查询与人工交易系统。阶段一只提供只读查询（API 权限、
-现货余额、U 本位余额与持仓）；人工下单、撤单、杠杆与保证金模式属阶段二，
-生产写入默认关闭。
+面向单用户的 B Demo 账户查询与人工模拟交易系统。当前提供账号签名校验、
+现货余额、U 本位余额与持仓；下一阶段增加 Demo 下单、撤单、杠杆与保证金
+模式。主网接入后置。
 
 设计取向：模块化单体、极简依赖，不引入 A 股行情、风控审计、多账号管理、
 Kafka/Redis/MinIO 等中间件。
@@ -34,8 +34,8 @@ flowchart LR
     T --> V[本地 AES-GCM 凭据库]
     V --> K[只读主密钥]
     T --> N[NautilusTrader Runtime]
-    N --> S[Binance Spot]
-    N --> F[Binance USD-M]
+    N --> S[Binance Spot Demo]
+    N --> F[Binance USD-M Demo]
     W -.公开行情/资讯.-> B[Binance 公开接口]
 ```
 
@@ -48,7 +48,7 @@ NautilusTrader Runtime。首页行情与资讯由浏览器直连币安公开接�
 | --- | --- | --- |
 | Web | `apps/web` | 首页、策略、交易、登录与用户信息 |
 | Identity | `services/identity-tenant` | 邮箱密码认证、JWT、刷新令牌、TOTP MFA |
-| Trading | `services/trading` | 单币安账号、凭据加密、Nautilus 只读概览 |
+| Trading | `services/trading` | 单 B Demo 账号、凭据加密、Nautilus 概览 |
 | 部署编排 | `infra/compose` | MySQL 与三个应用服务的单机 Compose |
 
 ### 3.1 Web
@@ -67,9 +67,9 @@ apps/web/src/styles       # 设计令牌与页面样式
 ```
 
 - 首页：四个行情摘要卡与资讯列表走 Binance 公开接口，每 1 秒静默刷新。
-- 策略：保留六列表格结构，阶段一展示规划中空态并禁用新增入口。
+- 策略：保留六列表格结构，当前展示规划中空态并禁用新增入口。
 - 交易：左侧行情、右侧资产；订单区与策略区使用相同的工具栏和六列表格。
-  资产读取真实概览并复用绑定流程，订单数据为阶段二占位。
+  资产读取真实概览并复用绑定流程，订单数据为 Demo 交易阶段占位。
 - 登录和用户页与三个一级页面共用字体、色彩、控件和状态反馈规范。
 
 产品界面的中文文案统一使用“B”，避免出现“币安”；`binance` API 路径、
@@ -83,10 +83,10 @@ apps/web/src/styles       # 设计令牌与页面样式
 
 ### 3.3 Trading
 
-全局单币安 HMAC 账号：绑定、重新绑定（先验证候选、成功后覆盖、失败保留旧
+全局单 B Demo HMAC 账号：绑定、重新绑定（先验证候选、成功后覆盖、失败保留旧
 账号）、删除。凭据仅以 AES-256-GCM 密文保存，主密钥只读挂载。进程内运行一个
-只读 NautilusTrader Runtime，启动时从持久化密文恢复，关闭时停止；聚合 Spot
-与 USD-M 概览并支持局部降级。
+NautilusTrader Demo Runtime，启动时从持久化密文恢复，关闭时停止；聚合
+Spot 与 USD-M 概览并支持局部降级。Runtime 构造没有主网分支。
 
 ## 4. 技术栈
 
@@ -114,7 +114,7 @@ GET  /health/live
 GET  /health/ready
 ```
 
-### 5.2 Trading（阶段一）
+### 5.2 Trading（Demo 连接阶段）
 
 ```text
 GET    /api/v1/trading/binance/account
@@ -127,7 +127,7 @@ GET    /health/binance
 
 `overview` 返回账号摘要与 Key 指纹、API 权限、非零现货余额、U 本位余额与非零
 持仓；普通请求复用最多 5 秒内存快照，`refresh=true` 强制刷新，Spot 与 USD-M
-单侧失败时另一侧仍返回。阶段二接口（订单、杠杆、保证金模式）见分阶段设计。
+单侧失败时另一侧仍返回。Demo 交易接口（订单、杠杆、保证金模式）见分阶段设计。
 
 ### 5.3 币安公开接口（浏览器直连）
 
@@ -150,12 +150,14 @@ GET https://www.binance.com/bapi/composite/v1/public/cms/article/list/query  # �
 ## 7. 安全
 
 - 认证：JWT 短期访问令牌 + 刷新令牌轮换；账号敏感写入要求 5 分钟内的 MFA，
-  阶段二交易写入还要求幂等键。
+  Demo 交易写入还要求幂等键。
 - 凭据：仅返回 Key 指纹，绝不返回密钥或密文；密钥不进入 Git、镜像、环境变量
   或日志。
 - 网络：Trading 端口仅绑定本地或内网，公网入口使用可信 HTTPS，币安 Key 绑定
   固定出口 IP，并关闭提现与划转权限。
-- 生产写入门禁：`LIVE_TRADING_ENABLED` 默认 `false`。
+- 模拟写入门禁：`DEMO_TRADING_ENABLED` 默认 `false`。
+- 交易环境：`BINANCE_ENVIRONMENT` 只接受 `demo`，Runtime 固定构造
+  `BinanceEnvironment.DEMO`。
 - 生产注册门禁：`SINGLE_OWNER_MODE` 必须为 `true`。
 
 ## 8. 本地开发
@@ -195,10 +197,12 @@ bash scripts/deploy.sh status
 
 ## 10. 演进路线
 
-- **阶段一（已上线）**：单账号只读查询、聚合概览与局部降级、生产只读部署。
-- **阶段二（未开始）**：人工市价/限价单、单笔撤单、USD-M 杠杆与保证金模式，
-  受功能开关、MFA 会话与幂等键保护，须先在 Testnet 完成生命周期与故障演练。
+- **Demo 连接（已完成）**：单模拟账号、聚合概览、局部降级和主网硬隔离。
+- **Demo 交易（未开始）**：人工市价/限价单、单笔撤单、USD-M 杠杆与保证金
+  模式，受功能开关、MFA 会话与幂等键保护。
+- **主网接入（延后）**：Demo 生命周期、重启恢复和不确定结果对账全部通过后，
+  再单独设计只读验收与实盘灰度。
 
-当前外部阻塞：ECS 到币安签名接口出口不可达、公网入口证书链待可信、缺专用
-只读 Key，解决前不进入阶段二。详见
-[生产准入状态](../integrations/binance-production-readiness.md)。
+当前待验收：ECS 到 Demo 签名接口与 WebSocket 的出口、公网入口证书链、
+专用 Demo Key。详见
+[Demo 接入与主网准入](../integrations/binance-production-readiness.md)。

@@ -1,6 +1,7 @@
 import hashlib
 from collections.abc import Callable
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from sqlalchemy import select
@@ -23,6 +24,7 @@ from trading.secrets import SecretBackend
 
 ACCOUNT_REPLACEMENT_FIELDS = (
     "alias",
+    "environment",
     "external_account_ref",
     "credential_type",
     "api_key_fingerprint",
@@ -68,6 +70,7 @@ class BinanceAccountView(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     alias: str
+    environment: Literal["demo"]
     api_key_fingerprint: str
     connection_status: ConnectionStatus
     last_verified_at: datetime
@@ -93,6 +96,8 @@ class BinanceAccountService:
         account = self._find(tenant_id)
         if account is None:
             raise LookupError("Binance account is not bound")
+        if account.environment != "demo":
+            raise LookupError("Binance account must be rebound with Demo credentials")
         return self._view(account)
 
     async def replace(
@@ -114,7 +119,11 @@ class BinanceAccountService:
 
         api_key = command.api_key.get_secret_value()
         api_secret = command.api_secret.get_secret_value()
-        permissions = self._inspect_permissions(api_key, api_secret)
+        permissions = self._inspect_permissions(
+            api_key,
+            api_secret,
+            ip_whitelist_confirmed=command.ip_whitelist_confirmed,
+        )
         self._validate_permissions(permissions)
         candidate = await self._build_and_validate_candidate(api_key, api_secret)
 
@@ -130,10 +139,11 @@ class BinanceAccountService:
             market_group=MarketGroup.BINANCE,
             provider=TradingProvider.BINANCE,
             account_slot="primary",
-            environment="production",
+            environment="demo",
             created_by=actor_user_id,
         )
         account.alias = command.alias
+        account.environment = "demo"
         account.external_account_ref = permissions.external_account_ref
         account.credential_type = CredentialType.HMAC
         account.api_key_fingerprint = self._fingerprint(api_key)
@@ -205,11 +215,14 @@ class BinanceAccountService:
         self,
         api_key: str,
         api_secret: str,
+        *,
+        ip_whitelist_confirmed: bool,
     ) -> AccountPermissionSnapshot:
         try:
             return self._permission_probe.inspect(
                 api_key=api_key,
                 api_secret=api_secret,
+                ip_whitelist_confirmed=ip_whitelist_confirmed,
             )
         except BinanceConnectorError:
             raise
@@ -326,6 +339,7 @@ class BinanceAccountService:
             raise ValueError("Binance account verification metadata is unavailable")
         return BinanceAccountView(
             alias=account.alias,
+            environment="demo",
             api_key_fingerprint=account.api_key_fingerprint,
             connection_status=account.connection_status,
             last_verified_at=account.last_permission_check_at,

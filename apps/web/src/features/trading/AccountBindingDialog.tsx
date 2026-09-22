@@ -48,7 +48,7 @@ export function AccountBindingDialog({ onCancel, onSave }: Props) {
         role="dialog"
       >
         <div className="modal-header">
-          <h2 id="account-binding-title">添加B账号</h2>
+          <h2 id="account-binding-title">添加B模拟账号</h2>
           <button
             aria-label="关闭"
             className="icon-button"
@@ -104,7 +104,7 @@ export function AccountBindingDialog({ onCancel, onSave }: Props) {
               />
               <span>
                 <strong>已配置固定出口 IP 白名单</strong>
-                <small>凭据仅用于权限验证和交易连接，不保存明文。</small>
+                <small>仅接受 Demo 凭据，不连接主网。</small>
               </span>
             </label>
           </div>

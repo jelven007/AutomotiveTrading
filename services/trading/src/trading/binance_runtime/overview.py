@@ -147,6 +147,8 @@ class BinanceOverviewService:
         )
         if account is None:
             raise LookupError("Binance account is not bound")
+        if account.environment != "demo":
+            raise LookupError("Binance account must be rebound with Demo credentials")
 
         cached = self._cache.get(tenant_id)
         if (
@@ -245,6 +247,7 @@ class BinanceOverviewService:
             raise ValueError("Binance account verification metadata is unavailable")
         return BinanceAccountView(
             alias=account.alias,
+            environment="demo",
             api_key_fingerprint=account.api_key_fingerprint,
             connection_status=account.connection_status,
             last_verified_at=account.last_permission_check_at,

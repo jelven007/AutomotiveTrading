@@ -33,7 +33,7 @@ describe("BinanceAssetsPanel", () => {
       verifyMfa,
     });
 
-    await user.click(await screen.findByRole("button", { name: "账号" }));
+    await user.click(await screen.findByRole("button", { name: "模拟账号" }));
     expect(
       screen.getByRole("heading", { name: "验证身份" }),
     ).toBeInTheDocument();
@@ -44,7 +44,7 @@ describe("BinanceAssetsPanel", () => {
     await waitFor(() => {
       expect(verifyMfa).toHaveBeenCalledWith("123456");
       expect(
-        screen.getByRole("heading", { name: "添加B账号" }),
+        screen.getByRole("heading", { name: "添加B模拟账号" }),
       ).toBeInTheDocument();
     });
   });

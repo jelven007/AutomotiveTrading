@@ -61,9 +61,9 @@ WEB_PORT=8080
 
 BINANCE_CREDENTIAL_MASTER_KEY_FILE=/opt/quant-trading/secrets/credential-master-key
 BINANCE_CREDENTIAL_MASTER_KEY_UID=100
-BINANCE_TESTNET_ENABLED=false
+BINANCE_ENVIRONMENT=demo
 FIXED_EGRESS_IP_CONFIGURED=false
-LIVE_TRADING_ENABLED=false
+DEMO_TRADING_ENABLED=false
 PUBLIC_BASE_URL=
 EOF
   chmod 600 "${ENV_FILE}"
@@ -114,30 +114,34 @@ require_binance_configuration() {
   expected_uid="${expected_uid:-100}"
 
   if [[ ! -f "${key_path}" ]]; then
-    echo "币安凭据主密钥不存在：${key_path}" >&2
+    echo "B 凭据主密钥不存在：${key_path}" >&2
     return 1
   fi
   mode="$(file_mode "${key_path}")"
   key_size="$(wc -c <"${key_path}" | tr -d "[:space:]")"
   owner_uid="$(file_owner_uid "${key_path}")"
   if [[ "${mode}" != "600" ]]; then
-    echo "币安凭据主密钥权限必须为 600，当前为 ${mode}。" >&2
+    echo "B 凭据主密钥权限必须为 600，当前为 ${mode}。" >&2
     return 1
   fi
   if [[ "${key_size}" != "32" ]]; then
-    echo "币安凭据主密钥必须恰好为 32 个原始字节。" >&2
+    echo "B 凭据主密钥必须恰好为 32 个原始字节。" >&2
     return 1
   fi
   if [[ "${owner_uid}" != "${expected_uid}" ]]; then
-    echo "币安凭据主密钥所有者必须为 Trading UID ${expected_uid}。" >&2
+    echo "B 凭据主密钥所有者必须为 Trading UID ${expected_uid}。" >&2
     return 1
   fi
   if [[ "$(env_value FIXED_EGRESS_IP_CONFIGURED)" != "true" ]]; then
-    echo "完成币安 IP 白名单后，将 FIXED_EGRESS_IP_CONFIGURED 设置为 true。" >&2
+    echo "完成 B IP 白名单后，将 FIXED_EGRESS_IP_CONFIGURED 设置为 true。" >&2
     return 1
   fi
-  if [[ "$(env_value LIVE_TRADING_ENABLED)" != "false" ]]; then
-    echo "阶段一要求 LIVE_TRADING_ENABLED=false。" >&2
+  if [[ "$(env_value BINANCE_ENVIRONMENT)" != "demo" ]]; then
+    echo "当前版本要求 BINANCE_ENVIRONMENT=demo，禁止连接主网。" >&2
+    return 1
+  fi
+  if [[ "$(env_value DEMO_TRADING_ENABLED)" != "false" ]]; then
+    echo "下单接口完成前要求 DEMO_TRADING_ENABLED=false。" >&2
     return 1
   fi
   if [[ "$(env_value SINGLE_OWNER_MODE)" != "true" ]]; then

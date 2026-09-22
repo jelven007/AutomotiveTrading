@@ -7,6 +7,7 @@ import type {
 
 type BinanceAccountResponse = {
   alias: string;
+  environment: "demo";
   api_key_fingerprint: string;
   connection_status: BinanceAccountSummary["connectionStatus"];
   last_verified_at: string;
@@ -152,6 +153,7 @@ function normalizeAccount(
 ): BinanceAccountSummary {
   return {
     alias: account.alias,
+    environment: account.environment,
     apiKeyFingerprint: account.api_key_fingerprint,
     connectionStatus: account.connection_status,
     lastVerifiedAt: account.last_verified_at,

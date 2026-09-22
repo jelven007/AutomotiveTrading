@@ -30,6 +30,8 @@ async def restore_account_runtime(
     secret_backend: SecretBackend,
     runtime_manager: RuntimeManager,
 ) -> None:
+    if account.environment != "demo":
+        raise RuntimeRestoreError("only Binance Demo accounts can be restored")
     if not account.secret_ref:
         raise RuntimeRestoreError("Binance account credential reference is missing")
     if (
@@ -66,6 +68,9 @@ async def restore_persisted_runtime(runtime_manager: RuntimeManager) -> bool:
     with Session(get_engine(), expire_on_commit=False) as session:
         account = find_system_account(session)
         if account is None:
+            await runtime_manager.stop()
+            return False
+        if account.environment != "demo":
             await runtime_manager.stop()
             return False
         settings = get_settings()

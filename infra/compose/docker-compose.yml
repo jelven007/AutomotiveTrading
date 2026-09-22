@@ -78,8 +78,8 @@ services:
       DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_trading
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
       BINANCE_CREDENTIAL_MASTER_KEY_FILE: /opt/quant-trading/secrets/credential-master-key
-      BINANCE_TESTNET_ENABLED: ${BINANCE_TESTNET_ENABLED:-false}
-      LIVE_TRADING_ENABLED: ${LIVE_TRADING_ENABLED:-false}
+      BINANCE_ENVIRONMENT: ${BINANCE_ENVIRONMENT:-demo}
+      DEMO_TRADING_ENABLED: ${DEMO_TRADING_ENABLED:-false}
       FIXED_EGRESS_IP_CONFIGURED: ${FIXED_EGRESS_IP_CONFIGURED:-false}
     volumes:
       - ${BINANCE_CREDENTIAL_MASTER_KEY_FILE:-/opt/quant-trading/secrets/credential-master-key}:/opt/quant-trading/secrets/credential-master-key:ro

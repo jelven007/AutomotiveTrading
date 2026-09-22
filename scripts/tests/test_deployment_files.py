@@ -69,8 +69,11 @@ def test_compose_contains_only_minimal_services() -> None:
         "web",
     }
     assert set(compose["volumes"]) == {"mysql-data"}
-    assert compose["services"]["trading"]["environment"]["LIVE_TRADING_ENABLED"] == (
-        "${LIVE_TRADING_ENABLED:-false}"
+    assert compose["services"]["trading"]["environment"]["BINANCE_ENVIRONMENT"] == (
+        "${BINANCE_ENVIRONMENT:-demo}"
+    )
+    assert compose["services"]["trading"]["environment"]["DEMO_TRADING_ENABLED"] == (
+        "${DEMO_TRADING_ENABLED:-false}"
     )
     assert compose["services"]["identity-tenant"]["environment"]["SINGLE_OWNER_MODE"] == (
         "${SINGLE_OWNER_MODE:-true}"
@@ -100,16 +103,17 @@ def test_deploy_init_generates_minimal_secure_environment(tmp_path: Path) -> Non
         "WEB_PORT",
         "BINANCE_CREDENTIAL_MASTER_KEY_FILE",
         "BINANCE_CREDENTIAL_MASTER_KEY_UID",
-        "BINANCE_TESTNET_ENABLED",
+        "BINANCE_ENVIRONMENT",
         "FIXED_EGRESS_IP_CONFIGURED",
-        "LIVE_TRADING_ENABLED",
+        "DEMO_TRADING_ENABLED",
         "PUBLIC_BASE_URL",
     }
     assert re.fullmatch(r"[a-f0-9]{48}", values["MYSQL_ROOT_PASSWORD"])
     assert re.fullmatch(r"[a-f0-9]{48}", values["MYSQL_PASSWORD"])
     assert re.fullmatch(r"[a-f0-9]{96}", values["AUTH_JWT_SECRET"])
     assert len(base64.urlsafe_b64decode(values["AUTH_TOTP_ENCRYPTION_KEY"])) == 32
-    assert values["LIVE_TRADING_ENABLED"] == "false"
+    assert values["BINANCE_ENVIRONMENT"] == "demo"
+    assert values["DEMO_TRADING_ENABLED"] == "false"
     assert values["SINGLE_OWNER_MODE"] == "true"
     assert env_file.stat().st_mode & 0o777 == 0o600
 
@@ -121,7 +125,8 @@ def test_deploy_init_generates_minimal_secure_environment(tmp_path: Path) -> Non
         ("mode", "600"),
         ("owner", "Trading UID"),
         ("egress", "FIXED_EGRESS_IP_CONFIGURED"),
-        ("live", "LIVE_TRADING_ENABLED=false"),
+        ("environment", "BINANCE_ENVIRONMENT=demo"),
+        ("trading", "DEMO_TRADING_ENABLED=false"),
         ("owner_mode", "SINGLE_OWNER_MODE=true"),
         ("https", "PUBLIC_BASE_URL"),
     ],
@@ -137,8 +142,9 @@ def test_deploy_rejects_unsafe_binance_configuration(
     values = {
         "BINANCE_CREDENTIAL_MASTER_KEY_FILE": str(key_file),
         "BINANCE_CREDENTIAL_MASTER_KEY_UID": str(os.getuid()),
+        "BINANCE_ENVIRONMENT": "demo",
         "FIXED_EGRESS_IP_CONFIGURED": "true",
-        "LIVE_TRADING_ENABLED": "false",
+        "DEMO_TRADING_ENABLED": "false",
         "PUBLIC_BASE_URL": "https://example.test",
     }
     if prepare == "missing":
@@ -149,8 +155,10 @@ def test_deploy_rejects_unsafe_binance_configuration(
         values["BINANCE_CREDENTIAL_MASTER_KEY_UID"] = str(os.getuid() + 1)
     elif prepare == "egress":
         values["FIXED_EGRESS_IP_CONFIGURED"] = "false"
-    elif prepare == "live":
-        values["LIVE_TRADING_ENABLED"] = "true"
+    elif prepare == "environment":
+        values["BINANCE_ENVIRONMENT"] = "live"
+    elif prepare == "trading":
+        values["DEMO_TRADING_ENABLED"] = "true"
     elif prepare == "owner_mode":
         values["SINGLE_OWNER_MODE"] = "false"
     elif prepare == "https":

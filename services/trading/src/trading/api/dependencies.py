@@ -7,7 +7,7 @@ import httpx
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from trading.binance.client import BinancePermissionProbe
+from trading.binance.client import BinanceDemoAccountProbe
 from trading.binance_runtime.manager import SingleNautilusRuntimeManager
 from trading.binance_runtime.nautilus import NautilusRuntimeFactory
 from trading.binance_runtime.overview import BinanceOverviewCache
@@ -51,19 +51,13 @@ def get_secret_backend(
 
 def get_binance_client(
     http: Annotated[httpx.Client, Depends(get_http_client)],
-) -> BinancePermissionProbe:
-    return BinancePermissionProbe(
-        http=http,
-        base_url=get_settings().binance_spot_base_url,
-    )
+) -> BinanceDemoAccountProbe:
+    return BinanceDemoAccountProbe(http=http)
 
 
 @lru_cache
 def get_binance_runtime_manager() -> SingleNautilusRuntimeManager:
-    settings = get_settings()
-    return SingleNautilusRuntimeManager(
-        NautilusRuntimeFactory(testnet=settings.binance_testnet_enabled)
-    )
+    return SingleNautilusRuntimeManager(NautilusRuntimeFactory())
 
 
 @lru_cache

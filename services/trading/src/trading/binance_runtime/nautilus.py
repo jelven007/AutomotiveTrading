@@ -29,11 +29,10 @@ class NautilusCandidateRuntime:
         *,
         api_key: str,
         api_secret: str,
-        testnet: bool,
         startup_timeout_seconds: float = 15,
     ) -> None:
         self._startup_timeout_seconds = startup_timeout_seconds
-        self._node = self._build_node(api_key, api_secret, testnet)
+        self._node = self._build_node(api_key, api_secret)
         self._run_task: asyncio.Task[None] | None = None
 
     async def validate(self) -> object:
@@ -165,15 +164,14 @@ class NautilusCandidateRuntime:
         return datetime.now(UTC)
 
     @staticmethod
-    def _build_node(api_key: str, api_secret: str, testnet: bool) -> TradingNode:
+    def _build_node(api_key: str, api_secret: str) -> TradingNode:
         configs = build_binance_client_configs(
             api_key=api_key,
             api_secret=api_secret,
-            testnet=testnet,
         )
         node = TradingNode(
             config=TradingNodeConfig(
-                trader_id=TraderId("BINANCE-READONLY"),
+                trader_id=TraderId("BINANCE-DEMO"),
                 data_clients={
                     configs.spot.client_id: configs.spot.data,
                     configs.futures.client_id: configs.futures.data,
@@ -204,9 +202,6 @@ class NautilusCandidateRuntime:
 
 
 class NautilusRuntimeFactory:
-    def __init__(self, *, testnet: bool = False) -> None:
-        self._testnet = testnet
-
     async def __call__(
         self,
         api_key: str,
@@ -215,7 +210,6 @@ class NautilusRuntimeFactory:
         return NautilusCandidateRuntime(
             api_key=api_key,
             api_secret=api_secret,
-            testnet=self._testnet,
         )
 
 

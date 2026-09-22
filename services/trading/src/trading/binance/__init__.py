@@ -1,11 +1,11 @@
-"""Binance read-only permission probe with lazy public exports."""
+"""Binance Demo account probe with lazy public exports."""
 
-__all__ = ["BinancePermissionProbe"]
+__all__ = ["BinanceDemoAccountProbe"]
 
 
 def __getattr__(name: str) -> object:
     if name in __all__:
-        from trading.binance.client import BinancePermissionProbe
+        from trading.binance.client import BinanceDemoAccountProbe
 
-        return BinancePermissionProbe
+        return BinanceDemoAccountProbe
     raise AttributeError(name)

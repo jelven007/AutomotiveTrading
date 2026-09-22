@@ -34,3 +34,13 @@ def test_master_key_file_rejects_group_permissions(tmp_path) -> None:
 def test_settings_still_validates_authentication_secret() -> None:
     with pytest.raises(ValidationError, match="authentication signing secret"):
         Settings(environment="production", auth_jwt_secret=None)
+
+
+def test_binance_environment_only_accepts_demo() -> None:
+    with pytest.raises(ValidationError):
+        Settings(binance_environment="live")  # type: ignore[arg-type]
+
+
+def test_demo_trading_requires_fixed_egress_ip() -> None:
+    with pytest.raises(ValidationError, match="demo trading requires a fixed egress IP"):
+        Settings(demo_trading_enabled=True)

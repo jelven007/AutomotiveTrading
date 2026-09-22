@@ -119,7 +119,7 @@ def add_account(session: Session) -> TradingAccount:
         market_group=MarketGroup.BINANCE,
         provider=TradingProvider.BINANCE,
         account_slot="primary",
-        environment="production",
+        environment="demo",
         credential_type=CredentialType.HMAC,
         api_key_fingerprint="sha256:1234567890abcdef",
         status=AccountStatus.READ_ONLY,
@@ -157,6 +157,7 @@ async def test_overview_filters_zero_balances_and_positions(session: Session) ->
 
     overview = await overview_service.get("tenant-a")
 
+    assert overview.account.environment == "demo"
     assert overview.permissions.status == "ok"
     assert overview.spot.status == "ok"
     assert [balance.asset for balance in overview.spot.data.balances] == ["BTC"]

@@ -27,13 +27,10 @@ def build_binance_client_configs(
     *,
     api_key: str | None = None,
     api_secret: str | None = None,
-    testnet: bool,
 ) -> BinanceClientConfigs:
-    """构造相互隔离的币安现货与 U 本位客户端配置。"""
+    """构造相互隔离、仅连接 Demo 的币安现货与 U 本位客户端配置。"""
     if (api_key is None) != (api_secret is None):
         raise ValueError("api_key and api_secret must be provided together")
-
-    environment = BinanceEnvironment.TESTNET if testnet else BinanceEnvironment.LIVE
 
     def build_client(client_id: str, account_type: BinanceAccountType) -> BinanceClientConfig:
         venue = Venue(client_id)
@@ -42,7 +39,7 @@ def build_binance_client_configs(
             api_secret=api_secret,
             key_type=BinanceKeyType.HMAC,
             account_type=account_type,
-            environment=environment,
+            environment=BinanceEnvironment.DEMO,
             venue=venue,
         )
         execution = None
@@ -52,7 +49,7 @@ def build_binance_client_configs(
                 api_secret=api_secret,
                 key_type=BinanceKeyType.HMAC,
                 account_type=account_type,
-                environment=environment,
+                environment=BinanceEnvironment.DEMO,
                 venue=venue,
             )
         return BinanceClientConfig(

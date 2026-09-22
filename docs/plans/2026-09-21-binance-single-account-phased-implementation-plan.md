@@ -3,8 +3,8 @@
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement
 > this plan task-by-task.
 
-**Goal:** 先交付单账号只读查询，再增加受 MFA、幂等和 Runtime 状态保护的人工
-交易。
+**Goal:** 先交付 B Demo 单账号连接，再增加受 MFA、幂等和 Runtime 状态保护
+的人工模拟交易；主网接入后置。
 
 **Architecture:** React Web 调用 Identity 与 Trading。Trading 使用 MySQL、
 本地 AES-256-GCM 凭据库和进程内 NautilusTrader Spot/USD-M Runtime。
@@ -23,12 +23,13 @@
 | 安全替换 | 完成 | 候选验证、事务与补偿 |
 | Runtime 生命周期 | 完成 | 启动恢复、关闭停止、异常时拒绝就绪 |
 | MFA 基础门禁 | 完成 | 敏感账号写入要求 5 分钟内 MFA |
-| 权限探测 | 完成 | 仅允许读取 API 权限 |
+| Demo 签名校验 | 完成 | 固定调用 Spot Demo 账户接口 |
 | 账户概览 | 完成 | Spot/USD-M、5 秒快照、局部降级 |
 | Web 页面 | 完成 | 首页行情/资讯、策略表格、交易行情/资产/订单 |
-| 阶段一部署 | 完成 | ECS 服务和迁移健康 |
-| 真实只读验收 | 阻塞 | Binance 签名接口出口不可达 |
-| 阶段二 | 未开始 | 必须等待阶段一真实验收 |
+| Demo-only 门禁 | 完成 | Runtime 与签名校验均不能切到主网 |
+| Demo 真实验收 | 待执行 | 需要模拟账号 Key 和可达的 Demo 出口 |
+| Demo 下单 | 未开始 | 下一阶段实现订单、撤单和对账 |
+| 主网接入 | 延后 | Demo 全链路稳定后单独设计 |
 
 ## 已完成契约
 
@@ -41,7 +42,7 @@ GET    /api/v1/trading/health
 GET    /health/binance
 ```
 
-阶段一回归：
+Demo 连接阶段回归：
 
 ```bash
 uv run pytest services/trading/tests -q
@@ -49,14 +50,14 @@ pnpm --filter web test
 pnpm --filter web build
 ```
 
-真实只读测试默认跳过，只有显式配置以下变量才运行：
+Demo 集成测试默认跳过，只有显式配置以下变量才运行：
 
 ```text
-RUN_BINANCE_PRODUCTION_READ_ONLY_TESTS=true
+RUN_BINANCE_DEMO_TESTS=true
 BINANCE_UAT_BASE_URL=<trusted HTTPS URL>
 BINANCE_UAT_BEARER_TOKEN=<short-lived token>
-BINANCE_PRODUCTION_API_KEY=<secret>
-BINANCE_PRODUCTION_API_SECRET=<secret>
+BINANCE_DEMO_API_KEY=<secret>
+BINANCE_DEMO_API_SECRET=<secret>
 ```
 
 ## Task 8: MFA 写入门禁
@@ -71,9 +72,9 @@ P0 已完成：
 
 - 查询不要求 MFA，账号绑定、替换和删除要求 5 分钟内完成 MFA。
 - 缺失或过期统一返回 `auth.mfa_required`。
-- 实盘写入统一先检查 `LIVE_TRADING_ENABLED`，关闭时返回
-  `trading.live_disabled`，再检查 MFA。
-- 阶段二在同一守卫后继续增加 Runtime、账号权限和幂等门禁。
+- 模拟交易写入统一先检查 `DEMO_TRADING_ENABLED`，关闭时返回
+  `trading.demo_disabled`，再检查 MFA。
+- Demo 交易阶段在同一守卫后继续增加 Runtime、账号权限和幂等门禁。
 
 ```bash
 uv run pytest \
@@ -139,13 +140,13 @@ PUT /api/v1/trading/binance/futures/{symbol}/margin-mode
 - Modify: `apps/web/src/features/trading/types.ts`
 
 交易页当前由 `TradingPage.tsx` 组合左侧 BTC/USDT 行情、右侧
-`BinanceAssetsPanel.tsx` 资产概览，以及「订单」六列表格。阶段一订单表在表格内
-展示空态；阶段二在该区块接入真实订单数据、下单票据与 USD-M 设置，只提供
+`BinanceAssetsPanel.tsx` 资产概览，以及「订单」六列表格。当前订单表在表格内
+展示空态；Demo 交易阶段在该区块接入真实订单数据、下单票据与 USD-M 设置，只提供
 市价、限价、单笔撤单、杠杆和保证金模式。交易区域受功能开关和 MFA 会话保护；
 `pending_reconciliation` 不提供重试按钮。新增表单和操作应沿用现有单行工具栏、
 表格与响应式规范。
 
-## Task 12: Testnet 与生产门禁
+## Task 12: Demo 验收与主网隔离
 
 **Files:**
 
@@ -155,12 +156,13 @@ PUT /api/v1/trading/binance/futures/{symbol}/margin-mode
 - Modify: `docs/integrations/binance-production-readiness.md`
 - Modify: `docs/operations/binance-nautilustrader-runbook.md`
 
-没有以下配置时全部跳过，不得回退生产：
+没有以下配置时全部跳过，不得回退主网：
 
 ```text
-BINANCE_TESTNET_ENABLED=true
-BINANCE_TESTNET_API_KEY=<secret>
-BINANCE_TESTNET_SECRET=<secret>
+BINANCE_ENVIRONMENT=demo
+RUN_BINANCE_DEMO_TESTS=true
+BINANCE_DEMO_API_KEY=<secret>
+BINANCE_DEMO_API_SECRET=<secret>
 ```
 
 必须验证 Spot/USD-M 下单、撤单、杠杆、保证金模式、断线、重启和不确定结果
@@ -180,9 +182,12 @@ pnpm build
 git diff --check
 ```
 
-生产启用条件：
+主网方案启动条件：
 
-1. 阶段一真实只读验收通过。
-2. Testnet 生命周期与故障演练通过。
-3. `pending_reconciliation` 可收敛。
-4. 人工批准 `LIVE_TRADING_ENABLED=true`。
+1. Demo 账户、资产和权限验收通过。
+2. Demo Spot/USD-M 生命周期与故障演练通过。
+3. `pending_reconciliation` 可确定收敛且不存在重复订单。
+4. 完成独立主网威胁建模、开关设计、只读验收和人工审批。
+
+当前代码没有 `LIVE_TRADING_ENABLED` 或主网 URL 配置；主网接入必须提交独立设计
+与代码变更，不能只改环境变量。

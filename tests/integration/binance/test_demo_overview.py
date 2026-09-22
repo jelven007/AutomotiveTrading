@@ -5,38 +5,39 @@ import os
 import httpx
 import pytest
 
-RUN_PRODUCTION_TESTS = os.getenv("RUN_BINANCE_PRODUCTION_READ_ONLY_TESTS") == "true"
+RUN_DEMO_TESTS = os.getenv("RUN_BINANCE_DEMO_TESTS") == "true"
 REQUIRED_ENV = (
-    "BINANCE_PRODUCTION_API_KEY",
-    "BINANCE_PRODUCTION_API_SECRET",
+    "BINANCE_DEMO_API_KEY",
+    "BINANCE_DEMO_API_SECRET",
     "BINANCE_UAT_BASE_URL",
     "BINANCE_UAT_BEARER_TOKEN",
 )
 MISSING_ENV = tuple(name for name in REQUIRED_ENV if not os.getenv(name))
 
 pytestmark = pytest.mark.skipif(
-    not RUN_PRODUCTION_TESTS or bool(MISSING_ENV),
-    reason="未显式启用并提供币安生产只读验收凭据",
+    not RUN_DEMO_TESTS or bool(MISSING_ENV),
+    reason="未显式启用并提供 B Demo 验收凭据",
 )
 
 
-def test_production_read_only_overview() -> None:
+def test_demo_overview_and_write_gate() -> None:
     base_url = os.environ["BINANCE_UAT_BASE_URL"].rstrip("/")
-    api_key = os.environ["BINANCE_PRODUCTION_API_KEY"]
-    api_secret = os.environ["BINANCE_PRODUCTION_API_SECRET"]
+    api_key = os.environ["BINANCE_DEMO_API_KEY"]
+    api_secret = os.environ["BINANCE_DEMO_API_SECRET"]
     headers = {"Authorization": f"Bearer {os.environ['BINANCE_UAT_BEARER_TOKEN']}"}
 
     with httpx.Client(base_url=base_url, headers=headers, timeout=60) as client:
         bound = client.put(
             "/api/v1/trading/binance/account",
             json={
-                "alias": os.getenv("BINANCE_UAT_ACCOUNT_ALIAS", "生产只读验收"),
+                "alias": os.getenv("BINANCE_UAT_ACCOUNT_ALIAS", "B 模拟验收"),
                 "api_key": api_key,
                 "api_secret": api_secret,
                 "ip_whitelist_confirmed": True,
             },
         )
         assert bound.status_code == 200, _safe_failure(bound)
+        assert bound.json()["environment"] == "demo"
 
         overview = client.get(
             "/api/v1/trading/binance/overview",
@@ -54,14 +55,14 @@ def test_production_read_only_overview() -> None:
         assert payload["spot"]["status"] == "ok"
         assert payload["usdm"]["status"] == "ok"
 
-        # 阶段一允许路由不存在, 也允许统一返回写功能关闭。
+        # 下单接口交付前允许路由不存在, 交付后必须由 Demo 写入门禁拒绝。
         write_attempt = client.post(
             "/api/v1/trading/orders",
             headers={
-                "Idempotency-Key": "production-readonly-probe",
+                "Idempotency-Key": "demo-write-gate-probe",
             },
             json={
-                "account_id": "production-readonly-probe",
+                "account_id": "demo-write-gate-probe",
                 "account_scope": "spot",
                 "symbol": "BTCUSDT",
                 "side": "buy",
@@ -72,7 +73,7 @@ def test_production_read_only_overview() -> None:
         assert write_attempt.status_code in {404, 409}
         if write_attempt.status_code == 409:
             assert write_attempt.json()["code"] in {
-                "trading.live_disabled",
+                "trading.demo_disabled",
                 "binance.trading_disabled",
             }
 

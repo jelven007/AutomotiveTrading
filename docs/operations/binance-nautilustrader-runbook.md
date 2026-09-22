@@ -1,17 +1,17 @@
-# 币安 NautilusTrader 运维与排障手册
+# B Demo NautilusTrader 运维与排障手册
 
 > 文档编号：QT-OPS-BIN-NT-001
 >
-> 版本：2.1
+> 版本：3.0
 >
 > 日期：2026-09-22
 >
-> 状态：阶段一已部署，生产网络与真实账号验收阻塞
+> 状态：Demo-only 基线完成，模拟账号验收待执行
 
 ## 1. 适用范围
 
-本手册适用于个人单用户 ECS 上的币安现货与 U 本位服务。运行组件仅为 Web、
-Identity、Trading、MySQL 和 NautilusTrader。
+本手册适用于个人单用户 ECS 上的 B Demo 现货与 U 本位服务。运行组件仅为
+Web、Identity、Trading、MySQL 和 NautilusTrader。当前版本不能连接主网。
 
 ## 2. 部署前检查
 
@@ -20,16 +20,17 @@ Identity、Trading、MySQL 和 NautilusTrader。
 - 公网入口使用可信 HTTPS 证书。
 - Trading 端口仅绑定 `127.0.0.1` 或 Docker 内网。
 - ECS 使用固定出口 IP。
-- ECS 到 Binance Spot/USD-M REST 和 WebSocket 均可用。
+- ECS 到 B Spot/USD-M Demo REST 和 WebSocket 均可用。
 
-### 2.2 币安帐号
+### 2.2 B 模拟帐号
 
 - API Key 已绑定固定出口 IP。
-- 阶段一只要求读取权限；阶段二按需开启现货和 U 本位交易权限。
+- 只使用跨产品共享的一套 Demo Key，并开启读取与所需模拟交易权限。
 - 禁止提现、通用划转和不需要的权限。
 - 帐号已完成 U 本位资格确认。
 
-系统通过最小权限接口检查读取、交易、提现和划转权限，并由用户确认固定出口 IP。
+系统固定通过 Spot Demo `/api/v3/account` 验证签名和交易能力，并由用户确认
+固定出口 IP；Spot 与 USD-M Runtime 首次读取共同完成候选账号验收。
 
 ### 2.3 本地主密钥
 
@@ -67,11 +68,13 @@ BINANCE_CREDENTIAL_MASTER_KEY_FILE=/opt/quant-trading/secrets/credential-master-
 BINANCE_CREDENTIAL_MASTER_KEY_UID=100
 FIXED_EGRESS_IP_CONFIGURED=true
 SINGLE_OWNER_MODE=true
+BINANCE_ENVIRONMENT=demo
+DEMO_TRADING_ENABLED=false
 PUBLIC_BASE_URL=https://<公网入口>
 ```
 
-阶段一 Compose 固定注入 `LIVE_TRADING_ENABLED=false`，不要在部署文件中改为
-`true`。
+下单接口完成前保持 `DEMO_TRADING_ENABLED=false`。当前代码没有主网 URL 或
+主网启用开关。
 
 ## 3. 启动检查
 
@@ -97,28 +100,29 @@ curl -fsS -H "Authorization: Bearer ${ACCESS_TOKEN}" \
 - 未绑定帐号时返回 `binance.account_missing`，而非进程失败。
 - 绑定后 Spot 与 USD-M 状态分别展示。
 - 绑定后重启 Trading，唯一 Runtime 会从加密凭据自动恢复。
-- `LIVE_TRADING_ENABLED=false` 时下单写接口返回 `trading.live_disabled`。
+- `DEMO_TRADING_ENABLED=false` 时下单写接口返回
+  `trading.demo_disabled`。
 - 第二位用户注册返回 `registration.closed`。
 
 `up` 启动 MySQL、Identity、Trading、Nautilus Runtime 和 Web。
 
-### 3.1 真实只读验收
+### 3.1 Demo 真实验收
 
-真实生产用例默认跳过。只有明确准备好只读 Key 和独立验收账号后才执行：
+Demo 用例默认跳过。只有明确准备好模拟 Key 和独立验收账号后才执行：
 
 ```bash
-export RUN_BINANCE_PRODUCTION_READ_ONLY_TESTS=true
+export RUN_BINANCE_DEMO_TESTS=true
 export BINANCE_UAT_BASE_URL=https://<公网入口>
 export BINANCE_UAT_BEARER_TOKEN=<短期访问令牌>
-export BINANCE_PRODUCTION_API_KEY=<只读且绑定固定出口的Key>
-export BINANCE_PRODUCTION_API_SECRET=<Secret>
-uv run pytest tests/integration/binance/test_read_only_overview.py -v
-unset BINANCE_UAT_BEARER_TOKEN BINANCE_PRODUCTION_API_KEY \
-  BINANCE_PRODUCTION_API_SECRET
+export BINANCE_DEMO_API_KEY=<Demo Key>
+export BINANCE_DEMO_API_SECRET=<Demo Secret>
+uv run pytest tests/integration/binance/test_demo_overview.py -v
+unset BINANCE_UAT_BEARER_TOKEN BINANCE_DEMO_API_KEY \
+  BINANCE_DEMO_API_SECRET
 ```
 
-该用例会替换当前用户的唯一币安账号，不应对已有生产账号直接执行。测试验证权限、
-Spot、USD-M 和写入关闭门禁；余额与持仓数值仍需在币安控制台人工交叉核对。
+该用例会替换当前用户的唯一 B 模拟账号。测试验证账号环境、Spot、USD-M 和写入
+关闭门禁；余额与持仓数值仍需在 Demo 控制台人工交叉核对。
 
 ### 3.2 2026-09-21 部署记录
 
@@ -128,18 +132,19 @@ Spot、USD-M 和写入关闭门禁；余额与持仓数值仍需在币安控制�
   `0005_global_binance_account`。
 - Identity、Trading、Web 容器健康，主密钥以只读方式挂载。
 - 主密钥权限为 `600`，所有者为 `100:101`，容器内可读。
-- `LIVE_TRADING_ENABLED=false`，下单探测返回 `trading.live_disabled`。
+- `BINANCE_ENVIRONMENT=demo`，Runtime 不能构造主网客户端。
+- `DEMO_TRADING_ENABLED=false`，下单探测返回
+  `trading.demo_disabled`。
 - 未绑定账号的查询返回 `binance.account_missing`。
 
 未通过：
 
-- ECS 可解析 Binance DNS，`data-api.binance.vision` 公共行情接口可达，但
-  `api.binance.com`、`api1` 至 `api4` 和 `fapi.binance.com` 均无法完成
-  HTTPS 请求（状态 `000`）；签名账户链路不可用。
+- 尚未记录 ECS 到 `demo-api.binance.com` 和 `demo-fapi.binance.com` 的完整
+  REST/WebSocket 验收结果。
 - `https://118.196.108.119` 当前证书链不受客户端信任。
-- 未提供显式生产只读 API 凭据，真实集成测试按设计跳过。
+- 未提供显式 Demo API 凭据，真实集成测试按设计跳过。
 
-解决出口线路、可信 HTTPS 入口并提供专用只读 Key 前，不进入阶段二。
+解决出口线路、可信 HTTPS 入口并提供专用 Demo Key 前，不实现模拟下单。
 
 ## 4. 帐号操作
 
@@ -167,8 +172,8 @@ Spot、USD-M 和写入关闭门禁；余额与持仓数值仍需在币安控制�
 
 ### 4.3 删除
 
-- 阶段一删除时先停止 Runtime，再删除帐号和密文。
-- 阶段二存在 `pending_reconciliation` 订单时禁止删除。
+- 当前删除时先停止 Runtime，再删除帐号和密文。
+- 模拟下单阶段存在 `pending_reconciliation` 订单时禁止删除。
 
 ## 5. 状态说明
 
@@ -176,8 +181,8 @@ Spot、USD-M 和写入关闭门禁；余额与持仓数值仍需在币安控制�
 | --- | --- | --- |
 | `unbound` | 未绑定帐号 | 否 |
 | `connecting` | 正在连接 | 否 |
-| `ready` | 两个客户端均可查询 | 阶段二按门禁决定 |
-| `partial` | 仅一个产品可查询 | 阶段二禁止故障产品写入 |
+| `ready` | 两个客户端均可查询 | Demo 写入门禁决定 |
+| `partial` | 仅一个产品可查询 | 禁止故障产品模拟写入 |
 | `stale` | 账户状态超时 | 否 |
 | `error` | 需要人工处理 | 否 |
 
@@ -213,10 +218,10 @@ docker inspect quant-trading-saas-trading-1 --format '{{json .Mounts}}'
 检查：
 
 ```bash
-getent ahostsv4 api.binance.com
-getent ahostsv4 fapi.binance.com
-curl -4Iv --max-time 10 https://api.binance.com/api/v3/time
-curl -4Iv --max-time 10 https://fapi.binance.com/fapi/v1/time
+getent ahostsv4 demo-api.binance.com
+getent ahostsv4 demo-fapi.binance.com
+curl -4Iv --max-time 10 https://demo-api.binance.com/api/v3/time
+curl -4Iv --max-time 10 https://demo-fapi.binance.com/fapi/v1/time
 ```
 
 不要通过关闭 TLS 校验、固定 CDN IP 或无限增加超时规避问题。保存 DNS、TCP 和
@@ -228,7 +233,7 @@ TLS 证据并联系网络管理员。
 
 检查：
 
-- 当前帐号指纹是否与币安控制台一致。
+- 当前帐号指纹是否与 B Demo 控制台一致。
 - 固定出口 IP 是否仍在白名单。
 - Key 是否被删除、过期或修改权限。
 - 系统时间是否同步。
@@ -300,7 +305,7 @@ TLS 证据并联系网络管理员。
 
 - MySQL 和主密钥必须作为同一恢复点管理，但分开存放。
 - 恢复后先启动只读模式并完成对账。
-- 阶段二恢复交易前完成订单核对。
+- 恢复模拟交易前完成订单核对。
 - 每季度验证数据库与主密钥配对恢复。
 
 ## 9. 升级 NautilusTrader
@@ -308,21 +313,21 @@ TLS 证据并联系网络管理员。
 1. 阅读目标版本 changelog。
 2. 更新精确版本和 lockfile。
 3. 执行单元及组件测试。
-4. 执行 Spot/USD-M Testnet 生命周期。
+4. 执行 Spot/USD-M Demo 生命周期。
 5. 执行断线、重启和未决订单恢复。
-6. 观察 Testnet 24 小时。
-7. 生产只读灰度后再恢复写入。
+6. 观察 Demo 24 小时。
+7. 仅恢复 Demo 写入。
 
-禁止在生产机器直接执行未锁版本升级。
+禁止在部署机器直接执行未锁版本升级。
 
 ## 10. 事件响应
 
-阶段二遇到以下情况立即关闭新订单：
+Demo 交易阶段遇到以下情况立即关闭新订单：
 
 - 怀疑凭据泄漏。
 - 出现重复订单。
 - 对账无法收敛。
-- 持仓或余额与币安显著不一致。
+- 持仓或余额与 B Demo 显著不一致。
 - 杠杆或保证金模式与交易所不一致。
 - 当前帐号身份无法确认。
 

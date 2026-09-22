@@ -2,7 +2,7 @@ from collections.abc import Callable, Mapping
 from hashlib import sha256
 from time import time
 from typing import Any
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode
 
 import httpx
 
@@ -10,8 +10,8 @@ from trading.binance.errors import BinanceConnectorError
 from trading.binance.permissions import AccountPermissionSnapshot
 from trading.binance.signing import BinanceSigner
 
-PERMISSION_PATH = "/sapi/v1/account/apiRestrictions"
-OFFICIAL_HOSTS = frozenset({"api.binance.com", "testnet.binance.vision"})
+ACCOUNT_PATH = "/api/v3/account"
+DEMO_BASE_URL = "https://demo-api.binance.com"
 ERROR_CODES = {
     -1021: ("binance.clock_skew", "Binance rejected the request timestamp"),
     -1022: ("binance.signature_invalid", "Binance rejected the request signature"),
@@ -19,20 +19,17 @@ ERROR_CODES = {
 }
 
 
-class BinancePermissionProbe:
+class BinanceDemoAccountProbe:
     def __init__(
         self,
         *,
         http: httpx.Client,
-        base_url: str = "https://api.binance.com",
         recv_window_ms: int = 5_000,
         clock_ms: Callable[[], int] | None = None,
     ) -> None:
-        self._validate_base_url(base_url)
         if not 1 <= recv_window_ms <= 5_000:
             raise ValueError("recvWindow must be between 1 and 5000 milliseconds")
         self._http = http
-        self._base_url = base_url.rstrip("/")
         self._recv_window_ms = recv_window_ms
         self._clock_ms = clock_ms or (lambda: int(time() * 1000))
 
@@ -41,13 +38,18 @@ class BinancePermissionProbe:
         *,
         api_key: str,
         api_secret: str,
+        ip_whitelist_confirmed: bool,
     ) -> AccountPermissionSnapshot:
-        payload = self._fetch_permissions(api_key, api_secret)
-        permissions = self._map_permissions(api_key, payload)
+        payload = self._fetch_account(api_key, api_secret)
+        permissions = self._map_permissions(
+            api_key,
+            payload,
+            ip_whitelist_confirmed=ip_whitelist_confirmed,
+        )
         self._validate_permissions(permissions)
         return permissions
 
-    def _fetch_permissions(
+    def _fetch_account(
         self,
         api_key: str,
         api_secret: str,
@@ -60,7 +62,7 @@ class BinancePermissionProbe:
         params["signature"] = BinanceSigner.sign(api_secret, query)
         try:
             response = self._http.get(
-                f"{self._base_url}{PERMISSION_PATH}",
+                f"{DEMO_BASE_URL}{ACCOUNT_PATH}",
                 headers={"X-MBX-APIKEY": api_key},
                 params=params,
                 timeout=5,
@@ -77,31 +79,29 @@ class BinancePermissionProbe:
         cls,
         api_key: str,
         payload: Mapping[str, Any],
+        *,
+        ip_whitelist_confirmed: bool,
     ) -> AccountPermissionSnapshot:
-        expiration_time_ms = cls._required_non_negative_integer(
-            payload,
-            "tradingAuthorityExpirationTime",
+        can_trade = cls._required_boolean(payload, "canTrade")
+        uid = payload.get("uid")
+        external_account_ref = (
+            f"uid-{uid}"
+            if isinstance(uid, int) and not isinstance(uid, bool) and uid >= 0
+            else f"key-{sha256(api_key.encode()).hexdigest()[:16]}"
         )
+        # Demo has no SAPI key-restrictions endpoint; unsupported
+        # mainnet-only withdrawal and transfer capabilities remain disabled.
         return AccountPermissionSnapshot(
-            external_account_ref=f"key-{sha256(api_key.encode()).hexdigest()[:16]}",
-            ip_restricted=cls._required_boolean(payload, "ipRestrict"),
-            can_read=cls._required_boolean(payload, "enableReading"),
-            can_spot_trade=cls._required_boolean(
-                payload,
-                "enableSpotAndMarginTrading",
-            ),
-            can_margin_trade=cls._required_boolean(payload, "enableMargin"),
-            can_futures_trade=cls._required_boolean(payload, "enableFutures"),
-            can_withdraw=cls._required_boolean(payload, "enableWithdrawals"),
-            can_internal_transfer=cls._required_boolean(
-                payload,
-                "enableInternalTransfer",
-            ),
-            can_universal_transfer=cls._required_boolean(
-                payload,
-                "permitsUniversalTransfer",
-            ),
-            trading_authority_expiration_time_ms=expiration_time_ms or None,
+            external_account_ref=external_account_ref,
+            ip_restricted=ip_whitelist_confirmed,
+            can_read=True,
+            can_spot_trade=can_trade,
+            can_margin_trade=False,
+            can_futures_trade=can_trade,
+            can_withdraw=False,
+            can_internal_transfer=False,
+            can_universal_transfer=False,
+            trading_authority_expiration_time_ms=None,
         )
 
     @staticmethod
@@ -130,16 +130,6 @@ class BinancePermissionProbe:
     def _required_boolean(payload: Mapping[str, Any], field: str) -> bool:
         value = payload.get(field)
         if not isinstance(value, bool):
-            raise BinanceConnectorError(
-                "binance.response_invalid",
-                f"Binance API key permissions are missing {field}",
-            )
-        return value
-
-    @staticmethod
-    def _required_non_negative_integer(payload: Mapping[str, Any], field: str) -> int:
-        value = payload.get(field)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise BinanceConnectorError(
                 "binance.response_invalid",
                 f"Binance API key permissions are missing {field}",
@@ -180,17 +170,5 @@ class BinancePermissionProbe:
             retry_after_seconds=int(retry_after) if retry_after and retry_after.isdigit() else None,
         )
 
-    @staticmethod
-    def _validate_base_url(base_url: str) -> None:
-        parsed = urlparse(base_url)
-        if (
-            parsed.scheme != "https"
-            or parsed.hostname not in OFFICIAL_HOSTS
-            or parsed.path not in {"", "/"}
-            or parsed.query
-            or parsed.fragment
-        ):
-            raise ValueError("only official Binance HTTPS hosts are allowed")
 
-
-__all__ = ["BinancePermissionProbe"]
+__all__ = ["BinanceDemoAccountProbe"]

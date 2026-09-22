@@ -9,16 +9,18 @@ from trading.errors import ServiceError
 from trading.secrets import LocalCredentialVault
 from trading.security import (
     get_principal,
-    require_live_trading_write,
+    require_demo_trading_write,
     require_recent_mfa,
 )
 
 
-def settings() -> Settings:
+def settings(*, demo_trading_enabled: bool = False) -> Settings:
     return Settings(
         auth_issuer="https://identity.quant.test",
         auth_audience="quant-api",
         auth_jwt_secret="test-signing-secret-that-is-at-least-32-bytes",
+        fixed_egress_ip_configured=demo_trading_enabled,
+        demo_trading_enabled=demo_trading_enabled,
     )
 
 
@@ -69,7 +71,7 @@ def test_missing_mfa_time_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured.value.code == "auth.mfa_required"
 
 
-def test_live_write_guard_rejects_disabled_trading(
+def test_demo_write_guard_rejects_disabled_trading(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("trading.security.get_settings", settings)
@@ -81,9 +83,26 @@ def test_live_write_guard_rejects_disabled_trading(
     )
 
     with pytest.raises(ServiceError) as captured:
-        require_live_trading_write(principal)
+        require_demo_trading_write(principal)
 
-    assert captured.value.code == "trading.live_disabled"
+    assert captured.value.code == "trading.demo_disabled"
+
+
+def test_demo_write_guard_accepts_enabled_trading_with_recent_mfa(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "trading.security.get_settings",
+        lambda: settings(demo_trading_enabled=True),
+    )
+    principal = get_principal(
+        HTTPAuthorizationCredentials(
+            scheme="Bearer",
+            credentials=token(datetime.now(UTC)),
+        )
+    )
+
+    require_demo_trading_write(principal)
 
 
 def test_local_credential_vault_round_trips_with_random_nonce() -> None:

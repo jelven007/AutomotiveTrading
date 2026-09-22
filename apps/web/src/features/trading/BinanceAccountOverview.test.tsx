@@ -9,6 +9,7 @@ function overview(): BinanceOverview {
   return {
     account: {
       alias: "主账号",
+      environment: "demo",
       apiKeyFingerprint: "sha256:1234567890abcdef",
       connectionStatus: "connected",
       lastVerifiedAt: "2026-09-21T08:00:00Z",

@@ -76,7 +76,7 @@ class TradingAccount(Base):
         Enum(TradingProvider, native_enum=False, values_callable=enum_values)
     )
     account_slot: Mapped[str] = mapped_column(String(24), default="primary")
-    environment: Mapped[str] = mapped_column(String(24), default="production")
+    environment: Mapped[str] = mapped_column(String(24), default="demo")
     external_account_ref: Mapped[str | None] = mapped_column(String(160))
     credential_type: Mapped[CredentialType] = mapped_column(
         Enum(CredentialType, native_enum=False, values_callable=enum_values),
