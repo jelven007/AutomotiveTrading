@@ -55,7 +55,6 @@ class BinanceAccountReplaceCommand(BaseModel):
     alias: str = Field(min_length=1, max_length=120)
     api_key: SecretStr = Field(min_length=1)
     api_secret: SecretStr = Field(min_length=1)
-    ip_whitelist_confirmed: bool
 
     @field_validator("alias")
     @classmethod
@@ -109,8 +108,6 @@ class BinanceAccountService:
         command: BinanceAccountReplaceCommand,
     ) -> BinanceAccountView:
         self._require_tenant_admin(actor_roles)
-        if not command.ip_whitelist_confirmed:
-            raise ValueError("Binance API key IP whitelist must be confirmed")
 
         previous = self._find(tenant_id)
         owner = self._find_any()
@@ -119,11 +116,7 @@ class BinanceAccountService:
 
         api_key = command.api_key.get_secret_value()
         api_secret = command.api_secret.get_secret_value()
-        permissions = self._inspect_permissions(
-            api_key,
-            api_secret,
-            ip_whitelist_confirmed=command.ip_whitelist_confirmed,
-        )
+        permissions = self._inspect_permissions(api_key, api_secret)
         self._validate_permissions(permissions)
         candidate = await self._build_and_validate_candidate(api_key, api_secret)
 
@@ -215,14 +208,11 @@ class BinanceAccountService:
         self,
         api_key: str,
         api_secret: str,
-        *,
-        ip_whitelist_confirmed: bool,
     ) -> AccountPermissionSnapshot:
         try:
             return self._permission_probe.inspect(
                 api_key=api_key,
                 api_secret=api_secret,
-                ip_whitelist_confirmed=ip_whitelist_confirmed,
             )
         except BinanceConnectorError:
             raise
@@ -298,8 +288,6 @@ class BinanceAccountService:
     def _validate_permissions(permissions: AccountPermissionSnapshot) -> None:
         if not permissions.can_read:
             raise ValueError("account read permission is required")
-        if not permissions.ip_restricted:
-            raise ValueError("API key IP restriction is required")
         if (
             permissions.can_withdraw
             or permissions.can_internal_transfer

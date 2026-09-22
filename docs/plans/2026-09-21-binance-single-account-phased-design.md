@@ -46,7 +46,6 @@ NautilusTrader。
 alias
 api_key
 api_secret
-ip_whitelist_confirmed
 ```
 
 安全要求：
@@ -54,7 +53,7 @@ ip_whitelist_confirmed
 - 只支持 HMAC。
 - 只接受一套跨产品共享的 Demo API Key；签名校验固定调用
   `https://demo-api.binance.com/api/v3/account`。
-- API Key 必须启用读取和交易权限，并确认固定 IP 限制。
+- API Key 必须启用读取和交易权限。
 - Demo 不启用提现、内部划转和通用划转能力。
 - 主密钥为 32 个原始随机字节，宿主机权限 `600`。
 - 主密钥只读挂载，不进入 Git、镜像、环境变量或日志。
@@ -137,7 +136,6 @@ PUT  /api/v1/trading/binance/futures/{symbol}/margin-mode
 | 场景 | 错误码 |
 | --- | --- |
 | 未绑定账号 | `binance.account_missing` |
-| 固定出口未确认 | `trading.fixed_egress_required` |
 | Runtime 未就绪 | `binance.runtime_not_ready` |
 | Spot 不可用 | `binance.spot_unavailable` |
 | USD-M 不可用 | `binance.usdm_unavailable` |

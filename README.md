@@ -37,6 +37,6 @@ bash scripts/deploy.sh up
 bash scripts/deploy.sh status
 ```
 
-部署前必须准备 32 字节主密钥、固定出口 IP、B Demo Key 和可信 HTTPS 入口。
+部署前必须准备 32 字节主密钥、B Demo Key 和可信 HTTPS 入口。
 当前代码不能通过配置切换主网。具体要求见
 [B Demo 运维手册](docs/operations/binance-nautilustrader-runbook.md)。

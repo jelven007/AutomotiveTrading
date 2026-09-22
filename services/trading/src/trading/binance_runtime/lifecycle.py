@@ -36,7 +36,6 @@ async def restore_account_runtime(
         raise RuntimeRestoreError("Binance account credential reference is missing")
     if (
         not account.can_read
-        or not account.ip_restricted
         or account.can_withdraw
         or account.can_internal_transfer
         or account.can_universal_transfer

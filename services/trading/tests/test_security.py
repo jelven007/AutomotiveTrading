@@ -19,7 +19,6 @@ def settings(*, demo_trading_enabled: bool = False) -> Settings:
         auth_issuer="https://identity.quant.test",
         auth_audience="quant-api",
         auth_jwt_secret="test-signing-secret-that-is-at-least-32-bytes",
-        fixed_egress_ip_configured=demo_trading_enabled,
         demo_trading_enabled=demo_trading_enabled,
     )
 

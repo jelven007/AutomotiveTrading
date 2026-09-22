@@ -38,14 +38,9 @@ class BinanceDemoAccountProbe:
         *,
         api_key: str,
         api_secret: str,
-        ip_whitelist_confirmed: bool,
     ) -> AccountPermissionSnapshot:
         payload = self._fetch_account(api_key, api_secret)
-        permissions = self._map_permissions(
-            api_key,
-            payload,
-            ip_whitelist_confirmed=ip_whitelist_confirmed,
-        )
+        permissions = self._map_permissions(api_key, payload)
         self._validate_permissions(permissions)
         return permissions
 
@@ -79,8 +74,6 @@ class BinanceDemoAccountProbe:
         cls,
         api_key: str,
         payload: Mapping[str, Any],
-        *,
-        ip_whitelist_confirmed: bool,
     ) -> AccountPermissionSnapshot:
         can_trade = cls._required_boolean(payload, "canTrade")
         uid = payload.get("uid")
@@ -93,7 +86,7 @@ class BinanceDemoAccountProbe:
         # mainnet-only withdrawal and transfer capabilities remain disabled.
         return AccountPermissionSnapshot(
             external_account_ref=external_account_ref,
-            ip_restricted=ip_whitelist_confirmed,
+            ip_restricted=False,
             can_read=True,
             can_spot_trade=can_trade,
             can_margin_trade=False,
@@ -110,11 +103,6 @@ class BinanceDemoAccountProbe:
             raise BinanceConnectorError(
                 "binance.read_permission_required",
                 "Binance account read permission is required",
-            )
-        if not permissions.ip_restricted:
-            raise BinanceConnectorError(
-                "binance.ip_not_allowed",
-                "Binance API key must restrict access to the fixed egress IP",
             )
         if (
             permissions.can_withdraw

@@ -62,7 +62,6 @@ WEB_PORT=8080
 BINANCE_CREDENTIAL_MASTER_KEY_FILE=/opt/quant-trading/secrets/credential-master-key
 BINANCE_CREDENTIAL_MASTER_KEY_UID=100
 BINANCE_ENVIRONMENT=demo
-FIXED_EGRESS_IP_CONFIGURED=false
 DEMO_TRADING_ENABLED=false
 PUBLIC_BASE_URL=
 EOF
@@ -130,10 +129,6 @@ require_binance_configuration() {
   fi
   if [[ "${owner_uid}" != "${expected_uid}" ]]; then
     echo "B 凭据主密钥所有者必须为 Trading UID ${expected_uid}。" >&2
-    return 1
-  fi
-  if [[ "$(env_value FIXED_EGRESS_IP_CONFIGURED)" != "true" ]]; then
-    echo "完成 B IP 白名单后，将 FIXED_EGRESS_IP_CONFIGURED 设置为 true。" >&2
     return 1
   fi
   if [[ "$(env_value BINANCE_ENVIRONMENT)" != "demo" ]]; then

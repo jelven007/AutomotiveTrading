@@ -104,7 +104,6 @@ def test_deploy_init_generates_minimal_secure_environment(tmp_path: Path) -> Non
         "BINANCE_CREDENTIAL_MASTER_KEY_FILE",
         "BINANCE_CREDENTIAL_MASTER_KEY_UID",
         "BINANCE_ENVIRONMENT",
-        "FIXED_EGRESS_IP_CONFIGURED",
         "DEMO_TRADING_ENABLED",
         "PUBLIC_BASE_URL",
     }
@@ -124,7 +123,6 @@ def test_deploy_init_generates_minimal_secure_environment(tmp_path: Path) -> Non
         ("missing", "不存在"),
         ("mode", "600"),
         ("owner", "Trading UID"),
-        ("egress", "FIXED_EGRESS_IP_CONFIGURED"),
         ("environment", "BINANCE_ENVIRONMENT=demo"),
         ("trading", "DEMO_TRADING_ENABLED=false"),
         ("owner_mode", "SINGLE_OWNER_MODE=true"),
@@ -143,7 +141,6 @@ def test_deploy_rejects_unsafe_binance_configuration(
         "BINANCE_CREDENTIAL_MASTER_KEY_FILE": str(key_file),
         "BINANCE_CREDENTIAL_MASTER_KEY_UID": str(os.getuid()),
         "BINANCE_ENVIRONMENT": "demo",
-        "FIXED_EGRESS_IP_CONFIGURED": "true",
         "DEMO_TRADING_ENABLED": "false",
         "PUBLIC_BASE_URL": "https://example.test",
     }
@@ -153,8 +150,6 @@ def test_deploy_rejects_unsafe_binance_configuration(
         key_file.chmod(0o644)
     elif prepare == "owner":
         values["BINANCE_CREDENTIAL_MASTER_KEY_UID"] = str(os.getuid() + 1)
-    elif prepare == "egress":
-        values["FIXED_EGRESS_IP_CONFIGURED"] = "false"
     elif prepare == "environment":
         values["BINANCE_ENVIRONMENT"] = "live"
     elif prepare == "trading":

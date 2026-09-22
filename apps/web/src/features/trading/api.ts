@@ -21,7 +21,6 @@ type BinanceOverviewResponse = {
       can_read: boolean;
       can_spot_trade: boolean;
       can_futures_trade: boolean;
-      ip_restricted: boolean;
       can_withdraw: boolean;
       can_internal_transfer: boolean;
       can_universal_transfer: boolean;
@@ -93,7 +92,6 @@ export async function replaceBinanceAccount(
       alias: account.alias,
       api_key: account.apiKey,
       api_secret: account.apiSecret,
-      ip_whitelist_confirmed: account.ipWhitelistConfirmed,
     }),
   });
   return normalizeAccount(
@@ -170,7 +168,6 @@ function normalizeOverview(overview: BinanceOverviewResponse): BinanceOverview {
             canRead: overview.permissions.data.can_read,
             canSpotTrade: overview.permissions.data.can_spot_trade,
             canFuturesTrade: overview.permissions.data.can_futures_trade,
-            ipRestricted: overview.permissions.data.ip_restricted,
             canWithdraw: overview.permissions.data.can_withdraw,
             canInternalTransfer:
               overview.permissions.data.can_internal_transfer,

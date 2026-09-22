@@ -685,34 +685,6 @@ button:disabled {
   box-shadow: 0 0 0 3px rgb(8 127 91 / 10%);
 }
 
-.security-confirmation {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  align-items: start;
-  gap: 9px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-muted);
-  padding: 12px;
-}
-
-.security-confirmation input {
-  width: 16px;
-  height: 16px;
-  margin: 2px 0 0;
-  accent-color: var(--accent);
-}
-
-.security-confirmation span {
-  display: grid;
-  gap: 3px;
-}
-
-.security-confirmation small {
-  color: var(--muted);
-  line-height: 1.45;
-}
-
 .modal-actions,
 .modal-actions__end {
   display: flex;

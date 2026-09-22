@@ -153,8 +153,8 @@ GET https://www.binance.com/bapi/composite/v1/public/cms/article/list/query  # �
   Demo 交易写入还要求幂等键。
 - 凭据：仅返回 Key 指纹，绝不返回密钥或密文；密钥不进入 Git、镜像、环境变量
   或日志。
-- 网络：Trading 端口仅绑定本地或内网，公网入口使用可信 HTTPS，币安 Key 绑定
-  固定出口 IP，并关闭提现与划转权限。
+- 网络：Trading 端口仅绑定本地或内网，公网入口使用可信 HTTPS，并关闭提现与
+  划转权限。
 - 模拟写入门禁：`DEMO_TRADING_ENABLED` 默认 `false`。
 - 交易环境：`BINANCE_ENVIRONMENT` 只接受 `demo`，Runtime 固定构造
   `BinanceEnvironment.DEMO`。
@@ -192,7 +192,7 @@ bash scripts/deploy.sh status
 ```
 
 仅前端改动时可只重建 Web 镜像并 `up -d --no-deps web`，其余服务不停机。部署
-前置（主密钥、固定出口 IP、可信 HTTPS）与排障见
+前置（主密钥、B Demo Key、可信 HTTPS）与排障见
 [Binance 运维手册](../operations/binance-nautilustrader-runbook.md)。
 
 ## 10. 演进路线

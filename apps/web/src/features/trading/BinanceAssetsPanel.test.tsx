@@ -57,9 +57,6 @@ describe("BinanceAssetsPanel", () => {
     );
     await user.type(screen.getByLabelText("API Key"), "demo-api-key");
     await user.type(screen.getByLabelText("API Secret"), "demo-api-secret");
-    await user.click(
-      screen.getByRole("checkbox", { name: "已配置固定出口 IP 白名单" }),
-    );
     await user.click(screen.getByRole("button", { name: "保存账号" }));
 
     await waitFor(() => {
@@ -71,7 +68,6 @@ describe("BinanceAssetsPanel", () => {
             alias: "模拟账号",
             api_key: "demo-api-key",
             api_secret: "demo-api-secret",
-            ip_whitelist_confirmed: true,
           }),
         }),
       );

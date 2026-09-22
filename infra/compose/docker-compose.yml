@@ -80,7 +80,6 @@ services:
       BINANCE_CREDENTIAL_MASTER_KEY_FILE: /opt/quant-trading/secrets/credential-master-key
       BINANCE_ENVIRONMENT: ${BINANCE_ENVIRONMENT:-demo}
       DEMO_TRADING_ENABLED: ${DEMO_TRADING_ENABLED:-false}
-      FIXED_EGRESS_IP_CONFIGURED: ${FIXED_EGRESS_IP_CONFIGURED:-false}
     volumes:
       - ${BINANCE_CREDENTIAL_MASTER_KEY_FILE:-/opt/quant-trading/secrets/credential-master-key}:/opt/quant-trading/secrets/credential-master-key:ro
     depends_on:

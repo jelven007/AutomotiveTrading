@@ -2,7 +2,6 @@ export type BinanceAccountDraft = {
   alias: string;
   apiKey: string;
   apiSecret: string;
-  ipWhitelistConfirmed: boolean;
 };
 
 export type BinanceAccountSummary = {
@@ -17,7 +16,6 @@ export type BinancePermissionOverview = {
   canRead: boolean;
   canSpotTrade: boolean;
   canFuturesTrade: boolean;
-  ipRestricted: boolean;
   canWithdraw: boolean;
   canInternalTransfer: boolean;
   canUniversalTransfer: boolean;

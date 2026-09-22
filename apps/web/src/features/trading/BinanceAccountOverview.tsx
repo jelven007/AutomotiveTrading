@@ -119,7 +119,6 @@ function PermissionsSection({
     ["读取", section.data.canRead],
     ["现货交易", section.data.canSpotTrade],
     ["U 本位交易", section.data.canFuturesTrade],
-    ["固定 IP", section.data.ipRestricted],
     ["提现", section.data.canWithdraw],
     ["内部划转", section.data.canInternalTransfer],
     ["通用划转", section.data.canUniversalTransfer],

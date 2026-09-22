@@ -35,13 +35,10 @@ def probe(
 
 def inspect(
     client: BinanceDemoAccountProbe,
-    *,
-    ip_whitelist_confirmed: bool = True,
 ) -> AccountPermissionSnapshot:
     return client.inspect(
         api_key="demo-api-key",
         api_secret="hmac-secret",
-        ip_whitelist_confirmed=ip_whitelist_confirmed,
     )
 
 
@@ -52,7 +49,7 @@ def test_account_probe_only_calls_the_spot_demo_account_endpoint() -> None:
 
     assert result == AccountPermissionSnapshot(
         external_account_ref="uid-42",
-        ip_restricted=True,
+        ip_restricted=False,
         can_read=True,
         can_spot_trade=True,
         can_margin_trade=False,
@@ -71,15 +68,6 @@ def test_account_probe_only_calls_the_spot_demo_account_endpoint() -> None:
     assert not hasattr(client, "signed_request")
     assert not hasattr(client, "submit_order")
     assert not hasattr(client, "cancel_order")
-
-
-def test_account_probe_requires_ip_whitelist_confirmation() -> None:
-    client, _ = probe(lambda _: httpx.Response(200, json=account_payload()))
-
-    with pytest.raises(BinanceConnectorError) as error:
-        inspect(client, ip_whitelist_confirmed=False)
-
-    assert error.value.code == "binance.ip_not_allowed"
 
 
 def test_account_probe_rejects_malformed_demo_response() -> None:

@@ -79,7 +79,7 @@ def account(
         status=AccountStatus.READ_ONLY,
         connection_status=ConnectionStatus.CONNECTED,
         trading_enabled=False,
-        ip_restricted=True,
+        ip_restricted=False,
         can_read=True,
         can_withdraw=not safe_permissions,
         can_internal_transfer=False,

@@ -28,7 +28,6 @@ uv run uvicorn trading.main:app --reload
 
 ```text
 BINANCE_ENVIRONMENT=demo
-FIXED_EGRESS_IP_CONFIGURED=true
 DEMO_TRADING_ENABLED=false
 ```
 

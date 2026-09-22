@@ -12,7 +12,6 @@ export function AccountBindingDialog({ onCancel, onSave }: Props) {
   const [alias, setAlias] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
-  const [ipWhitelistConfirmed, setIpWhitelistConfirmed] = useState(false);
 
   function clearSensitiveFields() {
     setApiKey("");
@@ -27,17 +26,14 @@ export function AccountBindingDialog({ onCancel, onSave }: Props) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      await onSave({ alias, apiKey, apiSecret, ipWhitelistConfirmed });
+      await onSave({ alias, apiKey, apiSecret });
     } finally {
       clearSensitiveFields();
     }
   }
 
   const canSubmit =
-    alias.trim().length > 0 &&
-    apiKey.length >= 8 &&
-    apiSecret.length >= 8 &&
-    ipWhitelistConfirmed;
+    alias.trim().length > 0 && apiKey.length >= 8 && apiSecret.length >= 8;
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -92,20 +88,6 @@ export function AccountBindingDialog({ onCancel, onSave }: Props) {
                 type="password"
                 value={apiSecret}
               />
-            </label>
-            <label className="security-confirmation">
-              <input
-                aria-label="已配置固定出口 IP 白名单"
-                checked={ipWhitelistConfirmed}
-                onChange={(event) =>
-                  setIpWhitelistConfirmed(event.target.checked)
-                }
-                type="checkbox"
-              />
-              <span>
-                <strong>已配置固定出口 IP 白名单</strong>
-                <small>仅接受 Demo 凭据，不连接主网。</small>
-              </span>
             </label>
           </div>
 

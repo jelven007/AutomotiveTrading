@@ -127,7 +127,7 @@ def add_account(session: Session) -> TradingAccount:
         trading_enabled=False,
         is_active=False,
         can_read=True,
-        ip_restricted=True,
+        ip_restricted=False,
         can_spot_trade=True,
         can_margin_trade=False,
         can_futures_trade=True,

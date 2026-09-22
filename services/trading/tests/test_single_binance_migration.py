@@ -127,7 +127,6 @@ def test_replace_contract_accepts_only_hmac_key_and_secret() -> None:
         alias="primary",
         api_key="key",
         api_secret="secret",
-        ip_whitelist_confirmed=True,
     )
 
     assert command.api_key.get_secret_value() == "key"
@@ -136,6 +135,5 @@ def test_replace_contract_accepts_only_hmac_key_and_secret() -> None:
             alias="primary",
             api_key="key",
             api_secret="secret",
-            ip_whitelist_confirmed=True,
             credential_type="ed25519",
         )

@@ -7,10 +7,8 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 from trading.api.dependencies import (
-    RuntimeGuard,
     get_binance_client,
     get_binance_runtime_manager,
-    get_runtime_guard,
     get_secret_backend,
 )
 from trading.binance.permissions import AccountPermissionSnapshot
@@ -25,7 +23,7 @@ class AllowingPermissionProbe:
     def inspect(self, **_: object) -> AccountPermissionSnapshot:
         return AccountPermissionSnapshot(
             external_account_ref="binance-user-42",
-            ip_restricted=True,
+            ip_restricted=False,
             can_read=True,
             can_spot_trade=True,
             can_margin_trade=False,
@@ -58,9 +56,6 @@ def binance_api() -> Iterator[tuple[TestClient, InMemoryEncryptedSecretBackend, 
     app.dependency_overrides[get_secret_backend] = lambda: secret_backend
     app.dependency_overrides[get_binance_client] = lambda: permission_probe
     app.dependency_overrides[get_binance_runtime_manager] = lambda: None
-    app.dependency_overrides[get_runtime_guard] = lambda: RuntimeGuard(
-        fixed_egress_ip_configured=True,
-    )
     with TestClient(app) as client:
         yield client, secret_backend, session
     session.close()
@@ -71,7 +66,6 @@ def replacement_payload(alias: str = "主账号") -> dict[str, object]:
         "alias": alias,
         "api_key": "api-key-sensitive",
         "api_secret": "api-secret-sensitive",
-        "ip_whitelist_confirmed": True,
     }
 
 
@@ -114,6 +108,7 @@ def test_replace_binance_account_overwrites_the_single_slot(
     assert second.json()["alias"] == "备用账号"
     assert second.json()["environment"] == "demo"
     assert session.scalar(select(TradingAccount.environment)) == "demo"
+    assert session.scalar(select(TradingAccount.ip_restricted)) is False
     assert "api-key-sensitive" not in second.text
     assert "api-secret-sensitive" not in second.text
 
@@ -156,23 +151,6 @@ def test_legacy_mainnet_account_requires_demo_rebind(
     assert current.status_code == 404
     assert rebound.status_code == 200
     assert rebound.json()["environment"] == "demo"
-
-
-def test_replace_binance_account_requires_fixed_egress(
-    binance_api: tuple[TestClient, InMemoryEncryptedSecretBackend, Session],
-) -> None:
-    client, _, _ = binance_api
-    client.app.dependency_overrides[get_runtime_guard] = lambda: RuntimeGuard(
-        fixed_egress_ip_configured=False,
-    )
-
-    response = client.put(
-        "/api/v1/trading/binance/account",
-        json=replacement_payload(),
-    )
-
-    assert response.status_code == 409
-    assert response.json()["code"] == "trading.fixed_egress_required"
 
 
 def test_replace_binance_account_does_not_require_mfa(

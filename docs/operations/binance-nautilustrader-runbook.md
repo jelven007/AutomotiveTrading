@@ -19,18 +19,17 @@ Web、Identity、Trading、MySQL 和 NautilusTrader。当前版本不能连接�
 
 - 公网入口使用可信 HTTPS 证书。
 - Trading 端口仅绑定 `127.0.0.1` 或 Docker 内网。
-- ECS 使用固定出口 IP。
 - ECS 到 B Spot/USD-M Demo REST 和 WebSocket 均可用。
 
 ### 2.2 B 模拟帐号
 
-- API Key 已绑定固定出口 IP。
 - 只使用跨产品共享的一套 Demo Key，并开启读取与所需模拟交易权限。
 - 禁止提现、通用划转和不需要的权限。
 - 帐号已完成 U 本位资格确认。
 
-系统固定通过 Spot Demo `/api/v3/account` 验证签名和交易能力，并由用户确认
-固定出口 IP；Spot 与 USD-M Runtime 首次读取共同完成候选账号验收。
+系统固定通过 Spot Demo `/api/v3/account` 验证签名和交易能力；Spot 与 USD-M
+Runtime 首次读取共同完成候选账号验收。当前 Demo 接入不要求固定出口 IP 或
+IP 白名单。
 
 ### 2.3 本地主密钥
 
@@ -66,7 +65,6 @@ sudo test "$(wc -c < /opt/quant-trading/secrets/credential-master-key)" -eq 32
 ```text
 BINANCE_CREDENTIAL_MASTER_KEY_FILE=/opt/quant-trading/secrets/credential-master-key
 BINANCE_CREDENTIAL_MASTER_KEY_UID=100
-FIXED_EGRESS_IP_CONFIGURED=true
 SINGLE_OWNER_MODE=true
 BINANCE_ENVIRONMENT=demo
 DEMO_TRADING_ENABLED=false
@@ -155,8 +153,7 @@ unset BINANCE_UAT_BEARER_TOKEN BINANCE_DEMO_API_KEY \
 1. 登录系统。
 2. 进入「交易」页右侧的「资产」区块。
 3. 在 USDT 未连接摘要卡中点击「账号」，并输入凭据。
-4. 确认固定出口 IP 白名单。
-5. 保存后检查脱敏指纹、权限和账户查询结果。
+4. 保存后检查脱敏指纹、权限和账户查询结果。
 
 ### 4.2 重新绑定
 
@@ -233,7 +230,6 @@ TLS 证据并联系网络管理员。
 检查：
 
 - 当前帐号指纹是否与 B Demo 控制台一致。
-- 固定出口 IP 是否仍在白名单。
 - Key 是否被删除、过期或修改权限。
 - 系统时间是否同步。
 
@@ -266,7 +262,6 @@ TLS 证据并联系网络管理员。
 检查：
 
 - 新帐号权限是否安全。
-- 固定出口 IP 是否在新 Key 白名单。
 - 候选 Spot/USD-M 客户端是否均完成首次读取。
 - 数据库事务是否提交。
 

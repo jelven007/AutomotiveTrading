@@ -41,6 +41,5 @@ def test_binance_environment_only_accepts_demo() -> None:
         Settings(binance_environment="live")  # type: ignore[arg-type]
 
 
-def test_demo_trading_requires_fixed_egress_ip() -> None:
-    with pytest.raises(ValidationError, match="demo trading requires a fixed egress IP"):
-        Settings(demo_trading_enabled=True)
+def test_demo_trading_can_be_enabled_without_network_declaration() -> None:
+    assert Settings(demo_trading_enabled=True).demo_trading_enabled is True

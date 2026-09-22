@@ -26,16 +26,12 @@ describe("AccountBindingDialog", () => {
     );
     await user.type(screen.getByLabelText("API Key"), "api-key-sensitive");
     await user.type(screen.getByLabelText("API Secret"), "secret-sensitive");
-    await user.click(
-      screen.getByRole("checkbox", { name: "已配置固定出口 IP 白名单" }),
-    );
     await user.click(screen.getByRole("button", { name: "保存账号" }));
 
     expect(onSave).toHaveBeenCalledWith({
       alias: "主帐号",
       apiKey: "api-key-sensitive",
       apiSecret: "secret-sensitive",
-      ipWhitelistConfirmed: true,
     });
     expect(
       screen.queryByDisplayValue("api-key-sensitive"),

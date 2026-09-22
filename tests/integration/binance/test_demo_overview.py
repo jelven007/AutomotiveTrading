@@ -33,7 +33,6 @@ def test_demo_overview_and_write_gate() -> None:
                 "alias": os.getenv("BINANCE_UAT_ACCOUNT_ALIAS", "B 模拟验收"),
                 "api_key": api_key,
                 "api_secret": api_secret,
-                "ip_whitelist_confirmed": True,
             },
         )
         assert bound.status_code == 200, _safe_failure(bound)
@@ -48,7 +47,7 @@ def test_demo_overview_and_write_gate() -> None:
 
         assert payload["permissions"]["status"] == "ok"
         assert payload["permissions"]["data"]["can_read"] is True
-        assert payload["permissions"]["data"]["ip_restricted"] is True
+        assert payload["permissions"]["data"]["ip_restricted"] is False
         assert payload["permissions"]["data"]["can_withdraw"] is False
         assert payload["permissions"]["data"]["can_internal_transfer"] is False
         assert payload["permissions"]["data"]["can_universal_transfer"] is False

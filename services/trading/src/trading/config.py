@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     auth_jwt_secret: SecretStr | None = None
     mfa_max_age_seconds: int = Field(default=300, ge=60, le=900)
     binance_credential_master_key_file: str = "/opt/quant-trading/secrets/credential-master-key"
-    fixed_egress_ip_configured: bool = False
     binance_environment: Literal["demo"] = "demo"
     demo_trading_enabled: bool = False
 
@@ -29,8 +28,6 @@ class Settings(BaseSettings):
     def validate_production_dependencies(self) -> "Settings":
         if self.environment == "production" and self.auth_jwt_secret is None:
             raise ValueError("production requires an authentication signing secret")
-        if self.demo_trading_enabled and not self.fixed_egress_ip_configured:
-            raise ValueError("demo trading requires a fixed egress IP")
         return self
 
 

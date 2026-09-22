@@ -4,13 +4,10 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from trading.api.dependencies import (
-    RuntimeGuard,
     get_binance_client,
     get_binance_overview_cache,
     get_binance_runtime_manager,
-    get_runtime_guard,
     get_secret_backend,
-    require_binding_runtime,
 )
 from trading.binance.errors import BinanceConnectorError
 from trading.binance.permissions import AccountPermissionProbe
@@ -65,9 +62,7 @@ async def replace_binance_account(
     payload: BinanceAccountReplaceCommand,
     principal: Annotated[Principal, Depends(get_principal)],
     service: Annotated[BinanceAccountService, Depends(get_binance_account_service)],
-    runtime: Annotated[RuntimeGuard, Depends(get_runtime_guard)],
 ) -> BinanceAccountView:
-    require_binding_runtime(runtime)
     try:
         return await service.replace(
             tenant_id=principal.tenant_id,

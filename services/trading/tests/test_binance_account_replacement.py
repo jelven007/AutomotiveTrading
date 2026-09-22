@@ -21,7 +21,7 @@ class PermissionProbe:
             )
         return AccountPermissionSnapshot(
             external_account_ref="binance-user-42",
-            ip_restricted=True,
+            ip_restricted=False,
             can_read=True,
             can_spot_trade=True,
             can_margin_trade=False,
@@ -76,7 +76,6 @@ def command(alias: str, *, secret: str = "candidate-secret") -> BinanceAccountRe
         alias=alias,
         api_key="candidate-key",
         api_secret=secret,
-        ip_whitelist_confirmed=True,
     )
 
 

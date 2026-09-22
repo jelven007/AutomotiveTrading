@@ -20,7 +20,6 @@ function overview(): BinanceOverview {
         canRead: true,
         canSpotTrade: true,
         canFuturesTrade: true,
-        ipRestricted: true,
         canWithdraw: false,
         canInternalTransfer: false,
         canUniversalTransfer: false,
@@ -80,7 +79,7 @@ describe("BinanceAccountOverview", () => {
 
     await user.click(screen.getByRole("tab", { name: "API 权限" }));
     expect(screen.getByText("读取")).toBeInTheDocument();
-    expect(screen.getByText("固定 IP")).toBeInTheDocument();
+    expect(screen.queryByText("固定 IP")).not.toBeInTheDocument();
   });
 
   it("keeps healthy sections available when spot fails", async () => {
