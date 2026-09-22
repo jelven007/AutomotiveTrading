@@ -66,6 +66,7 @@ sudo test "$(wc -c < /opt/quant-trading/secrets/credential-master-key)" -eq 32
 BINANCE_CREDENTIAL_MASTER_KEY_FILE=/opt/quant-trading/secrets/credential-master-key
 BINANCE_CREDENTIAL_MASTER_KEY_UID=100
 FIXED_EGRESS_IP_CONFIGURED=true
+SINGLE_OWNER_MODE=true
 PUBLIC_BASE_URL=https://<公网入口>
 ```
 
@@ -82,6 +83,7 @@ bash scripts/deploy.sh status
 curl -fsS http://127.0.0.1:8004/health/live
 curl -fsS http://127.0.0.1:8004/health/ready
 curl -fsS http://127.0.0.1:8004/health/binance
+curl -fsS http://127.0.0.1:8004/api/v1/trading/health
 curl -fsS -H "Authorization: Bearer ${ACCESS_TOKEN}" \
   http://127.0.0.1:8004/api/v1/trading/binance/account
 curl -fsS -H "Authorization: Bearer ${ACCESS_TOKEN}" \
@@ -94,7 +96,9 @@ curl -fsS -H "Authorization: Bearer ${ACCESS_TOKEN}" \
 - `/health/binance` 分别返回 API、Spot 和 USD-M 状态，不返回资产明细。
 - 未绑定帐号时返回 `binance.account_missing`，而非进程失败。
 - 绑定后 Spot 与 USD-M 状态分别展示。
+- 绑定后重启 Trading，唯一 Runtime 会从加密凭据自动恢复。
 - `LIVE_TRADING_ENABLED=false` 时下单写接口返回 `trading.live_disabled`。
+- 第二位用户注册返回 `registration.closed`。
 
 `up` 启动 MySQL、Identity、Trading、Nautilus Runtime 和 Web。
 
@@ -120,7 +124,8 @@ Spot、USD-M 和写入关闭门禁；余额与持仓数值仍需在币安控制�
 
 已完成：
 
-- ECS 数据库迁移至 `0004_single_binance_account`。
+- Identity 数据库待迁移至 `0002_single_system_owner`，Trading 数据库待迁移至
+  `0005_global_binance_account`。
 - Identity、Trading、Web 容器健康，主密钥以只读方式挂载。
 - 主密钥权限为 `600`，所有者为 `100:101`，容器内可读。
 - `LIVE_TRADING_ENABLED=false`，下单探测返回 `trading.live_disabled`。
@@ -143,10 +148,11 @@ Spot、USD-M 和写入关闭门禁；余额与持仓数值仍需在币安控制�
 ### 4.1 添加
 
 1. 登录系统。
-2. 进入「交易」页右侧的「资产」区块。
-3. 在 USDT 未连接摘要卡中点击「账号」，并输入凭据。
-4. 确认固定出口 IP 白名单。
-5. 保存后检查脱敏指纹、权限和账户查询结果。
+2. 完成 TOTP 验证，确保 MFA 时间不超过 5 分钟。
+3. 进入「交易」页右侧的「资产」区块。
+4. 在 USDT 未连接摘要卡中点击「账号」，并输入凭据。
+5. 确认固定出口 IP 白名单。
+6. 保存后检查脱敏指纹、权限和账户查询结果。
 
 ### 4.2 重新绑定
 
@@ -155,6 +161,7 @@ Spot、USD-M 和写入关闭门禁；余额与持仓数值仍需在币安控制�
 
 - 验证成功：切换 Runtime、删除旧密文，页面仍只有一个帐号。
 - 验证失败：保留旧帐号、旧密文和旧 Runtime。
+- MFA 缺失或超过 5 分钟：返回 `auth.mfa_required`，重新验证后再操作。
 
 不得先删除旧帐号再测试新凭据。
 

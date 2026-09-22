@@ -6,16 +6,17 @@
 
 ## 当前范围
 
-- 每个用户只保存一个 HMAC 币安账号。
+- 生产环境仅允许首位所有者注册，全系统只保存一个 HMAC 币安账号。
 - 重新绑定成功后覆盖旧账号，失败时保留旧状态。
 - 阶段一只查询权限、Spot 余额、USD-M 余额和非零持仓。
 - 阶段二只增加人工市价/限价单、单笔撤单、杠杆和保证金模式。
 - 凭据使用 ECS 本地主密钥和 AES-256-GCM 加密。
-- 绑定不要求 MFA；阶段二写入要求短时 MFA 会话和幂等键。
+- 账号绑定、替换和删除要求 5 分钟内的 MFA；阶段二写入还要求幂等键。
 
 ## 已完成
 
-- 单账号 API、数据库唯一约束和原子替换。
+- 单所有者注册门禁、全局单账号数据库约束和原子替换。
+- Trading 启动时从加密凭据恢复 Runtime，关闭时停止 Runtime。
 - 只读权限探测器。
 - NautilusTrader 1.231.0 双客户端 Runtime。
 - 聚合账户查询、局部降级和 5 秒快照。
@@ -38,6 +39,7 @@
 
 ```text
 ENVIRONMENT=production
+SINGLE_OWNER_MODE=true
 BINANCE_CREDENTIAL_MASTER_KEY_FILE=/opt/quant-trading/secrets/credential-master-key
 BINANCE_CREDENTIAL_MASTER_KEY_UID=100
 FIXED_EGRESS_IP_CONFIGURED=true

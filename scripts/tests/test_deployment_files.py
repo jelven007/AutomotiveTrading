@@ -72,6 +72,9 @@ def test_compose_contains_only_minimal_services() -> None:
     assert compose["services"]["trading"]["environment"]["LIVE_TRADING_ENABLED"] == (
         "${LIVE_TRADING_ENABLED:-false}"
     )
+    assert compose["services"]["identity-tenant"]["environment"]["SINGLE_OWNER_MODE"] == (
+        "${SINGLE_OWNER_MODE:-true}"
+    )
     for service in ("trading-migrate", "trading"):
         mount = compose["services"][service]["volumes"][0]
         assert mount.endswith(":/opt/quant-trading/secrets/credential-master-key:ro")
@@ -88,6 +91,7 @@ def test_deploy_init_generates_minimal_secure_environment(tmp_path: Path) -> Non
         "AUTH_JWT_SECRET",
         "AUTH_TOTP_ENCRYPTION_KEY",
         "ENVIRONMENT",
+        "SINGLE_OWNER_MODE",
         "QT_BIND_HOST",
         "MYSQL_PORT",
         "IDENTITY_PORT",
@@ -106,6 +110,7 @@ def test_deploy_init_generates_minimal_secure_environment(tmp_path: Path) -> Non
     assert re.fullmatch(r"[a-f0-9]{96}", values["AUTH_JWT_SECRET"])
     assert len(base64.urlsafe_b64decode(values["AUTH_TOTP_ENCRYPTION_KEY"])) == 32
     assert values["LIVE_TRADING_ENABLED"] == "false"
+    assert values["SINGLE_OWNER_MODE"] == "true"
     assert env_file.stat().st_mode & 0o777 == 0o600
 
 
@@ -117,6 +122,7 @@ def test_deploy_init_generates_minimal_secure_environment(tmp_path: Path) -> Non
         ("owner", "Trading UID"),
         ("egress", "FIXED_EGRESS_IP_CONFIGURED"),
         ("live", "LIVE_TRADING_ENABLED=false"),
+        ("owner_mode", "SINGLE_OWNER_MODE=true"),
         ("https", "PUBLIC_BASE_URL"),
     ],
 )
@@ -145,6 +151,8 @@ def test_deploy_rejects_unsafe_binance_configuration(
         values["FIXED_EGRESS_IP_CONFIGURED"] = "false"
     elif prepare == "live":
         values["LIVE_TRADING_ENABLED"] = "true"
+    elif prepare == "owner_mode":
+        values["SINGLE_OWNER_MODE"] = "false"
     elif prepare == "https":
         values["PUBLIC_BASE_URL"] = "http://example.test"
     append_env(env_file, **values)

@@ -13,7 +13,7 @@ export type AuthContextValue = {
   register: (input: RegistrationRequest) => Promise<void>;
   logout: () => Promise<void>;
   enrollMfa: () => Promise<TotpEnrollment>;
-  verifyMfa: (code: string) => Promise<void>;
+  verifyMfa: (code: string) => Promise<string>;
   hasRecentMfa: () => boolean;
 };
 

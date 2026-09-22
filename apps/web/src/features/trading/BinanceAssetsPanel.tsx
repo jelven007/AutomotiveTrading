@@ -1,8 +1,9 @@
 import { AlertCircle, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { BtcSpotPriceCard } from "../market/BtcSpotPriceCard";
 import { useAuth } from "../auth/AuthContext";
+import { MfaDialog } from "../auth/MfaDialog";
+import { BtcSpotPriceCard } from "../market/BtcSpotPriceCard";
 import { AccountBindingDialog } from "./AccountBindingDialog";
 import { BinanceAccountOverview } from "./BinanceAccountOverview";
 import {
@@ -13,12 +14,18 @@ import {
 } from "./api";
 import type { BinanceAccountDraft, BinanceOverview } from "./types";
 
+type SensitiveAction = "bind" | "delete";
+
 // 资产面板：读取真实 Binance overview，并复用绑定 / 重新绑定 / 删除流程
 export function BinanceAssetsPanel() {
   const auth = useAuth();
   const [overview, setOverview] = useState<BinanceOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBinding, setShowBinding] = useState(false);
+  const [showMfa, setShowMfa] = useState(false);
+  const [pendingAction, setPendingAction] = useState<SensitiveAction | null>(
+    null,
+  );
   const [notice, setNotice] = useState<string | null>(null);
 
   const loadOverview = useCallback(
@@ -60,6 +67,12 @@ export function BinanceAssetsPanel() {
       setNotice("登录会话不可用，账号未保存。");
       return;
     }
+    if (!auth.hasRecentMfa()) {
+      setShowBinding(false);
+      requestMfa("bind");
+      setNotice("身份验证已过期，请重新验证后填写账号。");
+      return;
+    }
     try {
       await replaceBinanceAccount(auth.accessToken, draft);
       await loadOverview(true);
@@ -70,16 +83,48 @@ export function BinanceAssetsPanel() {
     }
   }
 
-  async function removeAccount() {
-    if (!auth.accessToken || !window.confirm("确认删除当前B账号？")) {
-      return;
-    }
+  async function removeAccount(accessToken: string) {
     try {
-      await deleteBinanceAccount(auth.accessToken);
+      await deleteBinanceAccount(accessToken);
       setOverview(null);
       setNotice("B账号已删除。");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "B账号删除失败。");
+    }
+  }
+
+  function openBinding() {
+    if (auth.hasRecentMfa()) {
+      setShowBinding(true);
+      return;
+    }
+    requestMfa("bind");
+  }
+
+  function requestRemoval() {
+    if (!auth.accessToken || !window.confirm("确认删除当前B账号？")) {
+      return;
+    }
+    if (auth.hasRecentMfa()) {
+      void removeAccount(auth.accessToken);
+      return;
+    }
+    requestMfa("delete");
+  }
+
+  function requestMfa(action: SensitiveAction) {
+    setPendingAction(action);
+    setShowMfa(true);
+  }
+
+  function continueAfterMfa(accessToken: string) {
+    const action = pendingAction;
+    setPendingAction(null);
+    setShowMfa(false);
+    if (action === "bind") {
+      setShowBinding(true);
+    } else if (action === "delete") {
+      void removeAccount(accessToken);
     }
   }
 
@@ -129,7 +174,7 @@ export function BinanceAssetsPanel() {
                 </button>
                 <button
                   className="button button--secondary"
-                  onClick={() => setShowBinding(true)}
+                  onClick={openBinding}
                   type="button"
                 >
                   <RotateCcw size={16} />
@@ -137,7 +182,7 @@ export function BinanceAssetsPanel() {
                 </button>
                 <button
                   className="button button--danger"
-                  onClick={() => void removeAccount()}
+                  onClick={requestRemoval}
                   type="button"
                 >
                   <Trash2 size={16} />
@@ -172,7 +217,7 @@ export function BinanceAssetsPanel() {
                 </div>
                 <button
                   className="button button--primary"
-                  onClick={() => setShowBinding(true)}
+                  onClick={openBinding}
                   type="button"
                 >
                   <Plus size={16} />
@@ -188,6 +233,15 @@ export function BinanceAssetsPanel() {
         <AccountBindingDialog
           onCancel={() => setShowBinding(false)}
           onSave={saveAccount}
+        />
+      )}
+      {showMfa && (
+        <MfaDialog
+          onCancel={() => {
+            setPendingAction(null);
+            setShowMfa(false);
+          }}
+          onVerified={continueAfterMfa}
         />
       )}
     </section>

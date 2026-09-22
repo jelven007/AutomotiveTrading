@@ -1,10 +1,15 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from trading.api.binance_account import router as binance_account_router
 from trading.api.binance_overview import router as binance_overview_router
+from trading.api.dependencies import get_binance_runtime_manager
 from trading.api.health import router as health_router
+from trading.binance_runtime.lifecycle import restore_persisted_runtime
 from trading.config import get_settings
 from trading.context import current_trace_id
 from trading.errors import ProblemDetail, ServiceError
@@ -12,9 +17,22 @@ from trading.middleware import request_context_middleware
 from trading.observability import configure_observability
 
 
-def create_app() -> FastAPI:
+@asynccontextmanager
+async def runtime_lifespan(_: FastAPI) -> AsyncIterator[None]:
+    runtime_manager = get_binance_runtime_manager()
+    await restore_persisted_runtime(runtime_manager)
+    try:
+        yield
+    finally:
+        await runtime_manager.stop()
+
+
+def create_app(*, manage_runtime: bool = True) -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.service_name)
+    app = FastAPI(
+        title=settings.service_name,
+        lifespan=runtime_lifespan if manage_runtime else None,
+    )
     configure_observability(app, settings)
     app.middleware("http")(request_context_middleware)
     app.include_router(health_router)

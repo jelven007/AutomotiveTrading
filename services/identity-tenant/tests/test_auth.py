@@ -8,10 +8,11 @@ from identity_tenant.auth import (
     AuthService,
     MfaRequiredError,
     RefreshTokenReuseError,
+    RegistrationClosedError,
     require_recent_mfa,
 )
-from identity_tenant.models import AuthSession, Role, User
-from sqlalchemy import select
+from identity_tenant.models import AuthSession, Role, SystemOwner, User
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 
@@ -68,6 +69,33 @@ def test_login_uses_email_without_requiring_tenant_id(
 
     assert principal.user_id == registration.user_id
     assert principal.tenant_id == registration.tenant_id
+
+
+def test_single_owner_mode_closes_registration_after_bootstrap(
+    auth_service: AuthService,
+    session: Session,
+) -> None:
+    service = AuthService(
+        session,
+        auth_service.settings,
+        single_owner_mode=True,
+    )
+
+    registration = service.register(
+        email="owner@example.com",
+        password="Correct-Horse-Battery-99",
+    )
+
+    with pytest.raises(RegistrationClosedError):
+        service.register(
+            email="second@example.com",
+            password="Correct-Horse-Battery-99",
+        )
+
+    owner = session.get(SystemOwner, "primary")
+    assert owner is not None
+    assert owner.user_id == registration.user_id
+    assert session.scalar(select(func.count()).select_from(User)) == 1
 
 
 def test_refresh_token_rotates_and_replay_revokes_session_family(

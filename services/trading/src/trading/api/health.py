@@ -24,6 +24,13 @@ def readiness() -> dict[str, str] | JSONResponse:
     return {"status": "ready"}
 
 
+@router.get("/api/v1/trading/health", response_model=None)
+def service_health() -> dict[str, str] | JSONResponse:
+    if not database_is_ready():
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
+    return {"status": "ready"}
+
+
 @router.get("/health/binance")
 async def binance_health(
     runtime_manager: Annotated[

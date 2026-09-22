@@ -971,6 +971,20 @@ button:disabled {
   background: var(--accent);
 }
 
+.status-pill--checking .status-dot {
+  background: var(--muted);
+}
+
+.status-pill--unavailable {
+  border-color: #efc0bb;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.status-pill--unavailable .status-dot {
+  background: var(--danger);
+}
+
 /* 区块标题：与 panel-heading 共享排版，但无边框、贴合分栏 */
 .section-heading {
   display: flex;

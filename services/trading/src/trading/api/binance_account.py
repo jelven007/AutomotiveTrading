@@ -24,7 +24,7 @@ from trading.binance_runtime.ports import RuntimeManager
 from trading.db import get_session
 from trading.errors import ServiceError
 from trading.secrets import SecretBackend
-from trading.security import Principal, get_principal
+from trading.security import Principal, get_principal, require_sensitive_write
 
 router = APIRouter(prefix="/api/v1/trading/binance", tags=["binance-account"])
 
@@ -67,6 +67,7 @@ async def replace_binance_account(
     service: Annotated[BinanceAccountService, Depends(get_binance_account_service)],
     runtime: Annotated[RuntimeGuard, Depends(get_runtime_guard)],
 ) -> BinanceAccountView:
+    require_sensitive_write(principal)
     require_binding_runtime(runtime)
     try:
         return await service.replace(
@@ -100,6 +101,7 @@ async def delete_binance_account(
     principal: Annotated[Principal, Depends(get_principal)],
     service: Annotated[BinanceAccountService, Depends(get_binance_account_service)],
 ) -> Response:
+    require_sensitive_write(principal)
     try:
         await service.delete(
             tenant_id=principal.tenant_id,

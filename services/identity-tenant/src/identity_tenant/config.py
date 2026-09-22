@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from identity_tenant.auth import AuthSettings
@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     auth_totp_encryption_key: SecretStr
     access_token_ttl_seconds: int = Field(default=900)
     refresh_token_ttl_seconds: int = Field(default=2_592_000)
+    single_owner_mode: bool = False
+
+    @model_validator(mode="after")
+    def validate_production_registration(self) -> "Settings":
+        if self.environment == "production" and not self.single_owner_mode:
+            raise ValueError("production requires single-owner registration mode")
+        return self
 
     def auth_settings(self) -> AuthSettings:
         return AuthSettings(

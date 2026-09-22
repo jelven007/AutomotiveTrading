@@ -16,7 +16,7 @@ vi.mock("qrcode", () => ({
 describe("MfaDialog", () => {
   it("verifies a six-digit code before continuing", async () => {
     const user = userEvent.setup();
-    const verifyMfa = vi.fn().mockResolvedValue(undefined);
+    const verifyMfa = vi.fn().mockResolvedValue("elevated-access-token");
     const onVerified = vi.fn();
     renderWithAuth(<MfaDialog onCancel={vi.fn()} onVerified={onVerified} />, {
       verifyMfa,
@@ -26,7 +26,7 @@ describe("MfaDialog", () => {
     await user.click(screen.getByRole("button", { name: "验证并继续" }));
 
     await waitFor(() => expect(verifyMfa).toHaveBeenCalledWith("123456"));
-    expect(onVerified).toHaveBeenCalledOnce();
+    expect(onVerified).toHaveBeenCalledWith("elevated-access-token");
   });
 
   it("starts TOTP enrollment and renders its QR code", async () => {

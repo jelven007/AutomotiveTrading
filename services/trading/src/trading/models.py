@@ -56,10 +56,9 @@ class TradingAccount(Base):
     __tablename__ = "trading_accounts"
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id",
             "provider",
             "account_slot",
-            name="uq_trading_accounts_tenant_provider_slot",
+            name="uq_trading_accounts_provider_slot",
         ),
         CheckConstraint(
             "provider = 'binance' AND account_slot = 'primary'",

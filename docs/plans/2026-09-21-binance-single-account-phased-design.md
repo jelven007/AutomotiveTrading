@@ -6,12 +6,12 @@
 
 ## 1. 目标
 
-系统只服务一个产品方向：用户登录后绑定唯一币安账号，查询 Spot 与 USD-M
+系统只服务一个产品方向：首位所有者登录后绑定唯一币安账号，查询 Spot 与 USD-M
 账户数据，并在阶段二增加受 MFA 和幂等保护的人工交易。
 
 核心原则：
 
-- 一个用户只有一个 Binance HMAC 账号。
+- 生产环境仅允许首位所有者注册，全系统只有一个 Binance HMAC 账号。
 - 重新绑定先验证候选账号，成功后覆盖，失败时保留旧账号。
 - 凭据只以 AES-256-GCM 密文保存。
 - Spot 与 USD-M 独立连接、独立报告故障。
@@ -57,6 +57,7 @@ ip_whitelist_confirmed
 - 主密钥为 32 个原始随机字节，宿主机权限 `600`。
 - 主密钥只读挂载，不进入 Git、镜像、环境变量或日志。
 - API 响应只返回 Key 指纹，不返回凭据或密文。
+- 绑定、替换和删除要求 5 分钟内完成 MFA。
 
 替换顺序：
 
@@ -69,6 +70,8 @@ ip_whitelist_confirmed
 7. 删除旧密文。
 
 任何步骤失败都停止候选 Runtime，并保留旧账号、旧密文和旧 Runtime。
+服务重启时从数据库和本地密钥恢复唯一 Runtime；凭据缺失、权限不安全或候选
+校验失败会阻止 Trading 就绪，服务关闭时停止 Runtime。
 
 ## 4. 阶段一接口
 
@@ -77,6 +80,7 @@ GET    /api/v1/trading/binance/account
 PUT    /api/v1/trading/binance/account
 DELETE /api/v1/trading/binance/account
 GET    /api/v1/trading/binance/overview
+GET    /api/v1/trading/health
 GET    /health/binance
 ```
 
@@ -135,7 +139,7 @@ PUT  /api/v1/trading/binance/futures/{symbol}/margin-mode
 | Spot 不可用 | `binance.spot_unavailable` |
 | USD-M 不可用 | `binance.usdm_unavailable` |
 | 实盘写入关闭 | `trading.live_disabled` |
-| 交易会话缺失 | `binance.trading_session_required` |
+| MFA 缺失或过期 | `auth.mfa_required` |
 | 幂等冲突 | `idempotency.conflict` |
 
 错误响应、日志和 Trace 不得包含 Key、Secret、密文或 nonce。

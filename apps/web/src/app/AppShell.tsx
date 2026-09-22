@@ -1,4 +1,5 @@
 import { LogOut, Settings, Workflow } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 
 import { useAuth } from "../features/auth/AuthContext";
@@ -14,9 +15,17 @@ const primaryNav = [
   { to: "/trading", label: "交易", end: false },
 ];
 
+type HealthState = "checking" | "ready" | "unavailable";
+
 export function AppShell() {
   const auth = useAuth();
   const userEmail = auth.claims?.email ?? "当前用户";
+  const health = useSystemHealth();
+  const healthLabel = {
+    checking: "状态检查中",
+    ready: "系统正常",
+    unavailable: "服务不可用",
+  }[health];
 
   return (
     <div className="app-shell">
@@ -45,9 +54,13 @@ export function AppShell() {
         </div>
 
         <div className="appbar-trail">
-          <span className="status-pill" title="系统状态">
+          <span
+            className={`status-pill status-pill--${health}`}
+            role="status"
+            title="系统状态"
+          >
             <span className="status-dot" aria-hidden="true" />
-            系统正常 · 128ms
+            {healthLabel}
           </span>
           <NavLink
             aria-label={`用户详情 ${userEmail}`}
@@ -88,4 +101,34 @@ export function AppShell() {
       </main>
     </div>
   );
+}
+
+function useSystemHealth(): HealthState {
+  const [health, setHealth] = useState<HealthState>("checking");
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function refresh() {
+      try {
+        const response = await fetch("/api/v1/trading/health", {
+          signal: controller.signal,
+        });
+        setHealth(response.ok ? "ready" : "unavailable");
+      } catch {
+        if (!controller.signal.aborted) {
+          setHealth("unavailable");
+        }
+      }
+    }
+
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 30_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  return health;
 }

@@ -48,7 +48,12 @@ export function TradingPage() {
                 onChange={(event) => setKeyword(event.target.value)}
               />
             </label>
-            <button className="button button--primary" type="button">
+            <button
+              className="button button--primary"
+              disabled
+              title="订单功能尚未开放"
+              type="button"
+            >
               <Plus size={16} />
               订单
             </button>

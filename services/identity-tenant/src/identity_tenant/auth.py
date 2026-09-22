@@ -12,9 +12,18 @@ from cryptography.fernet import InvalidToken as InvalidEncryptedToken
 from jwt import InvalidTokenError
 from pydantic import BaseModel, Field, SecretStr
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from identity_tenant.models import AuthSession, Role, Tenant, TenantMember, User, new_id
+from identity_tenant.models import (
+    AuthSession,
+    Role,
+    SystemOwner,
+    Tenant,
+    TenantMember,
+    User,
+    new_id,
+)
 
 
 class AuthSettings(BaseModel):
@@ -67,7 +76,11 @@ class MfaRequiredError(AuthenticationError):
 
 
 class RegistrationError(Exception):
-    pass
+    code = "registration.invalid"
+
+
+class RegistrationClosedError(RegistrationError):
+    code = "registration.closed"
 
 
 def require_recent_mfa(principal: Principal, max_age_seconds: int = 300) -> None:
@@ -79,9 +92,16 @@ def require_recent_mfa(principal: Principal, max_age_seconds: int = 300) -> None
 
 
 class AuthService:
-    def __init__(self, session: Session, settings: AuthSettings) -> None:
+    def __init__(
+        self,
+        session: Session,
+        settings: AuthSettings,
+        *,
+        single_owner_mode: bool = False,
+    ) -> None:
         self.session = session
         self.settings = settings
+        self.single_owner_mode = single_owner_mode
         self.password_hasher = PasswordHasher()
         self.totp_cipher = Fernet(settings.totp_encryption_key.get_secret_value().encode())
 
@@ -96,6 +116,8 @@ class AuthService:
             raise RegistrationError("password must contain at least 12 characters")
         if self.session.scalar(select(User.id).where(User.email == normalized_email)):
             raise RegistrationError("email is already registered")
+        if self.single_owner_mode and self.session.get(SystemOwner, "primary") is not None:
+            raise RegistrationClosedError("system owner has already been registered")
 
         user = User(
             email=normalized_email,
@@ -112,7 +134,15 @@ class AuthService:
                 role=Role.TENANT_ADMIN,
             )
         )
-        self.session.commit()
+        if self.single_owner_mode:
+            self.session.add(SystemOwner(slot="primary", user_id=user.id))
+        try:
+            self.session.commit()
+        except IntegrityError as error:
+            self.session.rollback()
+            if self.single_owner_mode:
+                raise RegistrationClosedError("system owner has already been registered") from error
+            raise
         return Registration(user_id=user.id, tenant_id=tenant.id)
 
     def login(

@@ -145,6 +145,7 @@ export function AuthProvider({ children }: Props) {
       const next = { ...session, accessToken };
       writeAuthSession(next);
       setSession(next);
+      return accessToken;
     },
     [session],
   );

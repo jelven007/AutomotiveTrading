@@ -4,6 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from trading.binance.errors import BinanceConnectorError
@@ -106,13 +107,17 @@ class BinanceAccountService:
         if not command.ip_whitelist_confirmed:
             raise ValueError("Binance API key IP whitelist must be confirmed")
 
+        previous = self._find(tenant_id)
+        owner = self._find_any()
+        if owner is not None and owner.tenant_id != tenant_id:
+            raise ValueError("Binance account is already bound to the system owner")
+
         api_key = command.api_key.get_secret_value()
         api_secret = command.api_secret.get_secret_value()
         permissions = self._inspect_permissions(api_key, api_secret)
         self._validate_permissions(permissions)
         candidate = await self._build_and_validate_candidate(api_key, api_secret)
 
-        previous = self._find(tenant_id)
         previous_values = self._snapshot(previous) if previous is not None else None
         old_secret_ref = previous.secret_ref if previous is not None else None
         new_secret_ref = self._secret_backend.put(
@@ -147,6 +152,11 @@ class BinanceAccountService:
 
         try:
             self._session.commit()
+        except IntegrityError as error:
+            self._session.rollback()
+            self._secret_backend.delete(tenant_id, new_secret_ref)
+            await self._stop_candidate(candidate)
+            raise ValueError("Binance account is already bound to the system owner") from error
         except Exception:
             self._session.rollback()
             self._secret_backend.delete(tenant_id, new_secret_ref)
@@ -260,6 +270,13 @@ class BinanceAccountService:
         return self._session.scalar(
             select(TradingAccount).where(
                 TradingAccount.tenant_id == tenant_id,
+                TradingAccount.provider == TradingProvider.BINANCE,
+            )
+        )
+
+    def _find_any(self) -> TradingAccount | None:
+        return self._session.scalar(
+            select(TradingAccount).where(
                 TradingAccount.provider == TradingProvider.BINANCE,
             )
         )

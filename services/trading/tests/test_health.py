@@ -18,11 +18,14 @@ client = TestClient(app)
 def test_health_endpoints_do_not_require_tenant() -> None:
     live_response = client.get("/health/live")
     ready_response = client.get("/health/ready")
+    service_response = client.get("/api/v1/trading/health")
 
     assert live_response.status_code == 200
     assert live_response.json() == {"status": "ok"}
     assert ready_response.status_code == 200
     assert ready_response.json() == {"status": "ready"}
+    assert service_response.status_code == 200
+    assert service_response.json() == {"status": "ready"}
     assert live_response.headers["X-Trace-ID"]
 
 

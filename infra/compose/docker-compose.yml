@@ -46,6 +46,8 @@ services:
       DATABASE_URL: mysql+pymysql://${MYSQL_USER:-qt_app}:${MYSQL_PASSWORD}@mysql:3306/qt_identity
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
       AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SINGLE_OWNER_MODE: ${SINGLE_OWNER_MODE:-true}
     depends_on:
       database-init:
         condition: service_completed_successfully
@@ -58,6 +60,7 @@ services:
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
       AUTH_TOTP_ENCRYPTION_KEY: ${AUTH_TOTP_ENCRYPTION_KEY}
       ENVIRONMENT: ${ENVIRONMENT:-production}
+      SINGLE_OWNER_MODE: ${SINGLE_OWNER_MODE:-true}
     ports:
       - "${QT_BIND_HOST:-127.0.0.1}:${IDENTITY_PORT:-8001}:8000"
     depends_on:

@@ -7,7 +7,7 @@ import { useAuth } from "./AuthContext";
 
 type Props = {
   onCancel: () => void;
-  onVerified: () => void;
+  onVerified: (accessToken: string) => void;
 };
 
 export function MfaDialog({ onCancel, onVerified }: Props) {
@@ -48,8 +48,8 @@ export function MfaDialog({ onCancel, onVerified }: Props) {
     setBusy(true);
     setError(null);
     try {
-      await auth.verifyMfa(code);
-      onVerified();
+      const accessToken = await auth.verifyMfa(code);
+      onVerified(accessToken);
     } catch (caught) {
       setError(mfaErrorMessage(caught));
     } finally {

@@ -41,6 +41,14 @@ class User(Base):
     )
 
 
+class SystemOwner(Base):
+    __tablename__ = "system_owners"
+
+    slot: Mapped[str] = mapped_column(String(24), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+
+
 class Tenant(Base):
     __tablename__ = "tenants"
 

@@ -71,3 +71,26 @@ def require_recent_mfa(principal: Principal) -> None:
             message="Recent MFA verification is required",
             status_code=403,
         )
+
+
+def require_sensitive_write(principal: Principal) -> None:
+    require_recent_mfa(principal)
+
+
+def require_live_trading_write(principal: Principal) -> None:
+    if not get_settings().live_trading_enabled:
+        raise ServiceError(
+            code="trading.live_disabled",
+            message="Live trading is disabled",
+            status_code=409,
+        )
+    require_sensitive_write(principal)
+
+
+__all__ = [
+    "Principal",
+    "get_principal",
+    "require_live_trading_write",
+    "require_recent_mfa",
+    "require_sensitive_write",
+]

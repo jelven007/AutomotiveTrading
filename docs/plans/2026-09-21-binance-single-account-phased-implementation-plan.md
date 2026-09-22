@@ -19,8 +19,10 @@
 | 阶段 | 状态 | 说明 |
 | --- | --- | --- |
 | 单账号 API | 完成 | 查询、替换、删除 |
-| 数据库约束 | 完成 | 每个用户唯一 Binance 账号 |
+| 注册与数据库约束 | 完成 | 生产单所有者、全局唯一 Binance 账号 |
 | 安全替换 | 完成 | 候选验证、事务与补偿 |
+| Runtime 生命周期 | 完成 | 启动恢复、关闭停止、异常时拒绝就绪 |
+| MFA 基础门禁 | 完成 | 敏感账号写入要求 5 分钟内 MFA |
 | 权限探测 | 完成 | 仅允许读取 API 权限 |
 | 账户概览 | 完成 | Spot/USD-M、5 秒快照、局部降级 |
 | Web 页面 | 完成 | 首页行情/资讯、策略表格、交易行情/资产/订单 |
@@ -35,6 +37,7 @@ GET    /api/v1/trading/binance/account
 PUT    /api/v1/trading/binance/account
 DELETE /api/v1/trading/binance/account
 GET    /api/v1/trading/binance/overview
+GET    /api/v1/trading/health
 GET    /health/binance
 ```
 
@@ -56,26 +59,25 @@ BINANCE_PRODUCTION_API_KEY=<secret>
 BINANCE_PRODUCTION_API_SECRET=<secret>
 ```
 
-## Task 8: MFA 交易会话
+## Task 8: MFA 写入门禁
 
 **Files:**
 
-- Create: `services/trading/src/trading/trading_session.py`
-- Create: `services/trading/tests/test_trading_session.py`
-- Modify: `services/trading/src/trading/api/dependencies.py`
+- Modify: `services/trading/src/trading/security.py`
+- Modify: `services/trading/src/trading/api/binance_account.py`
 - Modify: `services/identity-tenant/src/identity_tenant/auth.py`
 
-验证：
+P0 已完成：
 
-- 绑定和查询不要求 MFA。
-- 交易会话最长 15 分钟。
-- 缺失、过期或用户不匹配时返回
-  `binance.trading_session_required`。
-- `LIVE_TRADING_ENABLED=false` 时始终拒绝写入。
+- 查询不要求 MFA，账号绑定、替换和删除要求 5 分钟内完成 MFA。
+- 缺失或过期统一返回 `auth.mfa_required`。
+- 实盘写入统一先检查 `LIVE_TRADING_ENABLED`，关闭时返回
+  `trading.live_disabled`，再检查 MFA。
+- 阶段二在同一守卫后继续增加 Runtime、账号权限和幂等门禁。
 
 ```bash
 uv run pytest \
-  services/trading/tests/test_trading_session.py \
+  services/trading/tests/test_security.py \
   services/identity-tenant/tests/test_auth.py -v
 ```
 
@@ -86,7 +88,9 @@ uv run pytest \
 - Create: `services/trading/src/trading/binance_orders.py`
 - Create: `services/trading/src/trading/api/binance_orders.py`
 - Create: `services/trading/tests/test_binance_orders.py`
-- Create: `services/trading/migrations/versions/0005_binance_orders.py`
+- Reference: `services/trading/migrations/versions/0001_trading_core.py` 的既有
+  `trading_orders` / `trading_operations` 契约
+- Create: `services/trading/migrations/versions/0006_binance_order_contract.py`
 - Modify: `services/trading/src/trading/binance_runtime/manager.py`
 - Modify: `services/trading/src/trading/models.py`
 - Modify: `services/trading/src/trading/main.py`
@@ -99,8 +103,9 @@ POST /api/v1/trading/binance/orders
 POST /api/v1/trading/binance/orders/{order_id}/cancel
 ```
 
-测试必须覆盖 Spot/USD-M 市价与限价映射、参数校验、幂等冲突、权限与 Runtime
-门禁、明确拒绝和 `pending_reconciliation`。
+`trading_orders` 和 `trading_operations` 已由 `0001` 创建，`0006` 只做字段或
+约束演进，不得重复建表。测试必须覆盖 Spot/USD-M 市价与限价映射、参数校验、
+幂等冲突、权限与 Runtime 门禁、明确拒绝和 `pending_reconciliation`。
 
 ## Task 10: USD-M 设置
 

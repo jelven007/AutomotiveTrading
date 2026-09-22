@@ -7,7 +7,11 @@ from fastapi.security import HTTPAuthorizationCredentials
 from trading.config import Settings
 from trading.errors import ServiceError
 from trading.secrets import LocalCredentialVault
-from trading.security import get_principal, require_recent_mfa
+from trading.security import (
+    get_principal,
+    require_live_trading_write,
+    require_recent_mfa,
+)
 
 
 def settings() -> Settings:
@@ -63,6 +67,23 @@ def test_missing_mfa_time_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(ServiceError) as captured:
         require_recent_mfa(principal)
     assert captured.value.code == "auth.mfa_required"
+
+
+def test_live_write_guard_rejects_disabled_trading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("trading.security.get_settings", settings)
+    principal = get_principal(
+        HTTPAuthorizationCredentials(
+            scheme="Bearer",
+            credentials=token(datetime.now(UTC)),
+        )
+    )
+
+    with pytest.raises(ServiceError) as captured:
+        require_live_trading_write(principal)
+
+    assert captured.value.code == "trading.live_disabled"
 
 
 def test_local_credential_vault_round_trips_with_random_nonce() -> None:

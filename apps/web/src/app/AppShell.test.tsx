@@ -24,8 +24,25 @@ function missingAccountResponse(): Response {
   } as Response;
 }
 
+function healthyResponse(): Response {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({ status: "ready" }),
+  } as Response;
+}
+
 beforeEach(() => {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(missingAccountResponse()));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL) =>
+      Promise.resolve(
+        String(input).endsWith("/api/v1/trading/health")
+          ? healthyResponse()
+          : missingAccountResponse(),
+      ),
+    ),
+  );
 });
 
 afterEach(() => {
@@ -45,6 +62,7 @@ describe("AppShell", () => {
       name: "用户详情 admin@example.com",
     });
     expect(userLink).toHaveTextContent("admin@example.com");
+    expect(await screen.findByText("系统正常")).toBeInTheDocument();
   });
 
   it("renders the home page on the root path", () => {
@@ -58,14 +76,14 @@ describe("AppShell", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the strategies page with the strategy list", () => {
+  it("marks unavailable strategy actions as planned", () => {
     renderShell("/strategies");
 
     expect(
       screen.getByRole("heading", { name: "策略", level: 2 }),
     ).toBeInTheDocument();
-    expect(screen.getByText("多因子动量")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "策略" })).toBeInTheDocument();
+    expect(screen.getByText("策略功能规划中")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "策略" })).toBeDisabled();
   });
 
   it("renders assets and orders on the trading page", async () => {
@@ -79,5 +97,6 @@ describe("AppShell", () => {
     ).toBeInTheDocument();
     // 订单能力尚未开放，展示空列表提示
     expect(screen.getByText("当前没有进行中的订单")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "订单" })).toBeDisabled();
   });
 });

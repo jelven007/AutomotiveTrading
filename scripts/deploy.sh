@@ -51,6 +51,7 @@ AUTH_JWT_SECRET=$(openssl rand -hex 48)
 AUTH_TOTP_ENCRYPTION_KEY=$(fernet_key)
 
 ENVIRONMENT=production
+SINGLE_OWNER_MODE=true
 QT_BIND_HOST=127.0.0.1
 MYSQL_PORT=3306
 IDENTITY_PORT=8001
@@ -98,6 +99,9 @@ require_deployment() {
     echo "部署配置仍包含 please-change 占位值。" >&2
     exit 1
   fi
+}
+
+require_compose() {
   require_command docker
   docker compose version >/dev/null
 }
@@ -134,6 +138,10 @@ require_binance_configuration() {
   fi
   if [[ "$(env_value LIVE_TRADING_ENABLED)" != "false" ]]; then
     echo "阶段一要求 LIVE_TRADING_ENABLED=false。" >&2
+    return 1
+  fi
+  if [[ "$(env_value SINGLE_OWNER_MODE)" != "true" ]]; then
+    echo "生产环境要求 SINGLE_OWNER_MODE=true。" >&2
     return 1
   fi
   if [[ "$(env_value PUBLIC_BASE_URL)" != https://* ]]; then
@@ -220,6 +228,7 @@ case "${command}" in
   up)
     require_deployment
     require_binance_configuration
+    require_compose
     compose_cmd config --quiet
     compose_cmd up -d --build --remove-orphans
     wait_for_jobs
@@ -229,20 +238,24 @@ case "${command}" in
     ;;
   status)
     require_deployment
+    require_compose
     compose_cmd ps -a
     ;;
   logs)
     require_deployment
+    require_compose
     shift
     compose_cmd logs --tail=200 -f "$@"
     ;;
   restart)
     require_deployment
+    require_compose
     compose_cmd restart identity-tenant trading web
     compose_cmd ps -a
     ;;
   down)
     require_deployment
+    require_compose
     compose_cmd down
     ;;
   help | --help | -h)

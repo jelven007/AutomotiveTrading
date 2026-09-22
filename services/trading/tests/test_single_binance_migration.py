@@ -49,7 +49,7 @@ def load_migration() -> ModuleType:
     return module
 
 
-def test_model_allows_only_one_binance_slot_per_tenant(session: Session) -> None:
+def test_model_allows_only_one_binance_slot_for_system(session: Session) -> None:
     session.add_all(
         [
             account(
@@ -67,7 +67,7 @@ def test_model_allows_only_one_binance_slot_per_tenant(session: Session) -> None
         session.commit()
 
 
-def test_model_allows_one_binance_account_for_each_tenant(session: Session) -> None:
+def test_model_rejects_binance_accounts_for_multiple_tenants(session: Session) -> None:
     session.add_all(
         [
             account(
@@ -81,7 +81,8 @@ def test_model_allows_one_binance_account_for_each_tenant(session: Session) -> N
         ]
     )
 
-    session.commit()
+    with pytest.raises(IntegrityError):
+        session.commit()
 
 
 def test_migration_rejects_existing_duplicate_binance_accounts() -> None:

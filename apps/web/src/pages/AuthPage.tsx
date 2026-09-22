@@ -197,6 +197,9 @@ function authErrorMessage(error: AuthApiError): string {
   if (error.status === 401) {
     return "邮箱或密码不正确";
   }
+  if (error.code === "registration.closed") {
+    return "系统已完成初始化，请使用所有者账号登录";
+  }
   if (error.code === "registration.invalid") {
     return error.message || "该邮箱已注册";
   }

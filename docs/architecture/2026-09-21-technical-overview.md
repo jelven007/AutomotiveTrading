@@ -67,7 +67,7 @@ apps/web/src/styles       # 设计令牌与页面样式
 ```
 
 - 首页：四个行情摘要卡与资讯列表走 Binance 公开接口，每 1 秒静默刷新。
-- 策略：六列数据表、搜索和新增入口，阶段一使用静态数据。
+- 策略：保留六列表格结构，阶段一展示规划中空态并禁用新增入口。
 - 交易：左侧行情、右侧资产；订单区与策略区使用相同的工具栏和六列表格。
   资产读取真实概览并复用绑定流程，订单数据为阶段二占位。
 - 登录和用户页与三个一级页面共用字体、色彩、控件和状态反馈规范。
@@ -77,14 +77,16 @@ apps/web/src/styles       # 设计令牌与页面样式
 
 ### 3.2 Identity
 
-邮箱作为唯一身份标识，界面不要求用户 ID 或租户 ID；服务内部为每个邮箱创建
-隔离空间并写入 JWT，供 Trading 做数据隔离。
+邮箱作为唯一身份标识，界面不要求用户 ID 或租户 ID。生产环境使用
+`SINGLE_OWNER_MODE=true`，首位用户完成初始化后关闭注册；数据库中的唯一所有者
+记录处理并发注册竞争。
 
 ### 3.3 Trading
 
-单币安 HMAC 账号：绑定、重新绑定（先验证候选、成功后覆盖、失败保留旧账号）、
-删除。凭据仅以 AES-256-GCM 密文保存，主密钥只读挂载。进程内运行一个只读
-NautilusTrader Runtime，聚合 Spot 与 USD-M 概览并支持局部降级。
+全局单币安 HMAC 账号：绑定、重新绑定（先验证候选、成功后覆盖、失败保留旧
+账号）、删除。凭据仅以 AES-256-GCM 密文保存，主密钥只读挂载。进程内运行一个
+只读 NautilusTrader Runtime，启动时从持久化密文恢复，关闭时停止；聚合 Spot
+与 USD-M 概览并支持局部降级。
 
 ## 4. 技术栈
 
@@ -119,6 +121,7 @@ GET    /api/v1/trading/binance/account
 PUT    /api/v1/trading/binance/account
 DELETE /api/v1/trading/binance/account
 GET    /api/v1/trading/binance/overview
+GET    /api/v1/trading/health
 GET    /health/binance
 ```
 
@@ -139,19 +142,21 @@ GET https://www.binance.com/bapi/composite/v1/public/cms/article/list/query  # �
 ## 6. 数据与运行时
 
 - MySQL 承载 Identity 与 Trading 两个逻辑库；本地开发默认使用 SQLite。
-- Trading 迁移当前至 `0004_single_binance_account`，强制每租户一个币安账号槽位。
+- Identity 迁移当前至 `0002_single_system_owner`，生产环境只允许一个所有者。
+- Trading 迁移当前至 `0005_global_binance_account`，强制全系统一个币安账号槽位。
 - 币安凭据以 AES-256-GCM 密文存储，主密钥为 32 字节原始随机数、宿主权限
   `600`、只读挂载，容器内属主为 `100:101`。
 
 ## 7. 安全
 
-- 认证：JWT 短期访问令牌 + 刷新令牌轮换；写入操作（阶段二）额外要求短时
-  MFA 会话与幂等键。
+- 认证：JWT 短期访问令牌 + 刷新令牌轮换；账号敏感写入要求 5 分钟内的 MFA，
+  阶段二交易写入还要求幂等键。
 - 凭据：仅返回 Key 指纹，绝不返回密钥或密文；密钥不进入 Git、镜像、环境变量
   或日志。
 - 网络：Trading 端口仅绑定本地或内网，公网入口使用可信 HTTPS，币安 Key 绑定
   固定出口 IP，并关闭提现与划转权限。
 - 生产写入门禁：`LIVE_TRADING_ENABLED` 默认 `false`。
+- 生产注册门禁：`SINGLE_OWNER_MODE` 必须为 `true`。
 
 ## 8. 本地开发
 

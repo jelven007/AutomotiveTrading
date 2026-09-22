@@ -55,13 +55,19 @@ class TotpCodeRequest(BaseModel):
     code: str = Field(pattern=r"^\d{6}$")
 
 
-def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
+def create_app(
+    auth_settings: AuthSettings | None = None,
+    *,
+    single_owner_mode: bool = False,
+) -> FastAPI:
     if auth_settings is None:
         service_settings = get_settings()
         resolved_settings = service_settings.auth_settings()
+        resolved_single_owner_mode = service_settings.single_owner_mode
         log_level = service_settings.log_level
     else:
         resolved_settings = auth_settings
+        resolved_single_owner_mode = single_owner_mode
         log_level = "INFO"
     app = FastAPI(title="identity-tenant")
     configure_observability(app, "identity-tenant", log_level)
@@ -82,7 +88,11 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
     def get_auth_service(
         session: Annotated[Session, Depends(get_session)],
     ) -> AuthService:
-        return AuthService(session, resolved_settings)
+        return AuthService(
+            session,
+            resolved_settings,
+            single_owner_mode=resolved_single_owner_mode,
+        )
 
     def get_principal(
         credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
@@ -117,7 +127,7 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
             content={
-                "code": "registration.invalid",
+                "code": error.code,
                 "message": str(error),
                 "trace_id": current_trace_id(),
                 "details": {},

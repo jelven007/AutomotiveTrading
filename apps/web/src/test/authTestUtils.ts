@@ -26,7 +26,7 @@ export function createAuthValue(
       secret: "BASE32SECRET",
       provisioningUri: "otpauth://totp/Quant%20Desk:user",
     }),
-    verifyMfa: async () => undefined,
+    verifyMfa: async () => "elevated-access-token",
     hasRecentMfa: () => true,
     ...overrides,
   };

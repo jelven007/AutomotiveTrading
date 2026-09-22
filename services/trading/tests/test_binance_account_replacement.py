@@ -189,6 +189,36 @@ async def test_successful_replacement_switches_runtime_and_deletes_old_secret(
 
 
 @pytest.mark.asyncio
+async def test_account_owner_cannot_be_replaced_by_another_tenant(
+    session: Session,
+) -> None:
+    backend = InMemoryEncryptedSecretBackend()
+    current = FakeCandidate()
+    manager = FakeRuntimeManager([current])
+    account_service = service(session, backend, manager)
+    await account_service.replace(
+        tenant_id="tenant-a",
+        actor_user_id="user-a",
+        actor_roles=("tenant_admin",),
+        command=command("current"),
+    )
+
+    with pytest.raises(ValueError, match="system owner"):
+        await account_service.replace(
+            tenant_id="tenant-b",
+            actor_user_id="user-b",
+            actor_roles=("tenant_admin",),
+            command=command("candidate"),
+        )
+
+    stored = session.scalar(select(TradingAccount))
+    assert stored is not None
+    assert stored.tenant_id == "tenant-a"
+    assert manager.build_count == 1
+    assert backend.count == 1
+
+
+@pytest.mark.asyncio
 async def test_runtime_switch_failure_restores_database_and_old_runtime(
     session: Session,
 ) -> None:
