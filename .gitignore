@@ -16,6 +16,10 @@ htmlcov/
 # 本地开发 SQLite 数据库
 *.db
 
+# 本地凭据主密钥与 secrets 目录（严禁提交）
+secrets/
+credential-master-key
+
 node_modules/
 dist/
 coverage/
