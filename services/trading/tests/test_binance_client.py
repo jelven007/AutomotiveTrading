@@ -79,6 +79,20 @@ def test_account_probe_rejects_malformed_demo_response() -> None:
     assert error.value.code == "binance.response_invalid"
 
 
+def test_account_probe_reports_unreachable_demo_endpoint() -> None:
+    def reject(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection reset", request=request)
+
+    client, _ = probe(reject)
+
+    with pytest.raises(BinanceConnectorError) as error:
+        inspect(client)
+
+    assert error.value.code == "binance.unreachable"
+    assert error.value.status_code == 503
+    assert "hmac-secret" not in str(error.value)
+
+
 @pytest.mark.parametrize(
     ("status_code", "payload", "expected_code"),
     [

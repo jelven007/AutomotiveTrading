@@ -66,6 +66,13 @@ class BinanceDemoAccountProbe:
             raise BinanceConnectorError(
                 "binance.timeout",
                 "Binance permission request timed out",
+                status_code=504,
+            ) from error
+        except httpx.RequestError as error:
+            raise BinanceConnectorError(
+                "binance.unreachable",
+                "Binance Demo endpoint is unreachable",
+                status_code=503,
             ) from error
         return self._response_json(response)
 
