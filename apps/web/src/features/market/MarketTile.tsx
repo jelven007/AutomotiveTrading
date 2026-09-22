@@ -26,8 +26,7 @@ export function MiniChart({
   );
 }
 
-// 统一行情卡片：全站行情类展示（首页行情、交易页 BTC 实时价）复用同一视觉，
-// 卡片仅呈现现价、24h 涨跌与迷你走势，不再显示“交易中”状态标签。
+// 首页行情卡片：仅呈现现价、24h 涨跌与迷你走势。
 export function MarketTile({ quote }: { quote: MarketQuote }) {
   return (
     <article className="market-tile">

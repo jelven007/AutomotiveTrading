@@ -5,10 +5,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithAuth } from "../../test/authTestUtils";
 import { BinanceAssetsPanel } from "./BinanceAssetsPanel";
 
-vi.mock("../market/BtcSpotPriceCard", () => ({
-  BtcSpotPriceCard: () => <div>BTC/USDT</div>,
-}));
-
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -46,7 +42,13 @@ describe("BinanceAssetsPanel", () => {
       hasRecentMfa: () => false,
     });
 
-    await user.click(await screen.findByRole("button", { name: "模拟账号" }));
+    const addButton = await screen.findByRole("button", { name: "模拟" });
+    expect(addButton.closest(".section-heading")).not.toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "模拟账号" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(addButton);
     expect(
       screen.getByRole("heading", { name: "添加B模拟账号" }),
     ).toBeInTheDocument();

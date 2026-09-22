@@ -1246,27 +1246,41 @@ button:disabled {
   margin-top: 0;
 }
 
-.trading-split .section-heading {
-  min-height: 42px;
-  margin: 0 0 12px;
-  padding: 0;
-}
-
-/* 交易页内容区左右分栏：左栏行情（BTC/USDT 实时价），右栏资产 + 绑定控件 */
-.trading-split {
-  display: grid;
-  gap: 16px;
+.binance-assets .section-heading {
   margin-top: 0;
-  align-items: start;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
 }
 
-.trading-split__main {
-  min-width: 0;
+.asset-empty-tile {
+  height: 164px;
+  min-height: 164px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: 16px 17px;
 }
 
-.trading-split__aside {
-  min-width: 0;
+.asset-empty-tile__value-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.asset-empty-tile__value {
+  display: block;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.asset-empty-tile__hint {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 @media (max-width: 960px) {
@@ -1328,24 +1342,6 @@ button:disabled {
 
   .page-actions {
     justify-content: flex-start;
-  }
-
-  .trading-split {
-    gap: 10px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .trading-split .section-heading {
-    min-height: 40px;
-    margin-bottom: 8px;
-  }
-
-  .trading-split .market-tile {
-    padding: 12px;
-  }
-
-  .trading-split .mini-chart {
-    display: none;
   }
 
   .permission-list {
@@ -1458,7 +1454,7 @@ button:disabled {
     padding-inline: 10px;
   }
 
-  .asset-empty-tile .change {
+  .asset-empty-tile__hint {
     display: none;
   }
 }

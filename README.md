@@ -5,7 +5,7 @@
 
 ## 组成
 
-- `apps/web`：首页（公开行情与资讯）、策略列表、交易（行情、资产与订单）、
+- `apps/web`：首页（公开行情与资讯）、策略列表、交易（资产与订单）、
   登录与用户信息；桌面端和移动端使用统一的交易工作台视觉。
 - `services/identity-tenant`：邮箱密码认证、JWT、刷新令牌和 TOTP MFA。
 - `services/trading`：单 Binance 账号、AES-256-GCM 凭据存储及 NautilusTrader。

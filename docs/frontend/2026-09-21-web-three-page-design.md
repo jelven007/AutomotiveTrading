@@ -43,14 +43,12 @@
 
 ### 1.4 交易
 
-交易页聚合行情、资产和订单：
+交易页聚合资产和订单：
 
-- **行情**：左栏复用首页行情卡，固定展示 BTC/USDT。
-- **资产**：右栏读取真实账户概览（现货、U 本位余额与持仓）；未绑定时以
+- **资产**：读取真实账户概览（现货、U 本位余额与持仓）；未绑定时以
   USDT 摘要卡展示绑定入口，已绑定时支持刷新、重新绑定与删除。
 - **订单**：与策略区使用相同的六列表格和工具栏；下单与撤单能力属阶段二，
   阶段一在表格内显示空态。
-- 行情和资产始终保持左右两列；移动端隐藏迷你走势图，为主要信息留出空间。
 
 ## 2. 方案
 
@@ -61,7 +59,6 @@
 | 首页 | 行情 | 币安公开行情接口 | 否 |
 | 首页 | 资讯 | 币安公告 CMS | 否 |
 | 策略 | 策略表格 | 阶段二开放 | 否 |
-| 交易 | 行情 | 币安公开行情接口 | 否 |
 | 交易 | 资产 | Trading `GET /overview` | 是 |
 | 交易 | 订单 | 阶段二开放 | 是 |
 
@@ -75,13 +72,11 @@ flowchart TD
     Home --> Market[行情卡 + MiniChart]
     Home --> News[资讯列表]
     Strat --> StrategyTable[策略表格]
-    Trade --> Spot[BTC/USDT 行情卡]
     Trade --> Assets[BinanceAssetsPanel]
     Trade --> Orders[订单表格与空态]
     Assets --> Overview[BinanceAccountOverview]
     Assets --> Binding[AccountBindingDialog]
     Market --> Pub[binancePublic 取数模块]
-    Spot --> Pub
     News --> Pub
     Assets --> TradingApi[trading/api.ts]
 ```
@@ -97,7 +92,7 @@ flowchart TD
 - 字体优先使用 Avenir Next 与苹方，文本不随视口宽度缩放。
 - 灰白背景、白色内容面、绿色主操作、红色风险/下跌状态，避免单一色调。
 - 卡片和输入控件使用 6px 圆角、细边框与轻阴影；弹窗使用 8px 圆角。
-- 首页行情卡、交易页行情卡和未连接资产卡固定为 `164px` 高。
+- 首页行情卡和未连接资产卡固定为 `164px` 高。
 - 资讯使用列表，策略与订单使用统一表格；表格在窄屏下横向滚动。
 - 策略/订单标题和工具栏不换行，搜索框可收缩但不挤出操作按钮。
 
@@ -112,7 +107,7 @@ flowchart TD
 apps/web/src/app/AppShell.tsx                     # 顶部导航、路由与真实健康状态
 apps/web/src/pages/HomePage.tsx                   # 首页：行情 + 资讯
 apps/web/src/pages/StrategiesPage.tsx             # 策略表格与规划中空态
-apps/web/src/pages/TradingPage.tsx                # 交易：行情 + 资产 + 订单
+apps/web/src/pages/TradingPage.tsx                # 交易：资产 + 订单
 apps/web/src/features/market/binancePublic.ts     # 币安公开数据取数
 apps/web/src/features/trading/BinanceAssetsPanel.tsx  # 资产面板（含绑定流程）
 apps/web/src/styles/tokens.css                    # 页面样式类
@@ -120,9 +115,8 @@ apps/web/src/styles/tokens.css                    # 页面样式类
 
 ### 3.2 实时数据自动刷新
 
-首页行情、首页资讯和交易页 BTC/USDT 行情共用 `useLivePolling`。首次进入展示
-加载态，其后每 1 秒静默刷新；静默刷新不重置为加载态，且在瞬时失败时保留已有
-数据，避免界面闪烁：
+首页行情和首页资讯共用 `useLivePolling`。首次进入展示加载态，其后每 1 秒静默
+刷新；静默刷新不重置为加载态，且在瞬时失败时保留已有数据，避免界面闪烁：
 
 ```text
 进入页面 -> 首次加载（显示加载态）
@@ -193,7 +187,7 @@ pnpm --filter web build
 - 首页四张行情卡等高，资讯以列表展示，数据每 1 秒自动刷新。
 - 策略页只保留六列表格与规划中空态；标题、搜索框和禁用的新增按钮始终处于
   同一行。
-- 交易页行情在左、资产在右，移动端仍为双列；未绑定时展示 USDT 绑定入口。
+- 交易页资产区独占整行；未绑定时展示 USDT 绑定入口。
 - 订单区与策略区使用相同的工具栏和六列表格，阶段一空态位于表格内部。
 - 阶段一新增订单按钮禁用，不提供无效点击。
 - 用户可见文案不出现“币安”，统一显示为“B”。

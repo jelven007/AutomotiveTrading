@@ -95,6 +95,9 @@ describe("AppShell", () => {
     expect(
       screen.getByRole("heading", { name: "订单", level: 2 }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "行情", level: 2 }),
+    ).not.toBeInTheDocument();
     // 订单能力尚未开放，展示空列表提示
     expect(screen.getByText("当前没有进行中的订单")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "订单" })).toBeDisabled();

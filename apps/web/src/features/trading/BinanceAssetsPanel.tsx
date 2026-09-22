@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "../auth/AuthContext";
 import { MfaDialog } from "../auth/MfaDialog";
-import { BtcSpotPriceCard } from "../market/BtcSpotPriceCard";
 import { AccountBindingDialog } from "./AccountBindingDialog";
 import { BinanceAccountOverview } from "./BinanceAccountOverview";
 import {
@@ -102,6 +101,8 @@ export function BinanceAssetsPanel() {
     void removeAccount(accessToken);
   }
 
+  const showAddAccount = !loading && !overview;
+
   return (
     <section className="binance-assets" aria-labelledby="binance-assets">
       {notice && (
@@ -114,94 +115,89 @@ export function BinanceAssetsPanel() {
         </div>
       )}
 
-      {/* 内容区左右两栏：左栏为行情（BTC/USDT 实时价），右栏为资产概览 + 绑定/重绑/删除控件 */}
-      <div className="trading-split">
-        <div className="trading-split__aside">
-          <BtcSpotPriceCard />
-        </div>
-        <div className="trading-split__main">
-          <div className="section-heading">
-            <div>
-              <h2 id="binance-assets">资产</h2>
-              {overview ? (
-                <span>
-                  {overview.account.alias} · B Demo · 数据时间{" "}
-                  {formatTime(overview.asOf)}
-                </span>
-              ) : (
-                <span>B Demo · USDT</span>
-              )}
-            </div>
-            {overview && (
-              <div className="page-actions">
-                <button
-                  className="button button--secondary"
-                  disabled={loading}
-                  onClick={() => void loadOverview(true)}
-                  type="button"
-                >
-                  <RefreshCw
-                    className={loading ? "is-spinning" : undefined}
-                    size={16}
-                  />
-                  刷新
-                </button>
-                <button
-                  className="button button--secondary"
-                  onClick={openBinding}
-                  type="button"
-                >
-                  <RotateCcw size={16} />
-                  重新绑定
-                </button>
-                <button
-                  className="button button--danger"
-                  onClick={requestRemoval}
-                  type="button"
-                >
-                  <Trash2 size={16} />
-                  删除账号
-                </button>
-              </div>
-            )}
-          </div>
-
-          {loading && !overview ? (
-            <div className="binance-page-state" role="status">
-              <RefreshCw className="is-spinning" size={18} />
-              正在读取账户
-            </div>
-          ) : overview ? (
-            <BinanceAccountOverview overview={overview} />
+      <div
+        className={`section-heading${showAddAccount ? " section-heading--tools" : ""}`}
+      >
+        <div>
+          <h2 id="binance-assets">资产</h2>
+          {overview ? (
+            <span>
+              {overview.account.alias} · B Demo · 数据时间{" "}
+              {formatTime(overview.asOf)}
+            </span>
           ) : (
-            <article className="market-tile asset-empty-tile">
-              <div className="tile-topline">
-                <div>
-                  <strong>USDT</strong>
-                  <small>B Demo 模拟资产</small>
-                </div>
-                <span className="tag tag--neutral">未连接</span>
-              </div>
-              <div className="market-value-row">
-                <div>
-                  <span className="market-value">--</span>
-                  <span className="change change--muted">
-                    连接账号后展示资产
-                  </span>
-                </div>
-                <button
-                  className="button button--primary"
-                  onClick={openBinding}
-                  type="button"
-                >
-                  <Plus size={16} />
-                  模拟账号
-                </button>
-              </div>
-            </article>
+            <span>B Demo · USDT</span>
           )}
         </div>
+        {showAddAccount ? (
+          <div className="tools-row">
+            <button
+              className="button button--primary"
+              onClick={openBinding}
+              type="button"
+            >
+              <Plus size={16} />
+              模拟
+            </button>
+          </div>
+        ) : overview ? (
+          <div className="page-actions">
+            <button
+              className="button button--secondary"
+              disabled={loading}
+              onClick={() => void loadOverview(true)}
+              type="button"
+            >
+              <RefreshCw
+                className={loading ? "is-spinning" : undefined}
+                size={16}
+              />
+              刷新
+            </button>
+            <button
+              className="button button--secondary"
+              onClick={openBinding}
+              type="button"
+            >
+              <RotateCcw size={16} />
+              重新绑定
+            </button>
+            <button
+              className="button button--danger"
+              onClick={requestRemoval}
+              type="button"
+            >
+              <Trash2 size={16} />
+              删除账号
+            </button>
+          </div>
+        ) : null}
       </div>
+
+      {loading && !overview ? (
+        <div className="binance-page-state" role="status">
+          <RefreshCw className="is-spinning" size={18} />
+          正在读取账户
+        </div>
+      ) : overview ? (
+        <BinanceAccountOverview overview={overview} />
+      ) : (
+        <article className="asset-empty-tile">
+          <div className="tile-topline">
+            <div>
+              <strong>USDT</strong>
+              <small>B Demo 模拟资产</small>
+            </div>
+            <span className="tag tag--neutral">未连接</span>
+          </div>
+          <div className="asset-empty-tile__value-row">
+            <div>
+              <span className="asset-empty-tile__value">--</span>
+              <span className="asset-empty-tile__hint">连接账号后展示资产</span>
+            </div>
+          </div>
+        </article>
+      )}
 
       {showBinding && (
         <AccountBindingDialog

@@ -8,7 +8,7 @@ import {
   type NewsItem,
 } from "./binancePublic";
 
-// 数据加载态：行情、资讯、实时价共用
+// 首页行情与资讯共用的数据加载态
 export type LoadState = "loading" | "ready" | "error";
 
 // 全站统一的自动刷新节奏：每秒一次静默刷新
@@ -47,7 +47,7 @@ function useLivePolling<T>(
   return { data, state };
 }
 
-// 实时行情：默认取首页展示的交易对，也可传入自定义集合（如交易页仅 BTC/USDT）
+// 实时行情：默认取首页展示的交易对，也可传入自定义集合
 export function useLiveMarketQuotes(symbols: string[] = MARKET_SYMBOLS): {
   quotes: MarketQuote[];
   state: LoadState;

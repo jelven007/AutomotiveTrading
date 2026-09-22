@@ -25,7 +25,7 @@
 | MFA 基础门禁 | 完成 | 账号删除与交易写入要求 5 分钟内 MFA |
 | Demo 签名校验 | 完成 | 固定调用 Spot Demo 账户接口 |
 | 账户概览 | 完成 | Spot/USD-M、5 秒快照、局部降级 |
-| Web 页面 | 完成 | 首页行情/资讯、策略表格、交易行情/资产/订单 |
+| Web 页面 | 完成 | 首页行情/资讯、策略表格、交易资产/订单 |
 | Demo-only 门禁 | 完成 | Runtime 与签名校验均不能切到主网 |
 | Demo 真实验收 | 待执行 | 需要模拟账号 Key 和可达的 Demo 出口 |
 | Demo 下单 | 未开始 | 下一阶段实现订单、撤单和对账 |
@@ -139,12 +139,11 @@ PUT /api/v1/trading/binance/futures/{symbol}/margin-mode
 - Modify: `apps/web/src/features/trading/api.ts`
 - Modify: `apps/web/src/features/trading/types.ts`
 
-交易页当前由 `TradingPage.tsx` 组合左侧 BTC/USDT 行情、右侧
-`BinanceAssetsPanel.tsx` 资产概览，以及「订单」六列表格。当前订单表在表格内
-展示空态；Demo 交易阶段在该区块接入真实订单数据、下单票据与 USD-M 设置，只提供
-市价、限价、单笔撤单、杠杆和保证金模式。交易区域受功能开关和 MFA 会话保护；
-`pending_reconciliation` 不提供重试按钮。新增表单和操作应沿用现有单行工具栏、
-表格与响应式规范。
+交易页当前由 `TradingPage.tsx` 组合 `BinanceAssetsPanel.tsx` 资产概览，以及
+「订单」六列表格。当前订单表在表格内展示空态；Demo 交易阶段在该区块接入真实
+订单数据、下单票据与 USD-M 设置，只提供市价、限价、单笔撤单、杠杆和保证金模式。
+交易区域受功能开关和 MFA 会话保护；`pending_reconciliation` 不提供重试按钮。
+新增表单和操作应沿用现有单行工具栏、表格与响应式规范。
 
 ## Task 12: Demo 验收与主网隔离
 
