@@ -1,5 +1,5 @@
 import { AlertCircle, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../auth/AuthContext";
 import { MfaDialog } from "../auth/MfaDialog";
@@ -26,6 +26,7 @@ export function BinanceAssetsPanel() {
   const [pendingAction, setPendingAction] = useState<SensitiveAction | null>(
     null,
   );
+  const pendingBindingRef = useRef<BinanceAccountDraft | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const loadOverview = useCallback(
@@ -68,13 +69,21 @@ export function BinanceAssetsPanel() {
       return;
     }
     if (!auth.hasRecentMfa()) {
+      pendingBindingRef.current = draft;
       setShowBinding(false);
       requestMfa("bind");
-      setNotice("身份验证已过期，请重新验证后填写账号。");
+      setNotice("完成身份验证后将自动连接账号。");
       return;
     }
+    await persistAccount(auth.accessToken, draft);
+  }
+
+  async function persistAccount(
+    accessToken: string,
+    draft: BinanceAccountDraft,
+  ) {
     try {
-      await replaceBinanceAccount(auth.accessToken, draft);
+      await replaceBinanceAccount(accessToken, draft);
       await loadOverview(true);
       setShowBinding(false);
       setNotice(`${draft.alias} 已连接到 B 模拟环境。`);
@@ -94,11 +103,7 @@ export function BinanceAssetsPanel() {
   }
 
   function openBinding() {
-    if (auth.hasRecentMfa()) {
-      setShowBinding(true);
-      return;
-    }
-    requestMfa("bind");
+    setShowBinding(true);
   }
 
   function requestRemoval() {
@@ -122,7 +127,11 @@ export function BinanceAssetsPanel() {
     setPendingAction(null);
     setShowMfa(false);
     if (action === "bind") {
-      setShowBinding(true);
+      const draft = pendingBindingRef.current;
+      pendingBindingRef.current = null;
+      if (draft) {
+        void persistAccount(accessToken, draft);
+      }
     } else if (action === "delete") {
       void removeAccount(accessToken);
     }
@@ -238,6 +247,7 @@ export function BinanceAssetsPanel() {
       {showMfa && (
         <MfaDialog
           onCancel={() => {
+            pendingBindingRef.current = null;
             setPendingAction(null);
             setShowMfa(false);
           }}
