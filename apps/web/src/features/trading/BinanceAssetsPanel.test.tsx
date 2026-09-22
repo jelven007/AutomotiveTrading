@@ -14,9 +14,8 @@ afterEach(() => {
 });
 
 describe("BinanceAssetsPanel", () => {
-  it("submits the account after one MFA step without re-entering credentials", async () => {
+  it("submits the account without MFA", async () => {
     const user = userEvent.setup();
-    const verifyMfa = vi.fn().mockResolvedValue("elevated-access-token");
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, init?: RequestInit) => {
         if (init?.method === "PUT") {
@@ -42,13 +41,9 @@ describe("BinanceAssetsPanel", () => {
         };
       },
     );
-    vi.stubGlobal(
-      "fetch",
-      fetchMock,
-    );
+    vi.stubGlobal("fetch", fetchMock);
     renderWithAuth(<BinanceAssetsPanel />, {
       hasRecentMfa: () => false,
-      verifyMfa,
     });
 
     await user.click(await screen.findByRole("button", { name: "模拟账号" }));
@@ -56,7 +51,10 @@ describe("BinanceAssetsPanel", () => {
       screen.getByRole("heading", { name: "添加B模拟账号" }),
     ).toBeInTheDocument();
 
-    await user.type(screen.getByRole("textbox", { name: "账号别名" }), "模拟账号");
+    await user.type(
+      screen.getByRole("textbox", { name: "账号别名" }),
+      "模拟账号",
+    );
     await user.type(screen.getByLabelText("API Key"), "demo-api-key");
     await user.type(screen.getByLabelText("API Secret"), "demo-api-secret");
     await user.click(
@@ -64,14 +62,7 @@ describe("BinanceAssetsPanel", () => {
     );
     await user.click(screen.getByRole("button", { name: "保存账号" }));
 
-    expect(
-      screen.getByRole("heading", { name: "验证身份" }),
-    ).toBeInTheDocument();
-    await user.type(screen.getByLabelText("动态验证码"), "123456");
-    await user.click(screen.getByRole("button", { name: "验证并继续" }));
-
     await waitFor(() => {
-      expect(verifyMfa).toHaveBeenCalledWith("123456");
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/v1/trading/binance/account",
         expect.objectContaining({
@@ -85,5 +76,8 @@ describe("BinanceAssetsPanel", () => {
         }),
       );
     });
+    expect(
+      screen.queryByRole("heading", { name: "验证身份" }),
+    ).not.toBeInTheDocument();
   });
 });

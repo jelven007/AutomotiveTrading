@@ -149,7 +149,7 @@ GET https://www.binance.com/bapi/composite/v1/public/cms/article/list/query  # �
 
 ## 7. 安全
 
-- 认证：JWT 短期访问令牌 + 刷新令牌轮换；账号敏感写入要求 5 分钟内的 MFA，
+- 认证：JWT 短期访问令牌 + 刷新令牌轮换；账号删除要求 5 分钟内的 MFA，
   Demo 交易写入还要求幂等键。
 - 凭据：仅返回 Key 指纹，绝不返回密钥或密文；密钥不进入 Git、镜像、环境变量
   或日志。

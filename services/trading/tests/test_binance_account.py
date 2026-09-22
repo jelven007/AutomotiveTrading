@@ -175,7 +175,7 @@ def test_replace_binance_account_requires_fixed_egress(
     assert response.json()["code"] == "trading.fixed_egress_required"
 
 
-def test_replace_binance_account_requires_recent_mfa(
+def test_replace_binance_account_does_not_require_mfa(
     binance_api: tuple[TestClient, InMemoryEncryptedSecretBackend, Session],
 ) -> None:
     client, _, _ = binance_api
@@ -190,6 +190,30 @@ def test_replace_binance_account_requires_recent_mfa(
         "/api/v1/trading/binance/account",
         json=replacement_payload(),
     )
+
+    assert response.status_code == 200
+    assert response.json()["environment"] == "demo"
+
+
+def test_delete_binance_account_requires_recent_mfa(
+    binance_api: tuple[TestClient, InMemoryEncryptedSecretBackend, Session],
+) -> None:
+    client, _, _ = binance_api
+    assert (
+        client.put(
+            "/api/v1/trading/binance/account",
+            json=replacement_payload(),
+        ).status_code
+        == 200
+    )
+    client.app.dependency_overrides[get_principal] = lambda: Principal(
+        user_id="user-a",
+        tenant_id="tenant-a",
+        roles=("tenant_admin",),
+        mfa_verified_at=None,
+    )
+
+    response = client.delete("/api/v1/trading/binance/account")
 
     assert response.status_code == 403
     assert response.json()["code"] == "auth.mfa_required"

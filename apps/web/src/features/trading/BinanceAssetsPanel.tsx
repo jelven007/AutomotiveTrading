@@ -1,5 +1,5 @@
 import { AlertCircle, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "../auth/AuthContext";
 import { MfaDialog } from "../auth/MfaDialog";
@@ -14,8 +14,6 @@ import {
 } from "./api";
 import type { BinanceAccountDraft, BinanceOverview } from "./types";
 
-type SensitiveAction = "bind" | "delete";
-
 // 资产面板：读取真实 Binance overview，并复用绑定 / 重新绑定 / 删除流程
 export function BinanceAssetsPanel() {
   const auth = useAuth();
@@ -23,10 +21,6 @@ export function BinanceAssetsPanel() {
   const [loading, setLoading] = useState(true);
   const [showBinding, setShowBinding] = useState(false);
   const [showMfa, setShowMfa] = useState(false);
-  const [pendingAction, setPendingAction] = useState<SensitiveAction | null>(
-    null,
-  );
-  const pendingBindingRef = useRef<BinanceAccountDraft | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const loadOverview = useCallback(
@@ -68,22 +62,8 @@ export function BinanceAssetsPanel() {
       setNotice("登录会话不可用，账号未保存。");
       return;
     }
-    if (!auth.hasRecentMfa()) {
-      pendingBindingRef.current = draft;
-      setShowBinding(false);
-      requestMfa("bind");
-      setNotice("完成身份验证后将自动连接账号。");
-      return;
-    }
-    await persistAccount(auth.accessToken, draft);
-  }
-
-  async function persistAccount(
-    accessToken: string,
-    draft: BinanceAccountDraft,
-  ) {
     try {
-      await replaceBinanceAccount(accessToken, draft);
+      await replaceBinanceAccount(auth.accessToken, draft);
       await loadOverview(true);
       setShowBinding(false);
       setNotice(`${draft.alias} 已连接到 B 模拟环境。`);
@@ -114,27 +94,12 @@ export function BinanceAssetsPanel() {
       void removeAccount(auth.accessToken);
       return;
     }
-    requestMfa("delete");
-  }
-
-  function requestMfa(action: SensitiveAction) {
-    setPendingAction(action);
     setShowMfa(true);
   }
 
-  function continueAfterMfa(accessToken: string) {
-    const action = pendingAction;
-    setPendingAction(null);
+  function removeAfterMfa(accessToken: string) {
     setShowMfa(false);
-    if (action === "bind") {
-      const draft = pendingBindingRef.current;
-      pendingBindingRef.current = null;
-      if (draft) {
-        void persistAccount(accessToken, draft);
-      }
-    } else if (action === "delete") {
-      void removeAccount(accessToken);
-    }
+    void removeAccount(accessToken);
   }
 
   return (
@@ -246,12 +211,8 @@ export function BinanceAssetsPanel() {
       )}
       {showMfa && (
         <MfaDialog
-          onCancel={() => {
-            pendingBindingRef.current = null;
-            setPendingAction(null);
-            setShowMfa(false);
-          }}
-          onVerified={continueAfterMfa}
+          onCancel={() => setShowMfa(false)}
+          onVerified={removeAfterMfa}
         />
       )}
     </section>

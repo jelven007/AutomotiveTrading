@@ -67,7 +67,6 @@ async def replace_binance_account(
     service: Annotated[BinanceAccountService, Depends(get_binance_account_service)],
     runtime: Annotated[RuntimeGuard, Depends(get_runtime_guard)],
 ) -> BinanceAccountView:
-    require_sensitive_write(principal)
     require_binding_runtime(runtime)
     try:
         return await service.replace(
