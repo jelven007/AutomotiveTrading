@@ -40,6 +40,8 @@ services:
   identity-migrate:
     build:
       context: ../../services/identity-tenant
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
     image: qt/identity-tenant:latest
     command: ["alembic", "upgrade", "head"]
     environment:
@@ -71,6 +73,8 @@ services:
   trading-migrate:
     build:
       context: ../../services/trading
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
     image: qt/trading:latest
     command: ["alembic", "upgrade", "head"]
     environment: &trading-environment

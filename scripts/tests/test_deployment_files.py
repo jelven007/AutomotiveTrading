@@ -101,6 +101,7 @@ def test_deploy_init_generates_minimal_secure_environment(tmp_path: Path) -> Non
         "TRADING_PORT",
         "WEB_BIND_HOST",
         "WEB_PORT",
+        "PIP_INDEX_URL",
         "BINANCE_CREDENTIAL_MASTER_KEY_FILE",
         "BINANCE_CREDENTIAL_MASTER_KEY_UID",
         "BINANCE_ENVIRONMENT",
@@ -114,6 +115,7 @@ def test_deploy_init_generates_minimal_secure_environment(tmp_path: Path) -> Non
     assert values["BINANCE_ENVIRONMENT"] == "demo"
     assert values["DEMO_TRADING_ENABLED"] == "false"
     assert values["SINGLE_OWNER_MODE"] == "true"
+    assert values["PIP_INDEX_URL"] == "https://pypi.org/simple"
     assert env_file.stat().st_mode & 0o777 == 0o600
 
 
